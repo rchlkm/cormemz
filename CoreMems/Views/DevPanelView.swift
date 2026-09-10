@@ -21,12 +21,7 @@ struct DevPanelView: View {
         VStack(alignment: .leading, spacing: 10) {
           Toggle("Limited Photos access", isOn: $vm.limitedAccess)
           Toggle("Empty library", isOn: $vm.emptyLibrary)
-          Toggle(
-            "Low inventory (cap 4)",
-            isOn: Binding(
-              get: { vm.maxAvailable == 4 },
-              set: { vm.maxAvailable = $0 ? 4 : 200 }
-            ))
+          Toggle("Low inventory (cap 4)", isOn: $vm.lowInventoryOverride)
         }
         .font(.caption)
         .toggleStyle(.switch)

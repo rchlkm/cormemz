@@ -25,6 +25,7 @@ struct RootView: View {
         switch vm.screen {
         case .home:
           HomeView(
+            photoCount: vm.eligiblePhotoCount,
             limitedAccess: vm.isLimitedAccess,
             emptyLibrary: vm.emptyLibrary,
             onStart: { vm.screen = .setup },
@@ -52,16 +53,16 @@ struct RootView: View {
         }
       }
 
-      // Dev panel — preview-only affordance, strip before shipping.
-      VStack {
-        HStack {
-          Spacer()
-          DevPanelView(vm: vm, isOpen: $showDevPanel)
-            .padding(.top, 12)
-            .padding(.trailing, 12)
-        }
-        Spacer()
-      }
+      /// Dev panel — preview-only affordance, strip before shipping.
+      // VStack {
+      //   HStack {
+      //     Spacer()
+      //     DevPanelView(vm: vm, isOpen: $showDevPanel)
+      //       .padding(.top, 12)
+      //       .padding(.trailing, 12)
+      //   }
+      //   Spacer()
+      // }
     }
     .task {
       // Read status on launch without prompting — the actual

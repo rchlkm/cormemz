@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
+  let photoCount: Int
   let limitedAccess: Bool
   let emptyLibrary: Bool
   let onStart: () -> Void
@@ -60,18 +61,18 @@ struct HomeView: View {
       Spacer()
 
       VStack(alignment: .leading, spacing: 14) {
-        Text("8,214 photos on this phone")
+        Text("\(photoCount, format: .number.grouping(.automatic)) photos")
           .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
           .padding(.horizontal, 14)
           .padding(.vertical, 6)
           .background(.thinMaterial, in: Capsule())
 
-        Text("A few photos at a time.\nNo pressure, no guilt.")
+        Text("Just one few photos!")
           .font(.largeTitle.bold())
 
         Text(
-          "Review a small, random handful of photos. Keep what matters, let go of what doesn't — everything stays undoable until you confirm."
+          "Review a small, random handful of photos."
         )
         .font(.subheadline)
         .foregroundStyle(.secondary)
@@ -98,5 +99,6 @@ struct HomeView: View {
 }
 
 #Preview {
-  HomeView(limitedAccess: false, emptyLibrary: false, onStart: {}, onManageAccess: {})
+  HomeView(
+    photoCount: 26909, limitedAccess: false, emptyLibrary: false, onStart: {}, onManageAccess: {})
 }

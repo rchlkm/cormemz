@@ -16,6 +16,7 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Published UI state
   @Published var screen: AppScreen = .home
+  @Published var eligiblePhotoCount: Int = 0
   @Published var photos: [SessionPhoto] = []
   @Published var currentIndex: Int = 0
   @Published var history: [DecisionHistoryEntry] = []
@@ -31,7 +32,10 @@ final class SessionViewModel: ObservableObject {
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
-  @Published var maxAvailable: Int = 200
+  @Published var lowInventoryOverride: Bool = false
+  var maxAvailable: Int {
+    lowInventoryOverride ? 4 : eligiblePhotoCount
+  }
 
   @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
@@ -82,6 +86,7 @@ final class SessionViewModel: ObservableObject {
   /// changes their Limited selection) so the UI updates on its own.
   func refreshAuthorizationStatus() {
     authorizationStatus = library.currentAuthorizationStatus()
+    eligiblePhotoCount = library.totalEligibleAssetCount()
   }
 
   /// Single entry point for every "Manage access" affordance in the UI

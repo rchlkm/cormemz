@@ -92,11 +92,10 @@ struct ReviewView: View {
 
   @ViewBuilder
   private func cardStack(for photo: SessionPhoto) -> some View {
-    // Two faint cards behind, top card is draggable.
-    ForEach(
-      Array(vm.photos[vm.currentIndex..<min(vm.currentIndex + 3, vm.photos.count)].enumerated()),
-      id: \.element.id
-    ) { offset, p in
+    let visible = Array(
+      vm.photos[vm.currentIndex..<min(vm.currentIndex + 3, vm.photos.count)].enumerated())
+
+    ForEach(visible.reversed(), id: \.element.id) { offset, p in
       let depth = offset
       if depth == 0 {
         PhotoCardView(photo: p, dragOffset: $dragOffset)
@@ -122,28 +121,29 @@ struct ReviewView: View {
           vm.decide(index: vm.currentIndex, decision: .keep)
         } else if dy > 90 && abs(dy) > abs(dx) {
           vm.decide(index: vm.currentIndex, decision: .pendingDelete)
+        } else if dx < -90 && abs(dx) > abs(dy) && vm.canUndo {  // 👈 new
+          vm.quickUndo()
         }
         dragOffset = .zero
       }
   }
 
   private var controlBar: some View {
-    HStack(spacing: 22) {
-      circleButton(
-        system: "arrow.uturn.backward", tint: .secondary, size: 48, disabled: !vm.canUndo
-      ) {
-        vm.quickUndo()
+    VStack(spacing: 12) {
+      HStack(spacing: 22) {
+        circleButton(
+          system: "arrow.uturn.backward", tint: .secondary, size: 48, disabled: !vm.canUndo
+        ) {
+          vm.quickUndo()
+        }
+        circleButton(system: "trash", tint: .red, size: 64) {
+          vm.decide(index: vm.currentIndex, decision: .pendingDelete)
+        }
+        circleButton(system: "checkmark", tint: .green, size: 64) {
+          vm.decide(index: vm.currentIndex, decision: .keep)
+        }
       }
-      circleButton(system: "trash", tint: .red, size: 64) {
-        vm.decide(index: vm.currentIndex, decision: .pendingDelete)
-      }
-      circleButton(system: "checkmark", tint: .green, size: 64) {
-        vm.decide(index: vm.currentIndex, decision: .keep)
-      }
-    }
-    .padding(.vertical, 18)
 
-    return HStack {
       Button {
         showFolderPicker = true
       } label: {
@@ -151,8 +151,9 @@ struct ReviewView: View {
           .font(.footnote.weight(.semibold))
       }
       .buttonStyle(.bordered)
-      .padding(.bottom, 12)
     }
+    .padding(.vertical, 18)
+    .padding(.bottom, 12)
   }
 
   private func circleButton(
