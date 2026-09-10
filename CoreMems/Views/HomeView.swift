@@ -90,7 +90,7 @@ struct HomeView: View {
 
       Spacer()
 
-      Text("Deleted photos move to Recently Deleted — never gone right away.")
+      Text("Deleted photos move to Recently Deleted.")
         .font(.caption)
         .foregroundStyle(.tertiary)
         .padding(.bottom, 24)

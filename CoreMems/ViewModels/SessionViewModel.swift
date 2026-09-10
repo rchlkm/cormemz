@@ -1,3 +1,4 @@
+// CoreMems/ViewModels/SessionViewModel.swift
 import Combine
 import Foundation
 import Photos
@@ -42,13 +43,16 @@ final class SessionViewModel: ObservableObject {
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   private let persistence: SessionPersisting
+  private let haptics: HapticsServicing
 
   init(
     library: PhotoLibraryServicing = PhotoLibraryService(),
-    persistence: SessionPersisting = SessionPersistence()
+    persistence: SessionPersisting = SessionPersistence(),
+    haptics: HapticsServicing = HapticsService()
   ) {
     self.library = library
     self.persistence = persistence
+    self.haptics = haptics
     restoreIfInterrupted()
   }
 
@@ -171,6 +175,16 @@ final class SessionViewModel: ObservableObject {
         photoIndex: index, previousDecision: previous, newDecision: decision,
         advancedIndex: advanced))
     photos[index].decision = decision
+
+    switch decision {
+    case .keep:
+      haptics.keep()
+    case .pendingDelete:
+      haptics.markForDeletion()
+    case .undecided:
+      break
+    }
+
     if advanced { currentIndex += 1 }
 
     if currentIndex >= photos.count && screen == .review {
@@ -187,6 +201,7 @@ final class SessionViewModel: ObservableObject {
     guard let last = history.popLast() else { return }
     photos[last.photoIndex].decision = last.previousDecision
     if last.advancedIndex { currentIndex = last.photoIndex }
+    haptics.undo()
     persistState()
   }
 
@@ -195,6 +210,7 @@ final class SessionViewModel: ObservableObject {
   func restoreMany(ids: [String]) {
     guard !ids.isEmpty else { return }
     let idSet = Set(ids)
+    var restoredAny = false
     for (i, photo) in photos.enumerated()
     where idSet.contains(photo.id) && photo.decision == .pendingDelete {
       history.append(
@@ -202,6 +218,10 @@ final class SessionViewModel: ObservableObject {
           photoIndex: i, previousDecision: .pendingDelete, newDecision: .keep, advancedIndex: false)
       )
       photos[i].decision = .keep
+      restoredAny = true
+    }
+    if restoredAny {
+      haptics.trayRestore()
     }
     persistState()
   }
@@ -230,14 +250,12 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Confirm and Delete
 
-  /// Submits only the currently pending-delete assets. Invariant #4:
-  /// once this succeeds, the reversible window is closed — clearing
-  /// `history` prevents any further undo/restore from reaching these
-  /// assets, even though they're now removed from `photos`.
+  /// Submits only the currently pending-delete assets
   func confirmDeletion() async {
     let toDelete = pendingItems
     guard !toDelete.isEmpty else {
       deletedCount = 0
+      haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
       return
@@ -256,7 +274,9 @@ final class SessionViewModel: ObservableObject {
       deletedCount = toDelete.count
       let deletedIDs = Set(toDelete.map(\.id))
       photos.removeAll { deletedIDs.contains($0.id) }
-      history.removeAll()  // reversible window closes here (Invariant #4)
+      history.removeAll()  // reversible window closes here
+      haptics.confirmDelete()
+      haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
     case .failure(let error):
