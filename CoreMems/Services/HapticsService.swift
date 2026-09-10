@@ -27,13 +27,14 @@ final class HapticsService: HapticsServicing {
 
   private enum SystemSound: SystemSoundID {
     case keep = 1111  // JBL_Confirm
-    case markForDeletion = 1256  // Tock (low)
-    case undo = 1302
-    case trayRestore = 1107
-    case confirmDelete = 1050  // Camera Shutter
+    case undo = 1053
+    case markForDeletion = 1110
+    case trayRestore = 1109
+   // case confirmDelete = 1050
     case sessionComplete = 1335
     // 1109 Shake to shuffle
     // 1112
+    // 1116
     // 1050
     // 1051
 

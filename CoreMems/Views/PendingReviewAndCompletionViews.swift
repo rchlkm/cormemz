@@ -34,33 +34,8 @@ struct PendingReviewView: View {
       .padding(.horizontal, 26)
       .padding(.top, 4)
 
-      ScrollView {
-        if hasItems {
-          LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10
-          ) {
-            ForEach(items) { photo in
-              ZStack(alignment: .topTrailing) {
-                AdaptiveAssetImage(photo: photo, targetSize: CGSize(width: 200, height: 200))
-                  .aspectRatio(1, contentMode: .fill)
-                  .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                Button {
-                  vm.restoreMany(ids: [photo.id])
-                } label: {
-                  Image(systemName: "arrow.uturn.backward")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .padding(6)
-                    .background(.white.opacity(0.9), in: Circle())
-                }
-                .padding(6)
-              }
-            }
-          }
-          .padding(.horizontal, 26)
-          .padding(.top, 16)
-        }
+      PhotoGrid(photos: items) { id in
+        vm.restoreMany(ids: [id])
       }
 
       Spacer(minLength: 0)

@@ -359,3 +359,26 @@ final class SessionViewModel: ObservableObject {
     }
   }
 }
+
+#if DEBUG
+  extension SessionViewModel {
+    /// Helper method specifically for configuring state in SwiftUI Previews
+    static func mock(
+      screen: AppScreen = .home,
+      isAccessDenied: Bool = false,
+      eligiblePhotoCount: Int = 100,
+      maxAvailable: Int = 500,
+      keptCount: Int = 0,
+      deletedCount: Int = 0
+    ) -> SessionViewModel {
+      let vm = SessionViewModel()
+      vm.screen = screen
+      vm.authorizationStatus = isAccessDenied ? .denied : .authorized
+      vm.eligiblePhotoCount = eligiblePhotoCount
+      //      vm.maxAvailable = maxAvailable
+      //      vm.keptCount = keptCount
+      vm.deletedCount = deletedCount
+      return vm
+    }
+  }
+#endif

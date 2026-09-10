@@ -22,26 +22,7 @@ struct DeletionTrayView: View {
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-          List {
-            ForEach(items) { photo in
-              HStack(spacing: 12) {
-                AdaptiveAssetImage(photo: photo, targetSize: CGSize(width: 46, height: 46))
-                  .frame(width: 46, height: 46)
-                  .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                Text("Marked for deletion")
-                  .font(.subheadline)
-                  .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button("Restore") { onRestore(photo.id) }
-                  .buttonStyle(.bordered)
-                  .tint(.green)
-              }
-            }
-          }
-          .listStyle(.plain)
+          PhotoGrid(photos: items, onRestore: onRestore)
         }
       }
       .navigationTitle("Marked for deletion")
