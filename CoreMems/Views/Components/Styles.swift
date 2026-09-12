@@ -40,6 +40,8 @@ struct PrimaryActionButtonStyle: ButtonStyle {
         in: RoundedRectangle(cornerRadius: 16)
       )
       .opacity(configuration.isPressed ? 0.85 : 1.0)
+      .padding(.horizontal, 32)
+      .padding(.bottom, 26)
   }
 }
 

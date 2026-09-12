@@ -8,6 +8,7 @@ struct ReviewView: View {
   @State private var showTray = false
   @State private var showFolderPicker = false
   @State private var showMetadata = false
+  @State private var showFullScreen = false
 
   private var current: SessionPhoto? {
     vm.photos.indices.contains(vm.currentIndex) ? vm.photos[vm.currentIndex] : nil
@@ -38,7 +39,11 @@ struct ReviewView: View {
 
       ZStack {
         if let current {
-          cardStack(for: current)
+          GeometryReader { geo in
+            let cardBox = CGSize(width: geo.size.width - 16, height: geo.size.height - 8)
+            cardStack(for: current, maxSize: cardBox)
+              .frame(width: geo.size.width, height: geo.size.height)
+          }
         } else {
           Color.clear
         }
@@ -70,6 +75,11 @@ struct ReviewView: View {
     .sheet(isPresented: $showMetadata) {
       PhotoMetadataSheetView(vm: vm)
     }
+    .fullScreenCover(isPresented: $showFullScreen) {
+      if let current {
+        FullScreenPhotoView(photo: current)
+      }
+    }
   }
 
   private var trayButton: some View {
@@ -95,29 +105,32 @@ struct ReviewView: View {
   }
 
   @ViewBuilder
-  private func cardStack(for photo: SessionPhoto) -> some View {
+  private func cardStack(for photo: SessionPhoto, maxSize: CGSize) -> some View {
     let visible = Array(
       vm.photos[vm.currentIndex..<min(vm.currentIndex + 3, vm.photos.count)].enumerated())
-
-    ForEach(visible.reversed(), id: \.element.id) { offset, p in
-      let depth = offset
-      if depth == 0 {
-        PhotoCardView(
-          photo: p,
-          dragOffset: $dragOffset,
-          onShowDetails: {
-            vm.showMetadataSheet(for: p.id)
-            showMetadata = true
-          }
-        )
-        .gesture(dragGesture(for: photo))
-      } else {
-        RoundedRectangle(cornerRadius: 26)
-          .fill(.thinMaterial)
-          .frame(width: 272, height: 374)
-          .scaleEffect(1 - CGFloat(depth) * 0.045)
-          .offset(y: CGFloat(depth) * 9)
-          .rotationEffect(.degrees(depth % 2 == 0 ? -2.5 : 2.5))
+    ZStack {
+      ForEach(visible.reversed(), id: \.element.id) { offset, p in
+        let depth = offset
+        if depth == 0 {
+          PhotoCardView(
+            photo: p,
+            dragOffset: $dragOffset,
+            maxSize: maxSize,
+            onShowDetails: {
+              vm.showMetadataSheet(for: p.id)
+              showMetadata = true
+            },
+            onTapFullScreen: { showFullScreen = true }
+          )
+          .gesture(dragGesture(for: photo))
+        } else {
+          RoundedRectangle(cornerRadius: 26)
+            .fill(.thinMaterial)
+            .frame(width: 272, height: 374)
+            .scaleEffect(1 - CGFloat(depth) * 0.045)
+            .offset(y: CGFloat(depth) * 9)
+            .rotationEffect(.degrees(depth % 2 == 0 ? -2.5 : 2.5))
+        }
       }
     }
   }

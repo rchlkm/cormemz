@@ -125,14 +125,15 @@ struct ConfirmSheetView: View {
 
 struct CompletionScreen_Preview: PreviewProvider {
   static var previews: some View {
-    CompletionView(keptCount: 7, deletedCount: 3, onHome: {}, onAgain: {})
+    CompletionView(
+      keptCount: 7, deletedCount: 3,
+      onAgain: {})
   }
 }
 
 struct CompletionView: View {
   let keptCount: Int
   let deletedCount: Int
-  let onHome: () -> Void
   let onAgain: () -> Void
 
   var body: some View {
@@ -165,17 +166,8 @@ struct CompletionView: View {
 
       Spacer()
 
-      HStack(spacing: 10) {
-        Button("Home", action: onHome)
-          .buttonStyle(.bordered)
-          .frame(maxWidth: .infinity)
-
-        Button("Another session", action: onAgain)
-          .buttonStyle(.borderedProminent)
-          .frame(maxWidth: .infinity)
-      }
-      .padding(.horizontal, 32)
-      .padding(.bottom, 26)
+      Button("Another session", action: onAgain)
+        .buttonStyle(PrimaryActionButtonStyle())
     }
   }
 }

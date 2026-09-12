@@ -69,8 +69,6 @@ struct SetupView: View {
 
       Button("Start") { onStart(capped) }
         .buttonStyle(PrimaryActionButtonStyle())
-        .padding(.horizontal, 24)
-        .padding(.bottom, 12)
     }
   }
 
