@@ -1,3 +1,4 @@
+// CoreMems/Views/ReviewView.swift
 import SwiftUI
 
 struct ReviewView: View {
@@ -6,6 +7,7 @@ struct ReviewView: View {
   @State private var dragOffset: CGSize = .zero
   @State private var showTray = false
   @State private var showFolderPicker = false
+  @State private var showMetadata = false
 
   private var current: SessionPhoto? {
     vm.photos.indices.contains(vm.currentIndex) ? vm.photos[vm.currentIndex] : nil
@@ -19,15 +21,14 @@ struct ReviewView: View {
         trailing: AnyView(trayButton)
       )
       .task(id: vm.currentIndex) {
-        // Warm the cache for the next couple of cards so swiping
-        // feels instant instead of popping in — §8 performance NFR.
-        let upcoming = vm.photos[vm.currentIndex..<min(vm.currentIndex + 4, vm.photos.count)]
-          .filter { $0.previewURL == nil }
-          .map(\.assetIdentifier)
-        if !upcoming.isEmpty {
-          await PhotoImageLoader.shared.prefetch(
-            identifiers: upcoming, targetSize: CGSize(width: 544, height: 748))
-        }
+        // Loads only the single next photo ahead of time — the
+        // currently visible one is already loading via its own card.
+        let nextIndex = vm.currentIndex + 1
+        guard vm.photos.indices.contains(nextIndex) else { return }
+        let next = vm.photos[nextIndex]
+        guard next.previewURL == nil else { return }
+        await PhotoImageLoader.shared.prefetchNext(
+          identifier: next.assetIdentifier, targetSize: CGSize(width: 544, height: 748))
       }
 
       Text("Photo \(min(vm.currentIndex + 1, vm.photos.count)) of \(vm.photos.count)")
@@ -66,6 +67,9 @@ struct ReviewView: View {
         .presentationDetents([.medium])
       }
     }
+    .sheet(isPresented: $showMetadata) {
+      PhotoMetadataSheetView(vm: vm)
+    }
   }
 
   private var trayButton: some View {
@@ -98,8 +102,15 @@ struct ReviewView: View {
     ForEach(visible.reversed(), id: \.element.id) { offset, p in
       let depth = offset
       if depth == 0 {
-        PhotoCardView(photo: p, dragOffset: $dragOffset)
-          .gesture(dragGesture(for: photo))
+        PhotoCardView(
+          photo: p,
+          dragOffset: $dragOffset,
+          onShowDetails: {
+            vm.showMetadataSheet(for: p.id)
+            showMetadata = true
+          }
+        )
+        .gesture(dragGesture(for: photo))
       } else {
         RoundedRectangle(cornerRadius: 26)
           .fill(.thinMaterial)
@@ -121,8 +132,11 @@ struct ReviewView: View {
           vm.decide(index: vm.currentIndex, decision: .keep)
         } else if dy > 90 && abs(dy) > abs(dx) {
           vm.decide(index: vm.currentIndex, decision: .pendingDelete)
-        } else if dx < -90 && abs(dx) > abs(dy) && vm.canUndo {  // 👈 new
+        } else if dx < -90 && abs(dx) > abs(dy) && vm.canUndo {
           vm.quickUndo()
+        } else if dy < -90 && abs(dy) > abs(dx) {
+          vm.showMetadataSheet(for: photo.id)
+          showMetadata = true
         }
         dragOffset = .zero
       }
@@ -168,72 +182,5 @@ struct ReviewView: View {
     }
     .disabled(disabled)
     .opacity(disabled ? 0.4 : 1)
-  }
-}
-
-/// Draggable photo card. Purely presentational — gesture handling and
-/// commit logic live in `ReviewView` so decisions always flow through
-/// the view model's single source of truth.
-struct PhotoCardView: View {
-  let photo: SessionPhoto
-  @Binding var dragOffset: CGSize
-
-  var body: some View {
-    ZStack {
-      RoundedRectangle(cornerRadius: 26)
-        .fill(Color(.secondarySystemBackground))
-
-      AdaptiveAssetImage(photo: photo, targetSize: CGSize(width: 272, height: 374))
-        .clipShape(RoundedRectangle(cornerRadius: 26))
-
-      if photo.isFavorite {
-        VStack {
-          HStack {
-            Image(systemName: "heart.fill")
-              .foregroundStyle(.pink)
-              .padding(8)
-              .background(.white.opacity(0.9), in: Circle())
-            Spacer()
-          }
-          Spacer()
-        }
-        .padding(12)
-      }
-
-      keepDeleteStamps
-    }
-    .frame(width: 272, height: 374)
-    .offset(dragOffset)
-    .rotationEffect(.degrees(Double(dragOffset.width / 18)))
-    .shadow(radius: 16, y: 8)
-    .animation(.easeOut(duration: 0.2), value: dragOffset)
-  }
-
-  private var keepDeleteStamps: some View {
-    let keepOpacity = min(1, max(0, dragOffset.width / 90))
-    let delOpacity = min(1, max(0, dragOffset.height / 90))
-    return VStack {
-      HStack {
-        Text("KEEP")
-          .font(.caption.bold())
-          .foregroundStyle(.white)
-          .padding(.horizontal, 12).padding(.vertical, 6)
-          .background(Color.green.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
-          .rotationEffect(.degrees(-6))
-          .opacity(keepOpacity)
-        Spacer()
-      }
-      Spacer()
-      HStack {
-        Spacer()
-        Text("DELETE")
-          .font(.caption.bold())
-          .foregroundStyle(.white)
-          .padding(.horizontal, 12).padding(.vertical, 6)
-          .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
-          .opacity(delOpacity)
-      }
-    }
-    .padding(14)
   }
 }

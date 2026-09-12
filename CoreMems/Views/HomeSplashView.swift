@@ -1,3 +1,4 @@
+// CoreMems/Views/HomeSplashView.swift
 import SwiftUI
 
 /// Shown instead of the full Home screen once the user has already

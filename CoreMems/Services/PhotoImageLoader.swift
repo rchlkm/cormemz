@@ -1,3 +1,4 @@
+// CoreMems/Services/PhotoImageLoader.swift
 import Photos
 import UIKit
 
@@ -20,6 +21,7 @@ actor PhotoImageLoader {
   private var cache: [String: UIImage] = [:]
   private var cacheOrder: [String] = []
   private let maxCachedImages = 60
+  private var prefetchTask: Task<Void, Never>?
 
   func image(for identifier: String, targetSize: CGSize) async -> UIImage? {
     let cacheKey = "\(identifier)-\(Int(targetSize.width))x\(Int(targetSize.height))"
@@ -61,19 +63,14 @@ actor PhotoImageLoader {
     }
   }
 
-  /// Pre-warms the cache for upcoming cards so swiping feels instant —
-  /// mirrors `PHCachingImageManager.startCachingImages` intent without
-  /// needing to hand out raw PHAssets to the view layer.
-  func prefetch(identifiers: [String], targetSize: CGSize) {
-    let options = PHImageRequestOptions()
-    options.deliveryMode = .highQualityFormat
-    options.resizeMode = .fast
-    let assets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
-    var toCache: [PHAsset] = []
-    assets.enumerateObjects { asset, _, _ in toCache.append(asset) }
-    guard !toCache.isEmpty else { return }
-    manager.startCachingImages(
-      for: toCache, targetSize: targetSize, contentMode: .aspectFill, options: options)
+  /// Loads exactly one upcoming photo ahead of when the user reaches
+  /// it. Cancels any still-pending prefetch first, so swiping faster
+  /// than the network never queues up more than one in-flight download.
+  func prefetchNext(identifier: String, targetSize: CGSize) {
+    prefetchTask?.cancel()
+    prefetchTask = Task { [weak self] in
+      _ = await self?.image(for: identifier, targetSize: targetSize)
+    }
   }
 
   private func store(_ image: UIImage, key: String) {
@@ -88,6 +85,7 @@ actor PhotoImageLoader {
   }
 
   func clearCache() {
+    prefetchTask?.cancel()
     cache.removeAll()
     cacheOrder.removeAll()
     manager.stopCachingImagesForAllAssets()

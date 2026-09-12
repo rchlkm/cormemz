@@ -29,6 +29,8 @@ final class SessionViewModel: ObservableObject {
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
   @Published var deletionError: String?
+  @Published var metadataForSheet: PhotoMetadata?
+  @Published var isLoadingMetadata: Bool = false
 
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
@@ -44,15 +46,24 @@ final class SessionViewModel: ObservableObject {
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   private let persistence: SessionPersisting
   private let haptics: HapticsServicing
+  private let metadataService: PhotoMetadataServicing
+
+  private static let cardDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "MMM d, yyyy"
+    return formatter
+  }()
 
   init(
     library: PhotoLibraryServicing = PhotoLibraryService(),
     persistence: SessionPersisting = SessionPersistence(),
-    haptics: HapticsServicing = HapticsService()
+    haptics: HapticsServicing = HapticsService(),
+    metadataService: PhotoMetadataServicing = PhotoMetadataService()
   ) {
     self.library = library
     self.persistence = persistence
     self.haptics = haptics
+    self.metadataService = metadataService
     restoreIfInterrupted()
   }
 
@@ -148,7 +159,8 @@ final class SessionViewModel: ObservableObject {
           id: id,
           assetIdentifier: asset.localIdentifier,
           previewURL: nil,
-          isFavorite: asset.isFavorite
+          isFavorite: asset.isFavorite,
+          dateLabel: asset.creationDate.map(Self.cardDateFormatter.string) ?? ""
         )
       }
     }
@@ -245,6 +257,24 @@ final class SessionViewModel: ObservableObject {
     folders.append(folder)
     if let photoID = assignToPhotoID {
       toggleTag(photoID: photoID, folderID: folder.id)
+    }
+  }
+
+  // MARK: Photo details
+
+  /// Kicks off an async fetch for the pull-up details sheet — real
+  /// assets go through PhotoKit/EXIF, mock/preview photos fall back to
+  /// whatever's derivable from the SessionPhoto itself.
+  func showMetadataSheet(for photoID: String) {
+    isLoadingMetadata = true
+    metadataForSheet = nil
+    Task {
+      if let asset = pickedAssets[photoID] {
+        metadataForSheet = await metadataService.fetchMetadata(for: asset)
+      } else if let photo = photos.first(where: { $0.id == photoID }) {
+        metadataForSheet = PhotoMetadata.placeholder(for: photo)
+      }
+      isLoadingMetadata = false
     }
   }
 
@@ -350,11 +380,13 @@ final class SessionViewModel: ObservableObject {
 
   static func mockPhotos(count: Int) -> [SessionPhoto] {
     (0..<count).map { i in
-      SessionPhoto(
+      let date = Calendar.current.date(byAdding: .day, value: -i * 11, to: Date()) ?? Date()
+      return SessionPhoto(
         id: "mock-\(i)",
         assetIdentifier: "mock-asset-\(i)",
         previewURL: URL(string: "https://picsum.photos/seed/coremems-\(i)/420/580"),
-        isFavorite: i % 4 == 1
+        isFavorite: i % 4 == 1,
+        dateLabel: cardDateFormatter.string(from: date)
       )
     }
   }
