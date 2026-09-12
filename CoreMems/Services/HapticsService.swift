@@ -7,14 +7,16 @@ protocol HapticsServicing {
   func markForDeletion()
   func undo()
   func trayRestore()
-  func confirmDelete()
+  //  func confirmDelete()
   func sessionComplete()
 }
 
-/// Per-action haptic + system-sound feedback for review decisions.
-/// `UIFeedbackGenerator` already no-ops safely on hardware without a
-/// Taptic Engine (Simulator, older iPads), so no extra capability
-/// check is needed for the "unsupported hardware" requirement.
+/// Haptic + system-sound feedback for review decisions.
+///
+/// `AudioServicesPlaySystemSound` respects the ring/silent switch by
+/// default on real hardware — no extra gating needed. (The iOS
+/// Simulator has no physical switch and will always play sound
+/// regardless of this code; that's a Simulator limitation, not a bug.)
 final class HapticsService: HapticsServicing {
   private let successGenerator = UINotificationFeedbackGenerator()
   private let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
@@ -26,18 +28,25 @@ final class HapticsService: HapticsServicing {
   var isSoundEnabled = true
 
   private enum SystemSound: SystemSoundID {
-    case keep = 1111  // JBL_Confirm
-    case undo = 1053
-    case markForDeletion = 1110
-    case trayRestore = 1109
-   // case confirmDelete = 1050
-    case sessionComplete = 1335
+    case keep = 1057  // 1004
+    case markForDeletion = 1051
+    case undo = 1053  // error
+    case trayRestore = 1054
+    // case confirmDelete = 1050
+    case sessionComplete = 1050
+    // case keep = 1111
+    // case markForDeletion = 1110
+    // case undo = 1053
+    // case trayRestore = 1109
+    // case confirmDelete = 1050
+    // case sessionComplete = 1335
     // 1109 Shake to shuffle
+    // 1001 send
     // 1112
     // 1116
     // 1050
     // 1051
-
+    // 1052
   }
 
   func keep() {
@@ -55,19 +64,15 @@ final class HapticsService: HapticsServicing {
     play(.undo)
   }
 
-  /// Lighter, keep-like feedback for restoring a photo from the
-  /// Deletion Tray or the end-of-session grid.
   func trayRestore() {
     softImpact.impactOccurred()
     play(.trayRestore)
   }
 
-  /// Fires once assets are actually submitted for deletion — the
-  /// heaviest haptic in the set.
-  func confirmDelete() {
-    // heavyImpact.impactOccurred()
-    // play(.confirmDelete)
-  }
+  // func confirmDelete() {
+  //   heavyImpact.impactOccurred()
+  //   play(.confirmDelete)
+  // }
 
   func sessionComplete() {
     rigidImpact.impactOccurred()
@@ -80,21 +85,19 @@ final class HapticsService: HapticsServicing {
   }
 }
 
-/// Records calls instead of touching hardware — used by previews,
-/// SwiftUI Previews on unsupported hosts, and unit tests.
 final class MockHapticsService: HapticsServicing {
   private(set) var keepCallCount = 0
   private(set) var markForDeletionCallCount = 0
   private(set) var undoCallCount = 0
   private(set) var trayRestoreCallCount = 0
-  private(set) var confirmDeleteCallCount = 0
+  // private(set) var confirmDeleteCallCount = 0
   private(set) var sessionCompleteCallCount = 0
 
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
   func undo() { undoCallCount += 1 }
   func trayRestore() { trayRestoreCallCount += 1 }
-  func confirmDelete() { confirmDeleteCallCount += 1 }
+  // func confirmDelete() { confirmDeleteCallCount += 1 }
   func sessionComplete() { sessionCompleteCallCount += 1 }
 }
 
@@ -124,10 +127,10 @@ final class MockHapticsService: HapticsServicing {
     }
     .buttonStyle(.borderedProminent)
 
-//    Button("confirmDelete") {
-//      service.confirmDelete()
-//    }
-//    .buttonStyle(.borderedProminent)
+    //    Button("confirmDelete") {
+    //      service.confirmDelete()
+    //    }
+    //    .buttonStyle(.borderedProminent)
 
     Button("sessionComplete") {
       service.sessionComplete()

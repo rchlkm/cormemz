@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 
 @main
@@ -11,9 +12,15 @@ struct CoreMemsApp: App {
 
 struct RootView: View {
   @StateObject private var vm = SessionViewModel()
+  @AppStorage("cm_hasOnboarded") private var hasOnboarded = false
   @State private var showConfirm = false
-  @State private var showDevPanel = false
   @Environment(\.scenePhase) private var scenePhase
+
+  /// True until the user has granted access at least once. While
+  /// true, show the full permission-request Home screen.
+  private var needsOnboarding: Bool {
+    !hasOnboarded || vm.authorizationStatus == .notDetermined
+  }
 
   var body: some View {
     ZStack {
@@ -21,18 +28,30 @@ struct RootView: View {
         DeniedAccessView(onOpenSettings: {
           vm.manageAccess(presentingFrom: UIApplication.shared.rootViewController)
         })
+      } else if needsOnboarding {
+        HomeView(
+          photoCount: vm.eligiblePhotoCount,
+          limitedAccess: vm.isLimitedAccess,
+          emptyLibrary: vm.emptyLibrary,
+          onStart: {
+            Task {
+              await vm.checkAuthorization()
+              if vm.authorizationStatus == .authorized || vm.authorizationStatus == .limited {
+                hasOnboarded = true
+                vm.screen = .setup
+              }
+            }
+          },
+          onManageAccess: {
+            vm.manageAccess(presentingFrom: UIApplication.shared.rootViewController)
+          }
+        )
       } else {
         switch vm.screen {
         case .home:
-          HomeView(
-            photoCount: vm.eligiblePhotoCount,
-            limitedAccess: vm.isLimitedAccess,
-            emptyLibrary: vm.emptyLibrary,
-            onStart: { vm.screen = .setup },
-            onManageAccess: {
-              vm.manageAccess(presentingFrom: UIApplication.shared.rootViewController)
-            }
-          )
+          HomeSplashView(photoCount: vm.eligiblePhotoCount) {
+            vm.screen = .setup
+          }
         case .setup:
           SetupView(maxAvailable: vm.maxAvailable) { size in
             Task { await vm.startSession(requestedSize: size) }
@@ -52,27 +71,11 @@ struct RootView: View {
           )
         }
       }
-
-      /// Dev panel — preview-only affordance, strip before shipping.
-      // VStack {
-      //   HStack {
-      //     Spacer()
-      //     DevPanelView(vm: vm, isOpen: $showDevPanel)
-      //       .padding(.top, 12)
-      //       .padding(.trailing, 12)
-      //   }
-      //   Spacer()
-      // }
     }
     .task {
-      // Read status on launch without prompting — the actual
-      // request happens lazily the first time the user taps
-      // "Start a session" (see `SessionViewModel.startSession`).
       vm.refreshAuthorizationStatus()
     }
     .onChange(of: scenePhase) { _, newPhase in
-      // Picks up changes made in Settings (grant/deny/limited
-      // selection) the moment the user comes back to the app.
       if newPhase == .active {
         vm.refreshAuthorizationStatus()
       }

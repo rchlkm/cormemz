@@ -275,7 +275,7 @@ final class SessionViewModel: ObservableObject {
       let deletedIDs = Set(toDelete.map(\.id))
       photos.removeAll { deletedIDs.contains($0.id) }
       history.removeAll()  // reversible window closes here
-      haptics.confirmDelete()
+      // haptics.confirmDelete()
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
