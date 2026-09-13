@@ -1,5 +1,5 @@
+// CoreMems/Views/Components/Buttons.swift
 import SwiftUI
-import UIKit
 
 struct CardButtonStyle: ButtonStyle {
   @Environment(\.colorScheme) private var colorScheme
@@ -45,30 +45,24 @@ struct PrimaryActionButtonStyle: ButtonStyle {
   }
 }
 
-public func innerBoxColor(isSelected: Bool) -> Color {
-  Color(
-    uiColor: UIColor { traitCollection in
-      let isDark = traitCollection.userInterfaceStyle == .dark
-      if isSelected {
-        return isDark
-          ? UIColor.black.withAlphaComponent(0.15)
-          : UIColor.white.withAlphaComponent(0.2)
-      }
-      return isDark
-        ? UIColor.white.withAlphaComponent(0.1)
-        : UIColor.black.withAlphaComponent(0.06)
-    })
-}
+/// Round icon button used for the keep/delete/undo review controls
+/// and anywhere else a simple tinted circular action fits.
+struct CircleIconButton: View {
+  let system: String
+  let tint: Color
+  let size: CGFloat
+  var disabled: Bool = false
+  let action: () -> Void
 
-public func secondaryTextColor(isSelected: Bool) -> Color {
-  Color(
-    uiColor: UIColor { traitCollection in
-      let isDark = traitCollection.userInterfaceStyle == .dark
-      if isSelected {
-        return isDark
-          ? UIColor.black.withAlphaComponent(0.7)
-          : UIColor.white.withAlphaComponent(0.7)
-      }
-      return UIColor.secondaryLabel
-    })
+  var body: some View {
+    Button(action: action) {
+      Image(systemName: system)
+        .font(.system(size: size * 0.34, weight: .semibold))
+        .foregroundStyle(tint)
+        .frame(width: size, height: size)
+        .background(tint.opacity(0.16), in: Circle())
+    }
+    .disabled(disabled)
+    .opacity(disabled ? 0.4 : 1)
+  }
 }

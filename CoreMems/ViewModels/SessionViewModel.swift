@@ -169,6 +169,7 @@ final class SessionViewModel: ObservableObject {
     history = []
     deletedCount = 0
     screen = .review
+    prefetchNextPhoto()
     persistState()
   }
 
@@ -197,7 +198,10 @@ final class SessionViewModel: ObservableObject {
       break
     }
 
-    if advanced { currentIndex += 1 }
+    if advanced {
+      currentIndex += 1
+      prefetchNextPhoto()
+    }
 
     if currentIndex >= photos.count && screen == .review {
       screen = .pendingReview
@@ -212,7 +216,10 @@ final class SessionViewModel: ObservableObject {
   func quickUndo() {
     guard let last = history.popLast() else { return }
     photos[last.photoIndex].decision = last.previousDecision
-    if last.advancedIndex { currentIndex = last.photoIndex }
+    if last.advancedIndex {
+      currentIndex = last.photoIndex
+      prefetchNextPhoto()
+    }
     haptics.undo()
     persistState()
   }
@@ -278,6 +285,25 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  // MARK: Image prefetching
+
+  private static let prefetchTargetSize = CGSize(width: 544, height: 748)
+
+  /// Warms the image cache for the photo just ahead of `currentIndex`
+  /// so swiping quickly never waits on a fetch. Safe to call whenever
+  /// `currentIndex` changes; no-ops past the end of the session or for
+  /// mock/preview photos that already have a `previewURL`.
+  private func prefetchNextPhoto() {
+    let nextIndex = currentIndex + 1
+    guard photos.indices.contains(nextIndex) else { return }
+    let next = photos[nextIndex]
+    guard next.previewURL == nil else { return }
+    Task {
+      await PhotoImageLoader.shared.prefetchNext(
+        identifier: next.assetIdentifier, targetSize: Self.prefetchTargetSize)
+    }
+  }
+
   // MARK: Confirm and Delete
 
   /// Submits only the currently pending-delete assets
@@ -305,7 +331,6 @@ final class SessionViewModel: ObservableObject {
       let deletedIDs = Set(toDelete.map(\.id))
       photos.removeAll { deletedIDs.contains($0.id) }
       history.removeAll()  // reversible window closes here
-      // haptics.confirmDelete()
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
@@ -374,6 +399,7 @@ final class SessionViewModel: ObservableObject {
       )
     }
     screen = currentIndex >= photos.count ? .pendingReview : .review
+    prefetchNextPhoto()
   }
 
   // MARK: Mock data for previews / empty-library demos

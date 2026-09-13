@@ -20,7 +20,7 @@ struct PhotoMetadataSheetView: View {
               MetadataRow(label: "Format", value: metadata.formattedFormat)
               MetadataRow(label: "Filename", value: metadata.originalFilename)
               if metadata.isFavorite {
-                MetadataRow(label: "Favorite", value: "❤️ Yes")
+                MetadataRow(label: "Favorite", value: "♡")
               }
             }
 
