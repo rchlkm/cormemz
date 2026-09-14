@@ -100,21 +100,26 @@ struct ConfirmSheetView: View {
           .multilineTextAlignment(.center)
       }
 
-      HStack(spacing: 10) {
-        Button("Cancel", action: onCancel)
-          .buttonStyle(.bordered)
-          .frame(maxWidth: .infinity)
+      GeometryReader { geo in
+        HStack(spacing: 10) {
+          Button("Cancel", action: onCancel)
+            .buttonStyle(SecondaryActionButtonStyle())
+            .frame(height: 56)
+            .disabled(isDeleting)
 
-        Button(action: onConfirm) {
-          if isDeleting {
-            ProgressView().frame(maxWidth: .infinity)
-          } else {
-            Text("Confirm").frame(maxWidth: .infinity)
+          Button(action: onConfirm) {
+            if isDeleting {
+              ProgressView()
+            } else {
+              Text("Confirm")
+            }
           }
+          .buttonStyle(DestructiveActionButtonStyle())
+          .frame(minWidth: 140, maxWidth: .infinity)
+          .frame(height: 56)
+          .disabled(isDeleting)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.red)
-        .disabled(isDeleting)
+        .frame(maxWidth: .infinity)
       }
     }
     .padding(24)

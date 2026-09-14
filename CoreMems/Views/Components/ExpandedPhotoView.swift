@@ -1,22 +1,24 @@
-// CoreMems/Views/Components/FullScreenPhotoView.swift
+// CoreMems/Views/Components/ExpandedPhotoView.swift
+import PhotosUI
 import SwiftUI
 
-/// Full-screen photo viewer. Pinch to zoom in/out (persists — no
-/// bounce-back — matching a normal photo viewer rather than the
-/// card's "peek" zoom). While zoomed, dragging pans around the image.
-/// While at 1x, dragging in any direction dismisses past a threshold,
-/// or springs back to center if it doesn't clear it. Double-tap
-/// toggles zoom as a shortcut.
-struct FullScreenPhotoView: View {
+/// Full-screen state of a `ReviewCardView` photo, grown into place via
+/// `matchedGeometryEffect` rather than a `.fullScreenCover` modal.
+/// Pinch to zoom (persists, no bounce-back), drag to pan while zoomed,
+/// or drag at 1x to shrink back down into the card. Live Photos can be
+/// played here too, in place of the static image.
+struct ExpandedPhotoView: View {
   let photo: SessionPhoto
-
-  @Environment(\.dismiss) private var dismiss
+  var namespace: Namespace.ID
+  @Binding var expandedPhoto: SessionPhoto?
 
   @State private var scale: CGFloat = 1.0
   @State private var lastScale: CGFloat = 1.0
   @State private var panOffset: CGSize = .zero
   @State private var lastPanOffset: CGSize = .zero
   @State private var dismissDrag: CGSize = .zero
+  @State private var inlineLivePhoto: PHLivePhoto?
+  @State private var isShowingLivePhoto = false
 
   private let dismissThreshold: CGFloat = 120
   private let fadeDistance: CGFloat = 400
@@ -34,16 +36,56 @@ struct FullScreenPhotoView: View {
         .opacity(backgroundOpacity)
         .ignoresSafeArea()
 
-      AdaptiveAssetImage(
-        photo: photo, targetSize: UIScreen.main.bounds.size, contentMode: .fit
-      )
-      .scaleEffect(scale)
-      .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
-      .gesture(magnification)
-      .simultaneousGesture(dragGesture)
-      .onTapGesture(count: 2) { toggleZoom() }
+      content
+        .matchedGeometryEffect(id: photo.id, in: namespace)
+        .scaleEffect(scale)
+        .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
+        .gesture(magnification)
+        .simultaneousGesture(dragGesture)
+        .onTapGesture(count: 2) { toggleZoom() }
+
+      if photo.isLivePhoto {
+        VStack {
+          Spacer()
+          HStack {
+            livePhotoBadge
+            Spacer()
+          }
+        }
+        .padding(.leading, 20)
+        .padding(.bottom, 40)
+      }
     }
     .statusBarHidden()
+  }
+
+  @ViewBuilder
+  private var content: some View {
+    if isShowingLivePhoto, let inlineLivePhoto {
+      LivePhotoPlayerView(livePhoto: inlineLivePhoto)
+    } else {
+      AdaptiveAssetImage(photo: photo, targetSize: UIScreen.main.bounds.size, contentMode: .fit)
+    }
+  }
+
+  private var livePhotoBadge: some View {
+    Button {
+      if isShowingLivePhoto {
+        isShowingLivePhoto = false
+      } else {
+        Task {
+          inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
+            for: photo.assetIdentifier, targetSize: UIScreen.main.bounds.size)
+          isShowingLivePhoto = inlineLivePhoto != nil
+        }
+      }
+    } label: {
+      Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
+        .font(.system(size: 18))
+        .foregroundStyle(.white)
+        .padding(10)
+        .background(.black.opacity(0.55), in: Circle())
+    }
   }
 
   private var magnification: some Gesture {
@@ -76,7 +118,7 @@ struct FullScreenPhotoView: View {
         } else {
           let distance = hypot(value.translation.width, value.translation.height)
           if distance > dismissThreshold {
-            dismiss()
+            close()
           } else {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
               dismissDrag = .zero
@@ -108,6 +150,15 @@ struct FullScreenPhotoView: View {
       withAnimation(.spring(response: 0.3, dampingFraction: 0.75), apply)
     } else {
       apply()
+    }
+  }
+
+  /// Mirrors the expand transition, shrinking back into the card that
+  /// grew from the same `matchedGeometryEffect` id.
+  private func close() {
+    resetZoom(animated: false)
+    withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+      expandedPhoto = nil
     }
   }
 }

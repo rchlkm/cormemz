@@ -1,3 +1,4 @@
+// CoreMems/Models/Models.swift
 import Foundation
 
 enum ReviewDecision: String, Equatable {
@@ -15,6 +16,7 @@ struct SessionPhoto: Identifiable, Equatable {
   let previewURL: URL?
   var decision: ReviewDecision = .undecided
   var isFavorite: Bool = false
+  var isLivePhoto: Bool = false
   var tagFolderIDs: Set<String> = []
   var dateLabel: String = ""
 }

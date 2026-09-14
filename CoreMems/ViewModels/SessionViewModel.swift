@@ -160,6 +160,7 @@ final class SessionViewModel: ObservableObject {
           assetIdentifier: asset.localIdentifier,
           previewURL: nil,
           isFavorite: asset.isFavorite,
+          isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
           dateLabel: asset.creationDate.map(Self.cardDateFormatter.string) ?? ""
         )
       }
@@ -412,6 +413,7 @@ final class SessionViewModel: ObservableObject {
         assetIdentifier: "mock-asset-\(i)",
         previewURL: URL(string: "https://picsum.photos/seed/coremems-\(i)/420/580"),
         isFavorite: i % 4 == 1,
+        isLivePhoto: i % 5 == 2,
         dateLabel: cardDateFormatter.string(from: date)
       )
     }

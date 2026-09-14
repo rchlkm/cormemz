@@ -66,3 +66,31 @@ struct CircleIconButton: View {
     .opacity(disabled ? 0.4 : 1)
   }
 }
+struct DestructiveActionButtonStyle: ButtonStyle {
+  @Environment(\.colorScheme) private var colorScheme
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 17, weight: .semibold))
+      .foregroundColor(.white)
+      .frame(maxWidth: .infinity)
+      .frame(height: 56)
+      .background(Color.red, in: RoundedRectangle(cornerRadius: 16))
+      .opacity(configuration.isPressed ? 0.85 : 1.0)
+  }
+}
+
+struct SecondaryActionButtonStyle: ButtonStyle {
+  @Environment(\.colorScheme) private var colorScheme
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 17, weight: .semibold))
+      .foregroundColor(colorScheme == .dark ? .white : .black)
+      .frame(maxWidth: .infinity)
+      .frame(height: 56)
+      .background(
+        Color.secondary.opacity(colorScheme == .dark ? 0.22 : 0.10),
+        in: RoundedRectangle(cornerRadius: 16)
+      )
+      .opacity(configuration.isPressed ? 0.8 : 1.0)
+  }
+}
