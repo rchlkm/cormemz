@@ -66,6 +66,7 @@ struct RootView: View {
           CompletionView(
             keptCount: vm.keptCount,
             deletedCount: vm.deletedCount,
+            lifetimeStats: vm.lifetimeStats,
             onAgain: { vm.resetForAnotherSession() }
           )
         }

@@ -77,6 +77,7 @@ import SwiftUI
             CompletionView(
               keptCount: vm.keptCount,
               deletedCount: vm.deletedCount,
+              lifetimeStats: vm.lifetimeStats,
               onAgain: { vm.resetForAnotherSession() }
             )
           }

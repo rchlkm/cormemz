@@ -47,6 +47,7 @@ final class SessionViewModel: ObservableObject {
   private let persistence: SessionPersisting
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
+  private let statsStore: LifetimeStatsServicing
 
   private static let cardDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -54,16 +55,22 @@ final class SessionViewModel: ObservableObject {
     return formatter
   }()
 
+  var lifetimeStats: LifetimeSessionStats {
+    statsStore.currentStats()
+  }
+
   init(
     library: PhotoLibraryServicing = PhotoLibraryService(),
     persistence: SessionPersisting = SessionPersistence(),
     haptics: HapticsServicing = HapticsService(),
-    metadataService: PhotoMetadataServicing = PhotoMetadataService()
+    metadataService: PhotoMetadataServicing = PhotoMetadataService(),
+    statsStore: LifetimeStatsServicing = LifetimeStatsService()
   ) {
     self.library = library
     self.persistence = persistence
     self.haptics = haptics
     self.metadataService = metadataService
+    self.statsStore = statsStore
     restoreIfInterrupted()
   }
 
@@ -310,11 +317,13 @@ final class SessionViewModel: ObservableObject {
   /// Submits only the currently pending-delete assets
   func confirmDeletion() async {
     let toDelete = pendingItems
+    let keptNow = keptCount
     guard !toDelete.isEmpty else {
       deletedCount = 0
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
+      recordSessionStats(kept: keptNow, deleted: 0)
       return
     }
 
@@ -335,12 +344,19 @@ final class SessionViewModel: ObservableObject {
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
+      recordSessionStats(kept: keptNow, deleted: toDelete.count)
     case .failure(let error):
       // Failed deletion must be surfaced without falsely reporting
       // success, and must not corrupt unrelated session state
       // (Invariant #5) — we simply leave `photos`/`history` untouched.
       deletionError = error.localizedDescription
     }
+  }
+
+  /// Folds a finished session's decisions into the persisted lifetime
+  /// stats via `statsStore`, which also logs a snapshot for debugging.
+  private func recordSessionStats(kept: Int, deleted: Int) {
+    statsStore.recordSession(kept: kept, deleted: deleted)
   }
 
   func exitToHome() {

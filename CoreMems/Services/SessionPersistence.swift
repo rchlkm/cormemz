@@ -26,6 +26,9 @@ final class SessionPersistence: SessionPersisting {
   init() {
     let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
       .first!
+    // The Application Support directory is not created automatically on iOS.
+    // Without this, writes fail silently and the snapshot never persists.
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     fileURL = dir.appendingPathComponent("core-mems-active-session.json")
   }
 
