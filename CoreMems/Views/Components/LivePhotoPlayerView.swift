@@ -21,3 +21,35 @@ struct LivePhotoPlayerView: UIViewRepresentable {
     }
   }
 }
+
+struct LivePhotoPlaybackView: View {
+  let photo: SessionPhoto
+
+  @Environment(\.dismiss) private var dismiss
+  @State private var livePhoto: PHLivePhoto?
+  @State private var isLoading = true
+
+  var body: some View {
+    ZStack {
+      Color.black.ignoresSafeArea()
+
+      if let livePhoto {
+        LivePhotoPlayerView(livePhoto: livePhoto)
+          .ignoresSafeArea()
+      } else if isLoading {
+        ProgressView()
+          .tint(.white)
+      } else {
+        Text("Couldn't load Live Photo")
+          .foregroundStyle(.white)
+      }
+    }
+    .onTapGesture { dismiss() }
+    .task {
+      livePhoto = await LivePhotoLoader.shared.livePhoto(
+        for: photo.assetIdentifier, targetSize: UIScreen.main.bounds.size)
+      isLoading = false
+    }
+    .statusBarHidden()
+  }
+}
