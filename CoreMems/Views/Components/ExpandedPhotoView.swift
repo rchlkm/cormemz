@@ -64,7 +64,7 @@ struct ExpandedPhotoView: View {
     if isShowingLivePhoto, let inlineLivePhoto {
       LivePhotoPlayerView(livePhoto: inlineLivePhoto)
     } else {
-      AdaptiveAssetImage(photo: photo, targetSize: UIScreen.main.bounds.size, contentMode: .fit)
+      AdaptiveAssetImage(photo: photo, fitWithin: UIScreen.main.bounds.size)
     }
   }
 

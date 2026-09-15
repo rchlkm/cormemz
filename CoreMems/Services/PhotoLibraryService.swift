@@ -21,6 +21,10 @@ protocol PhotoLibraryServicing {
   /// Recently Deleted per Apple's standard retention window.
   /// Returns the identifiers that failed, if any (empty = full success).
   func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error>
+  /// Writes the favorite flag to the Photos library via
+  /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
+  /// signal to roll back any optimistic UI update.
+  func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error>
   /// Presents Apple's native limited-library picker so a Limited
   /// Photos Access user can grant access to more photos in-app.
   func presentLimitedLibraryPicker(from viewController: UIViewController)
@@ -97,6 +101,18 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }
   }
 
+  func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> {
+    do {
+      try await PHPhotoLibrary.shared().performChanges {
+        let request = PHAssetChangeRequest(for: asset)
+        request.isFavorite = isFavorite
+      }
+      return .success(())
+    } catch {
+      return .failure(error)
+    }
+  }
+
   func presentLimitedLibraryPicker(from viewController: UIViewController) {
     if #available(iOS 15, *) {
       PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: viewController)
@@ -137,6 +153,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func totalEligibleAssetCount() -> Int { mockEligibleCount }
 
   func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error> { .success(()) }
+
+  func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> { .success(()) }
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
 }

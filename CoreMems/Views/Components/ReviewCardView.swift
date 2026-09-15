@@ -3,8 +3,9 @@ import PhotosUI
 import SwiftUI
 
 /// Interactive review card: swipe-to-decide gestures, pinch zoom, and
-/// all card chrome (date, add-to-album, favorite/Live Photo badges).
-/// `PhotoCardView` underneath only renders the photo.
+/// all card chrome (date, action rail, favorite/Live Photo badges).
+/// `PhotoCardView` underneath only renders the photo; `PhotoActionRailView`
+/// owns the floating rail of photo-editing actions.
 ///
 /// Expanding to full screen is a `matchedGeometryEffect` hand-off to
 /// `ExpandedPhotoView`, not a `.fullScreenCover` — the photo grows into
@@ -35,12 +36,23 @@ struct ReviewCardView: View {
     // appears to grow out of it instead.
     Group {
       if !isExpanded {
-        cardContent
+        // The rail sits as a sibling here, not inside `swipableCard` —
+        // it must stay fixed on top of the photo while the card
+        // underneath offsets/rotates with the swipe gesture.
+        ZStack(alignment: .trailing) {
+          swipableCard
+          PhotoActionRailView(
+            isFavorite: photo.isFavorite,
+            containerSize: maxSize,
+            onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
+            onAssignAlbum: { showFolderPicker = true }
+          )
+        }
       }
     }
   }
 
-  private var cardContent: some View {
+  private var swipableCard: some View {
     Group {
       if isShowingLivePhoto, let inlineLivePhoto {
         LivePhotoPlayerView(livePhoto: inlineLivePhoto)
@@ -180,16 +192,6 @@ struct ReviewCardView: View {
             .foregroundStyle(.white)
         }
         Spacer()
-        if photo.isFavorite {
-          Image(systemName: "heart.fill")
-            .foregroundStyle(.pink)
-        }
-        Button {
-          showFolderPicker = true
-        } label: {
-          Image(systemName: "folder.badge.plus")
-            .foregroundStyle(.white.opacity(0.9))
-        }
       }
       .padding(.horizontal, 14)
     }

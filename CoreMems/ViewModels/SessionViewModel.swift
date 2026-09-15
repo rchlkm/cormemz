@@ -282,6 +282,28 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
+  /// Toggles the favorite state for the given photo, updating both the
+  /// in-session `SessionPhoto` and the underlying `PHAsset` (mock/preview
+  /// photos, which have no backing `PHAsset`, update locally only).
+  func toggleFavorite(photoID: String) {
+    guard let index = photos.firstIndex(where: { $0.id == photoID }) else { return }
+    let newValue = !photos[index].isFavorite
+    photos[index].isFavorite = newValue
+    haptics.favorite()
+    persistState()
+
+    guard let asset = pickedAssets[photoID] else { return }
+    Task { @MainActor in
+      let result = await library.setFavorite(asset, isFavorite: newValue)
+      if case .failure = result,
+        let currentIndex = self.photos.firstIndex(where: { $0.id == photoID })
+      {
+        self.photos[currentIndex].isFavorite = !newValue
+        self.persistState()
+      }
+    }
+  }
+
   /// Restores any number of pending-delete photos to Keep
   /// powers the Deletion Tray and the end-of-session multi-select grid.
   func restoreMany(ids: [String]) {

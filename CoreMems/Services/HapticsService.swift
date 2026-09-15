@@ -9,6 +9,7 @@ protocol HapticsServicing {
   func trayRestore()
   //  func confirmDelete()
   func sessionComplete()
+  func favorite()
 }
 
 /// Haptic + system-sound feedback for review decisions.
@@ -33,7 +34,8 @@ final class HapticsService: HapticsServicing {
     case undo = 1053  // error
     case trayRestore = 1054
     // case confirmDelete = 1050
-    case sessionComplete = 1050
+    case sessionComplete = 1109 //1050
+    case favorite = 1111
     // case keep = 1111
     // case markForDeletion = 1110
     // case undo = 1053
@@ -79,6 +81,10 @@ final class HapticsService: HapticsServicing {
     play(.sessionComplete)
   }
 
+  func favorite() {
+    play(.favorite)
+  }
+
   private func play(_ sound: SystemSound) {
     guard isSoundEnabled else { return }
     AudioServicesPlaySystemSound(sound.rawValue)
@@ -92,6 +98,7 @@ final class MockHapticsService: HapticsServicing {
   private(set) var trayRestoreCallCount = 0
   // private(set) var confirmDeleteCallCount = 0
   private(set) var sessionCompleteCallCount = 0
+  private(set) var favoriteCount = 0
 
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
@@ -99,6 +106,8 @@ final class MockHapticsService: HapticsServicing {
   func trayRestore() { trayRestoreCallCount += 1 }
   // func confirmDelete() { confirmDeleteCallCount += 1 }
   func sessionComplete() { sessionCompleteCallCount += 1 }
+  func favorite() { favoriteCount += 1 }
+
 }
 
 #if DEBUG
@@ -127,13 +136,13 @@ final class MockHapticsService: HapticsServicing {
     }
     .buttonStyle(.borderedProminent)
 
-    //    Button("confirmDelete") {
-    //      service.confirmDelete()
-    //    }
-    //    .buttonStyle(.borderedProminent)
-
     Button("sessionComplete") {
       service.sessionComplete()
+    }
+    .buttonStyle(.borderedProminent)
+
+    Button("favorite") {
+      service.favorite()
     }
     .buttonStyle(.borderedProminent)
   }
