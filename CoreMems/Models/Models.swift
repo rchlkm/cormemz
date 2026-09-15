@@ -24,7 +24,6 @@ struct SessionPhoto: Identifiable, Equatable {
   var decision: ReviewDecision = .undecided
   var isFavorite: Bool = false
   var isLivePhoto: Bool = false
-  var tagFolderIDs: Set<String> = []
   var dateLabel: String = ""
 }
 
@@ -39,10 +38,29 @@ struct DecisionHistoryEntry {
   let advancedIndex: Bool
 }
 
-struct Folder: Identifiable, Equatable {
-  let id: String
-  var name: String
-  var emoji: String
+/// A real-or-not-yet-real Photos album a photo can be staged into.
+/// Modeled as a struct (not an enum) so it's `Codable`/`Hashable` by
+/// synthesis; call sites use it like an enum via the two static factories.
+struct AlbumRef: Hashable, Codable {
+  enum Kind: String, Codable { case existing, pendingNew }
+  let kind: Kind
+  let identifier: String  // PHAssetCollection.localIdentifier, or a session-local tempID
+  let name: String?  // nil for .existing — name comes from the fetched PHAssetCollection
+
+  static func existing(localIdentifier: String) -> AlbumRef {
+    AlbumRef(kind: .existing, identifier: localIdentifier, name: nil)
+  }
+  static func pendingNew(tempID: String, name: String) -> AlbumRef {
+    AlbumRef(kind: .pendingNew, identifier: tempID, name: name)
+  }
+}
+
+/// One album as shown in the picker — real or created-this-session,
+/// unified so the UI doesn't need to care which.
+struct AlbumOption: Identifiable, Equatable {
+  let ref: AlbumRef
+  let name: String
+  var id: AlbumRef { ref }
 }
 
 enum SessionLifecycleState: Equatable {

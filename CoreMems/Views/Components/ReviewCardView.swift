@@ -20,7 +20,7 @@ struct ReviewCardView: View {
   @State private var dragOffset: CGSize = .zero
   @State private var zoomScale: CGFloat = 1.0
   @State private var showMetadata = false
-  @State private var showFolderPicker = false
+  @State private var showAlbumPicker = false
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
 
@@ -45,7 +45,10 @@ struct ReviewCardView: View {
             isFavorite: photo.isFavorite,
             containerSize: maxSize,
             onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
-            onAssignAlbum: { showFolderPicker = true }
+            onAssignAlbum: {
+              vm.prepareAlbumPicker(for: photo.id)
+              showAlbumPicker = true
+            }
           )
         }
       }
@@ -92,14 +95,12 @@ struct ReviewCardView: View {
     .sheet(isPresented: $showMetadata) {
       PhotoMetadataSheetView(vm: vm)
     }
-    .sheet(isPresented: $showFolderPicker) {
-      FolderPickerView(
-        folders: vm.folders,
-        assignedFolderIDs: photo.tagFolderIDs,
-        onToggle: { folderID in vm.toggleTag(photoID: photo.id, folderID: folderID) },
-        onCreate: { name, emoji in
-          vm.createFolder(name: name, emoji: emoji, assignToPhotoID: photo.id)
-        }
+    .sheet(isPresented: $showAlbumPicker) {
+      AlbumPickerView(
+        albums: vm.userAlbums + vm.pendingNewAlbums,
+        assignedRefs: vm.effectiveAlbums(for: photo.id),
+        onToggle: { ref in vm.toggleAlbumMembership(photoID: photo.id, ref: ref) },
+        onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: photo.id) }
       )
       .presentationDetents([.medium])
     }

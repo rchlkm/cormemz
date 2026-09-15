@@ -38,6 +38,20 @@ struct PendingReviewView: View {
 
       Spacer(minLength: 0)
 
+      if let albumAssignmentError = vm.albumAssignmentError {
+        VStack(spacing: 8) {
+          Text(albumAssignmentError)
+            .font(.footnote)
+            .foregroundStyle(.red)
+            .multilineTextAlignment(.center)
+          Button("Retry saving to albums") {
+            vm.retryAlbumAssignments()
+          }
+          .font(.footnote.weight(.semibold))
+        }
+        .padding(.horizontal, 26)
+      }
+
       Button {
         if hasItems {
           showConfirm = true
@@ -45,15 +59,23 @@ struct PendingReviewView: View {
           Task { await vm.confirmDeletion() }
         }
       } label: {
-        Text(
-          hasItems ? "Delete \(items.count) photo\(items.count == 1 ? "" : "s")" : "Finish session"
-        )
-        .font(.headline)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        if vm.isFlushingAlbums {
+          ProgressView()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        } else {
+          Text(
+            hasItems
+              ? "Delete \(items.count) photo\(items.count == 1 ? "" : "s")" : "Finish session"
+          )
+          .font(.headline)
+          .frame(maxWidth: .infinity)
+          .padding(.vertical, 14)
+        }
       }
       .buttonStyle(.borderedProminent)
       .tint(hasItems ? .red : .blue)
+      .disabled(vm.isFlushingAlbums)
       .padding(26)
     }
   }

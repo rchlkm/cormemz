@@ -82,19 +82,24 @@ struct RootView: View {
         vm.refreshAuthorizationStatus()
       }
     }
+    .onChange(of: vm.screen) { _, newScreen in
+      // Covers the retry-from-the-sheet path, where `confirmDeletion`
+      // is re-entered via `retryAlbumAssignments` instead of the
+      // sheet's own `onConfirm` closure.
+      if newScreen == .completion {
+        showConfirm = false
+      }
+    }
     .sheet(isPresented: $showConfirm) {
       ConfirmSheetView(
         count: vm.pendingItems.count,
         favoritesCount: vm.pendingItems.filter(\.isFavorite).count,
-        isDeleting: vm.isDeleting,
+        isDeleting: vm.isDeleting || vm.isFlushingAlbums,
         errorMessage: vm.deletionError,
+        albumErrorMessage: vm.albumAssignmentError,
         onCancel: { showConfirm = false },
-        onConfirm: {
-          Task {
-            await vm.confirmDeletion()
-            showConfirm = false
-          }
-        }
+        onConfirm: { Task { await vm.confirmDeletion() } },
+        onRetryAlbums: { vm.retryAlbumAssignments() }
       )
       .presentationDetents([.medium])
     }

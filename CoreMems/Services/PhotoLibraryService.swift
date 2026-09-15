@@ -49,6 +49,23 @@ protocol PhotoLibraryServicing {
   /// Presents Apple's native limited-library picker so a Limited
   /// Photos Access user can grant access to more photos in-app.
   func presentLimitedLibraryPicker(from viewController: UIViewController)
+
+  /// User-created albums only — `.album`/`.albumRegular` excludes
+  /// Favorites, Recently Deleted, Screenshots, and other smart albums.
+  func fetchUserAlbums() -> [AlbumOption]
+  /// For a session's asset identifiers, which existing albums each is
+  /// already in, keyed by `PHAsset.localIdentifier`.
+  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) -> [String:
+    Set<String>]
+  /// Commits staged album membership changes in a single
+  /// `PHPhotoLibrary.performChanges` transaction, independent of
+  /// `deleteAssets`. `assets` maps a session-scoped photoID to its
+  /// backing `PHAsset`.
+  func commitAlbumAssignments(
+    additions: [String: Set<AlbumRef>],
+    removals: [String: Set<String>],
+    assets: [String: PHAsset]
+  ) async -> Result<Void, Error>
 }
 
 final class PhotoLibraryService: PhotoLibraryServicing {
@@ -209,6 +226,106 @@ final class PhotoLibraryService: PhotoLibraryServicing {
       // Limited Library picker isn't available prior to iOS 15
     }
   }
+
+  func fetchUserAlbums() -> [AlbumOption] {
+    let options = PHFetchOptions()
+    options.sortDescriptors = [NSSortDescriptor(key: "localizedTitle", ascending: true)]
+    let result = PHAssetCollection.fetchAssetCollections(
+      with: .album, subtype: .albumRegular, options: options)
+    var albums: [AlbumOption] = []
+    result.enumerateObjects { collection, _, _ in
+      guard let title = collection.localizedTitle else { return }
+      albums.append(
+        AlbumOption(ref: .existing(localIdentifier: collection.localIdentifier), name: title))
+    }
+    return albums
+  }
+
+  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) -> [String:
+    Set<String>]
+  {
+    guard !assetIdentifiers.isEmpty else { return [:] }
+    var membership: [String: Set<String>] = [:]
+    for album in albums where album.ref.kind == .existing {
+      let albumID = album.ref.identifier
+      guard
+        let collection = PHAssetCollection.fetchAssetCollections(
+          withLocalIdentifiers: [albumID], options: nil
+        ).firstObject
+      else { continue }
+      let assetsInAlbum = PHAsset.fetchAssets(in: collection, options: nil)
+      assetsInAlbum.enumerateObjects { asset, _, _ in
+        guard assetIdentifiers.contains(asset.localIdentifier) else { return }
+        membership[asset.localIdentifier, default: []].insert(albumID)
+      }
+    }
+    return membership
+  }
+
+  func commitAlbumAssignments(
+    additions: [String: Set<AlbumRef>],
+    removals: [String: Set<String>],
+    assets: [String: PHAsset]
+  ) async -> Result<Void, Error> {
+    guard !additions.isEmpty || !removals.isEmpty else { return .success(()) }
+    do {
+      try await PHPhotoLibrary.shared().performChanges {
+        var assetsByExistingAddID: [String: [PHAsset]] = [:]
+        var assetsByTempID: [String: [PHAsset]] = [:]
+        var nameByTempID: [String: String] = [:]
+        for (photoID, refs) in additions {
+          guard let asset = assets[photoID] else { continue }
+          for ref in refs {
+            switch ref.kind {
+            case .existing:
+              assetsByExistingAddID[ref.identifier, default: []].append(asset)
+            case .pendingNew:
+              assetsByTempID[ref.identifier, default: []].append(asset)
+              nameByTempID[ref.identifier] = ref.name
+            }
+          }
+        }
+
+        var assetsByExistingRemoveID: [String: [PHAsset]] = [:]
+        for (photoID, ids) in removals {
+          guard let asset = assets[photoID] else { continue }
+          for id in ids {
+            assetsByExistingRemoveID[id, default: []].append(asset)
+          }
+        }
+
+        let existingIDs = Set(assetsByExistingAddID.keys).union(assetsByExistingRemoveID.keys)
+        let collections = PHAssetCollection.fetchAssetCollections(
+          withLocalIdentifiers: Array(existingIDs), options: nil)
+        var collectionsByID: [String: PHAssetCollection] = [:]
+        collections.enumerateObjects { collection, _, _ in
+          collectionsByID[collection.localIdentifier] = collection
+        }
+
+        for (tempID, albumAssets) in assetsByTempID {
+          guard let name = nameByTempID[tempID] else { continue }
+          let request = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
+            withTitle: name)
+          request.addAssets(albumAssets as NSArray)
+        }
+        for (id, albumAssets) in assetsByExistingAddID {
+          guard let collection = collectionsByID[id],
+            let request = PHAssetCollectionChangeRequest(for: collection)
+          else { continue }
+          request.addAssets(albumAssets as NSArray)
+        }
+        for (id, albumAssets) in assetsByExistingRemoveID {
+          guard let collection = collectionsByID[id],
+            let request = PHAssetCollectionChangeRequest(for: collection)
+          else { continue }
+          request.removeAssets(albumAssets as NSArray)
+        }
+      }
+      return .success(())
+    } catch {
+      return .failure(error)
+    }
+  }
 }
 
 /// In-memory fake used by SwiftUI previews and the Dev Panel preview
@@ -250,4 +367,16 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   }
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
+
+  func fetchUserAlbums() -> [AlbumOption] { [] }
+
+  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) -> [String:
+    Set<String>]
+  { [:] }
+
+  func commitAlbumAssignments(
+    additions: [String: Set<AlbumRef>],
+    removals: [String: Set<String>],
+    assets: [String: PHAsset]
+  ) async -> Result<Void, Error> { .success(()) }
 }

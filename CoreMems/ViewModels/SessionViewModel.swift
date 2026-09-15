@@ -21,11 +21,10 @@ final class SessionViewModel: ObservableObject {
   @Published var photos: [SessionPhoto] = []
   @Published var currentIndex: Int = 0
   @Published var history: [DecisionHistoryEntry] = []
-  @Published var folders: [Folder] = [
-    Folder(id: "doggo", name: "DOGGO", emoji: "🐶"),
-    Folder(id: "travel", name: "Travel", emoji: "✈️"),
-    Folder(id: "family", name: "Family", emoji: "👨‍👩‍👧"),
-  ]
+  @Published var userAlbums: [AlbumOption] = []  // real albums, fetched lazily
+  @Published var pendingNewAlbums: [AlbumOption] = []  // created-this-session, not yet flushed
+  @Published var albumAssignmentError: String?
+  @Published var isFlushingAlbums: Bool = false
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
   @Published var deletionError: String?
@@ -62,6 +61,10 @@ final class SessionViewModel: ObservableObject {
 
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  private var initialAlbumMembership: [String: Set<String>] = [:]  // photoID -> existing album IDs at first picker open
+  private var didLoadAlbumMembership = false
+  private var stagedAdditions: [String: Set<AlbumRef>] = [:]
+  private var stagedRemovals: [String: Set<String>] = [:]
   private let persistence: SessionPersisting
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
@@ -367,21 +370,79 @@ final class SessionViewModel: ObservableObject {
     photos[i].isFavorite.toggle()
   }
 
-  func toggleTag(photoID: String, folderID: String) {
-    guard let i = photos.firstIndex(where: { $0.id == photoID }) else { return }
-    if photos[i].tagFolderIDs.contains(folderID) {
-      photos[i].tagFolderIDs.remove(folderID)
-    } else {
-      photos[i].tagFolderIDs.insert(folderID)
+  // MARK: Album assignment
+
+  /// Lazily (once per session) loads real albums and this session's
+  /// existing membership in them. Call before presenting the album
+  /// picker — cheap to call repeatedly, only fetches once.
+  func prepareAlbumPicker(for photoID: String) {
+    guard !didLoadAlbumMembership else { return }
+    didLoadAlbumMembership = true
+    userAlbums = library.fetchUserAlbums()
+    let assetIDToPhotoID = Dictionary(
+      uniqueKeysWithValues: photos.map { ($0.assetIdentifier, $0.id) })
+    let membership = library.fetchAlbumMembership(
+      assetIdentifiers: Set(assetIDToPhotoID.keys), albums: userAlbums)
+    for (assetID, albumIDs) in membership {
+      guard let photoID = assetIDToPhotoID[assetID] else { continue }
+      initialAlbumMembership[photoID] = albumIDs
     }
   }
 
-  func createFolder(name: String, emoji: String, assignToPhotoID: String?) {
-    let folder = Folder(id: UUID().uuidString, name: name, emoji: emoji)
-    folders.append(folder)
-    if let photoID = assignToPhotoID {
-      toggleTag(photoID: photoID, folderID: folder.id)
+  /// The album picker's checkmark source — the real library's starting
+  /// membership merged with this session's staged additions/removals.
+  func effectiveAlbums(for photoID: String) -> Set<AlbumRef> {
+    var result = Set((initialAlbumMembership[photoID] ?? []).map(AlbumRef.existing))
+    if let removed = stagedRemovals[photoID] {
+      result.subtract(removed.map(AlbumRef.existing))
     }
+    if let added = stagedAdditions[photoID] {
+      result.formUnion(added)
+    }
+    return result
+  }
+
+  /// Toggles `ref` for `photoID`. Toggling an album the photo already
+  /// belonged to at session start (then back) collapses to a no-op
+  /// against the real library instead of accumulating a log of taps.
+  func toggleAlbumMembership(photoID: String, ref: AlbumRef) {
+    let wasInitialMember =
+      ref.kind == .existing && (initialAlbumMembership[photoID]?.contains(ref.identifier) ?? false)
+
+    if effectiveAlbums(for: photoID).contains(ref) {
+      // Turning off.
+      if wasInitialMember {
+        stagedRemovals[photoID, default: []].insert(ref.identifier)
+      } else {
+        stagedAdditions[photoID]?.remove(ref)
+        if stagedAdditions[photoID]?.isEmpty == true {
+          stagedAdditions.removeValue(forKey: photoID)
+        }
+      }
+    } else {
+      // Turning on.
+      if wasInitialMember {
+        stagedRemovals[photoID]?.remove(ref.identifier)
+        if stagedRemovals[photoID]?.isEmpty == true {
+          stagedRemovals.removeValue(forKey: photoID)
+        }
+      } else {
+        stagedAdditions[photoID, default: []].insert(ref)
+      }
+    }
+    persistState()
+  }
+
+  /// Creates a not-yet-real album, staying pickable for other photos
+  /// too (matching how the old shared folder list worked), optionally
+  /// staging it onto one photo right away.
+  func createPendingAlbum(name: String, assignToPhotoID: String?) {
+    let ref = AlbumRef.pendingNew(tempID: UUID().uuidString, name: name)
+    pendingNewAlbums.append(AlbumOption(ref: ref, name: name))
+    if let photoID = assignToPhotoID {
+      stagedAdditions[photoID, default: []].insert(ref)
+    }
+    persistState()
   }
 
   // MARK: Photo details
@@ -423,42 +484,85 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Confirm and Delete
 
-  /// Submits only the currently pending-delete assets
+  /// Submits the currently pending-delete assets and flushes staged
+  /// album assignments — two independent `performChanges` transactions.
+  /// Deletion always runs regardless of the album flush's outcome; only
+  /// the screen transition to `.completion` waits on both succeeding.
   func confirmDeletion() async {
     let toDelete = pendingItems
     let keptNow = keptCount
-    guard !toDelete.isEmpty else {
-      deletedCount = 0
-      haptics.sessionComplete()
-      screen = .completion
-      clearPersistedState()
-      recordSessionStats(kept: keptNow, deleted: 0)
-      return
+
+    async let albumsOK = flushAlbumAssignments()
+
+    if !toDelete.isEmpty {
+      isDeleting = true
+      deletionError = nil
+
+      let assets = toDelete.compactMap { pickedAssets[$0.id] }
+      let result = await library.deleteAssets(assets)
+
+      isDeleting = false
+
+      switch result {
+      case .success:
+        deletedCount = toDelete.count
+        let deletedIDs = Set(toDelete.map(\.id))
+        photos.removeAll { deletedIDs.contains($0.id) }
+        history.removeAll()  // reversible window closes here
+      case .failure(let error):
+        // Failed deletion must be surfaced without falsely reporting
+        // success, and must not corrupt unrelated session state
+        // (Invariant #5) — we simply leave `photos`/`history` untouched.
+        deletionError = error.localizedDescription
+      }
     }
 
-    isDeleting = true
-    deletionError = nil
+    guard await albumsOK else { return }  // error + retry surfaced; stay put
+    guard deletionError == nil else { return }  // existing behavior: leave user on screen
 
-    let assets = toDelete.compactMap { pickedAssets[$0.id] }
-    let result = await library.deleteAssets(assets)
+    haptics.sessionComplete()
+    screen = .completion
+    clearPersistedState()
+    recordSessionStats(kept: keptNow, deleted: deletedCount)
+  }
 
-    isDeleting = false
+  /// Flushes `stagedAdditions`/`stagedRemovals` in one transaction. On
+  /// success, staged state is cleared; on failure it's left untouched so
+  /// a retry is just calling this again with no other bookkeeping.
+  @discardableResult
+  private func flushAlbumAssignments() async -> Bool {
+    guard !stagedAdditions.isEmpty || !stagedRemovals.isEmpty else { return true }
+    isFlushingAlbums = true
+    albumAssignmentError = nil
+
+    let result = await library.commitAlbumAssignments(
+      additions: stagedAdditions, removals: stagedRemovals, assets: pickedAssets)
+
+    isFlushingAlbums = false
 
     switch result {
     case .success:
-      deletedCount = toDelete.count
-      let deletedIDs = Set(toDelete.map(\.id))
-      photos.removeAll { deletedIDs.contains($0.id) }
-      history.removeAll()  // reversible window closes here
+      stagedAdditions = [:]
+      stagedRemovals = [:]
+      persistState()
+      return true
+    case .failure(let error):
+      albumAssignmentError = error.localizedDescription
+      return false
+    }
+  }
+
+  /// Retry entry point for the album-assignment error banner — only
+  /// re-attempts the album flush; deletion (if any) already resolved in
+  /// the `confirmDeletion` call that produced the error.
+  func retryAlbumAssignments() {
+    Task {
+      guard await flushAlbumAssignments() else { return }
+      guard deletionError == nil else { return }
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
-      recordSessionStats(kept: keptNow, deleted: toDelete.count)
-    case .failure(let error):
-      // Failed deletion must be surfaced without falsely reporting
-      // success, and must not corrupt unrelated session state
-      // (Invariant #5) — we simply leave `photos`/`history` untouched.
-      deletionError = error.localizedDescription
+      recordSessionStats(kept: keptCount, deleted: deletedCount)
     }
   }
 
@@ -490,7 +594,10 @@ final class SessionViewModel: ObservableObject {
       historyPhotoIndices: history.map(\.photoIndex),
       historyPrevious: history.map(\.previousDecision.rawValue),
       historyNew: history.map(\.newDecision.rawValue),
-      historyAdvanced: history.map(\.advancedIndex)
+      historyAdvanced: history.map(\.advancedIndex),
+      albumAdditions: stagedAdditions,
+      albumRemovals: stagedRemovals,
+      pendingNewAlbumRefs: pendingNewAlbums.map(\.ref)
     )
     persistence.save(snapshot)
   }
@@ -510,6 +617,21 @@ final class SessionViewModel: ObservableObject {
       p.decision = ReviewDecision(rawValue: decisionRaw) ?? .undecided
       return p
     }
+    // Re-resolve real PHAssets so a resumed session's deletion and
+    // album flush have something to act on — without this, both would
+    // silently no-op against an empty `pickedAssets`.
+    let resolvedAssets = PHAsset.fetchAssets(
+      withLocalIdentifiers: snapshot.assetIdentifiers, options: nil)
+    var assetsByID: [String: PHAsset] = [:]
+    resolvedAssets.enumerateObjects { asset, _, _ in assetsByID[asset.localIdentifier] = asset }
+    for photo in photos {
+      if let asset = assetsByID[photo.assetIdentifier] {
+        pickedAssets[photo.id] = asset
+      }
+    }
+    stagedAdditions = snapshot.albumAdditions
+    stagedRemovals = snapshot.albumRemovals
+    pendingNewAlbums = snapshot.pendingNewAlbumRefs.map { AlbumOption(ref: $0, name: $0.name ?? "") }
     currentIndex = snapshot.currentIndex
     history = zip(
       snapshot.historyPhotoIndices,

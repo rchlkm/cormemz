@@ -12,6 +12,9 @@ struct PersistedSessionSnapshot: Codable {
   var historyPrevious: [String]
   var historyNew: [String]
   var historyAdvanced: [Bool]
+  var albumAdditions: [String: Set<AlbumRef>] = [:]  // photoID -> albums to add
+  var albumRemovals: [String: Set<String>] = [:]  // photoID -> existing album localIdentifiers to remove
+  var pendingNewAlbumRefs: [AlbumRef] = []  // session-created albums, kept pickable across a restart
 }
 
 protocol SessionPersisting {

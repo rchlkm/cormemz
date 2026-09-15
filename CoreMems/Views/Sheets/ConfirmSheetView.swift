@@ -5,8 +5,10 @@ struct ConfirmSheetView: View {
   let favoritesCount: Int
   let isDeleting: Bool
   let errorMessage: String?
+  let albumErrorMessage: String?
   let onCancel: () -> Void
   let onConfirm: () -> Void
+  let onRetryAlbums: () -> Void
 
   var body: some View {
     VStack(spacing: 18) {
@@ -35,6 +37,18 @@ struct ConfirmSheetView: View {
           .font(.footnote)
           .foregroundStyle(.red)
           .multilineTextAlignment(.center)
+      }
+
+      if let albumErrorMessage {
+        VStack(spacing: 6) {
+          Text(albumErrorMessage)
+            .font(.footnote)
+            .foregroundStyle(.red)
+            .multilineTextAlignment(.center)
+          Button("Retry saving to albums", action: onRetryAlbums)
+            .font(.footnote.weight(.semibold))
+            .disabled(isDeleting)
+        }
       }
 
       GeometryReader { geo in
