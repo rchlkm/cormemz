@@ -74,7 +74,7 @@ struct ReviewView: View {
 
       if let expandedPhoto {
         ExpandedPhotoView(
-          photo: expandedPhoto, namespace: heroNamespace, expandedPhoto: $expandedPhoto
+          photo: expandedPhoto, vm: vm, namespace: heroNamespace, expandedPhoto: $expandedPhoto
         )
         .ignoresSafeArea()
         .zIndex(1)
@@ -105,8 +105,6 @@ struct ReviewView: View {
   }
 }
 
-/// Open-ended session check-in, shown every `checkInInterval` photos so
-/// review never feels endless. Mirrors the mockup's `CheckpointOverlay`.
 private struct CheckInOverlayView: View {
   @Environment(\.colorScheme) private var colorScheme
   let reviewedCount: Int

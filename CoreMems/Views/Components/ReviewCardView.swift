@@ -67,7 +67,15 @@ struct ReviewCardView: View {
     .gesture(pinchToZoom)
     .overlay(alignment: .top) { topBar }
     .overlay(alignment: .bottomLeading) {
-      if photo.isLivePhoto { livePhotoBadge }
+      if photo.isLivePhoto {
+        LivePhotoBadgeView(
+          assetIdentifier: photo.assetIdentifier,
+          targetSize: CGSize(width: maxSize.width * 2, height: maxSize.height * 2),
+          inlineLivePhoto: $inlineLivePhoto,
+          isShowingLivePhoto: $isShowingLivePhoto,
+          onConvertToStill: { vm.convertLivePhotoToStill(photoID: photo.id) }
+        )
+      }
     }
     .overlay(alignment: .bottomTrailing) {
       infoBadge
@@ -144,28 +152,28 @@ struct ReviewCardView: View {
       }
   }
 
-  /// Tapping plays the Live Photo in place of the static image;
-  /// tapping again while playing reverts to it.
-  private var livePhotoBadge: some View {
-    Button {
-      if isShowingLivePhoto {
-        isShowingLivePhoto = false
-      } else {
-        let targetSize = CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
-        Task {
-          inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
-            for: photo.assetIdentifier, targetSize: targetSize)
-          isShowingLivePhoto = inlineLivePhoto != nil
-        }
-      }
-    } label: {
-      Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
-        .foregroundStyle(.white)
-        .padding(8)
-        .background(.black.opacity(0.55), in: Circle())
-    }
-    .padding(12)
-  }
+  // /// Tapping plays the Live Photo in place of the static image;
+  // /// tapping again while playing reverts to it.
+  // private var livePhotoBadge: some View {
+  //   Button {
+  //     if isShowingLivePhoto {
+  //       isShowingLivePhoto = false
+  //     } else {
+  //       let targetSize = CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
+  //       Task {
+  //         inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
+  //           for: photo.assetIdentifier, targetSize: targetSize)
+  //         isShowingLivePhoto = inlineLivePhoto != nil
+  //       }
+  //     }
+  //   } label: {
+  //     Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
+  //       .foregroundStyle(.white)
+  //       .padding(8)
+  //       .background(.black.opacity(0.55), in: Circle())
+  //   }
+  //   .padding(12)
+  // }
 
   private var infoBadge: some View {
     Button {

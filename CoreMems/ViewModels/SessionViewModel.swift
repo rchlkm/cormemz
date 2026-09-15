@@ -29,6 +29,8 @@ final class SessionViewModel: ObservableObject {
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
   @Published var deletionError: String?
+  @Published var isConvertingLivePhoto: Bool = false
+  @Published var livePhotoConversionError: String?
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
@@ -300,6 +302,41 @@ final class SessionViewModel: ObservableObject {
       {
         self.photos[currentIndex].isFavorite = !newValue
         self.persistState()
+      }
+    }
+  }
+
+  /// Converts a Live Photo to a plain still image in the user's library
+  /// (new asset created, original deleted afterward — see
+  /// `PhotoLibraryServicing.convertLivePhotoToStill`), then repoints this
+  /// photo's in-session identity at the new asset.
+  func convertLivePhotoToStill(photoID: String) {
+    guard
+      let index = photos.firstIndex(where: { $0.id == photoID }),
+      photos[index].isLivePhoto,
+      let asset = pickedAssets[photoID]
+    else { return }
+
+    isConvertingLivePhoto = true
+    livePhotoConversionError = nil
+
+    Task { @MainActor in
+      let result = await library.convertLivePhotoToStill(asset)
+      isConvertingLivePhoto = false
+
+      switch result {
+      case .success(let newIdentifier):
+        guard let currentIndex = self.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        self.photos[currentIndex].assetIdentifier = newIdentifier
+        self.photos[currentIndex].isLivePhoto = false
+        if let newAsset = PHAsset.fetchAssets(
+          withLocalIdentifiers: [newIdentifier], options: nil
+        ).firstObject {
+          self.pickedAssets[photoID] = newAsset
+        }
+        self.persistState()
+      case .failure(let error):
+        self.livePhotoConversionError = error.localizedDescription
       }
     }
   }

@@ -9,6 +9,7 @@ import SwiftUI
 /// played here too, in place of the static image.
 struct ExpandedPhotoView: View {
   let photo: SessionPhoto
+  @ObservedObject var vm: SessionViewModel
   var namespace: Namespace.ID
   @Binding var expandedPhoto: SessionPhoto?
 
@@ -48,7 +49,13 @@ struct ExpandedPhotoView: View {
         VStack {
           Spacer()
           HStack {
-            livePhotoBadge
+            LivePhotoBadgeView(
+              assetIdentifier: photo.assetIdentifier,
+              targetSize: UIScreen.main.bounds.size,
+              inlineLivePhoto: $inlineLivePhoto,
+              isShowingLivePhoto: $isShowingLivePhoto,
+              onConvertToStill: { vm.convertLivePhotoToStill(photoID: photo.id) }
+            )
             Spacer()
           }
         }
@@ -65,26 +72,6 @@ struct ExpandedPhotoView: View {
       LivePhotoPlayerView(livePhoto: inlineLivePhoto)
     } else {
       AdaptiveAssetImage(photo: photo, fitWithin: UIScreen.main.bounds.size)
-    }
-  }
-
-  private var livePhotoBadge: some View {
-    Button {
-      if isShowingLivePhoto {
-        isShowingLivePhoto = false
-      } else {
-        Task {
-          inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
-            for: photo.assetIdentifier, targetSize: UIScreen.main.bounds.size)
-          isShowingLivePhoto = inlineLivePhoto != nil
-        }
-      }
-    } label: {
-      Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
-        .font(.system(size: 18))
-        .foregroundStyle(.white)
-        .padding(10)
-        .background(.black.opacity(0.55), in: Circle())
     }
   }
 

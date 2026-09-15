@@ -19,7 +19,7 @@ enum SelectionMode: String, Equatable, CaseIterable {
 /// stand in for whatever thumbnail source you're using in the prototype.
 struct SessionPhoto: Identifiable, Equatable {
   let id: String  // stable within-session identifier
-  let assetIdentifier: String  // PHAsset.localIdentifier in production
+  var assetIdentifier: String  // PHAsset.localIdentifier in production
   let previewURL: URL?
   var decision: ReviewDecision = .undecided
   var isFavorite: Bool = false
