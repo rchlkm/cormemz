@@ -32,6 +32,22 @@ final class SessionViewModel: ObservableObject {
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
+  /// How many photos pass between check-in overlays during review.
+  /// Persisted directly via `UserDefaults` — too small a setting to
+  /// warrant its own file-backed service.
+  @Published var checkInInterval: Int {
+    didSet {
+      UserDefaults.standard.set(checkInInterval, forKey: Self.checkInIntervalDefaultsKey)
+    }
+  }
+  static let checkInIntervalRange = 5...100
+  private static let checkInIntervalDefaultsKey = "cm_checkInInterval"
+  private static let defaultCheckInInterval = 12
+
+  /// Describes how the active session's photos were selected, shown as
+  /// a subtitle under the review progress line. `nil` for `.shuffle`.
+  @Published var sessionLabel: String?
+
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
@@ -71,6 +87,12 @@ final class SessionViewModel: ObservableObject {
     self.haptics = haptics
     self.metadataService = metadataService
     self.statsStore = statsStore
+    let storedInterval =
+      UserDefaults.standard.object(forKey: Self.checkInIntervalDefaultsKey) as? Int
+    self.checkInInterval =
+      storedInterval.map {
+        min(max($0, Self.checkInIntervalRange.lowerBound), Self.checkInIntervalRange.upperBound)
+      } ?? Self.defaultCheckInInterval
     restoreIfInterrupted()
   }
 
@@ -139,10 +161,11 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Session lifecycle
 
-  /// Request/confirm authorization, fetch real assets,
-  /// or fall back to mock data when running in previews
-  /// simulator without a populated library.
-  func startSession(requestedSize: Int) async {
+  /// Request/confirm authorization, fetch real assets via the method
+  /// matching `mode`, or fall back to mock data when running in
+  /// previews/simulator without a populated library. Every session is
+  /// capped only by `maxAvailable` — there's no separate requested size.
+  func startSession(mode: SelectionMode, startDate: Date?) async {
     let status = await checkAuthorization()
     guard status == .authorized || status == .limited else {
       // Denied/restricted — bounce back to Home, where
@@ -152,12 +175,21 @@ final class SessionViewModel: ObservableObject {
       return
     }
 
-    let capped = min(requestedSize, max(maxAvailable, 0))
-    let assets = await library.fetchRandomEligibleAssets(limit: capped)
+    let limit = max(maxAvailable, 0)
+    let assets: [PHAsset]
+    switch mode {
+    case .shuffle:
+      assets = await library.fetchRandomEligibleAssets(limit: limit)
+    case .recent:
+      assets = await library.fetchMostRecentEligibleAssets(limit: limit)
+    case .date:
+      let sinceDate = startDate ?? .distantPast
+      assets = Array(await library.fetchEligibleAssets(since: sinceDate).prefix(limit))
+    }
 
     if assets.isEmpty {
       // Preview/mock path — generates placeholder SessionPhoto data.
-      photos = Self.mockPhotos(count: capped)
+      photos = Self.mockPhotos(count: limit)
     } else {
       photos = assets.enumerated().map { idx, asset in
         let id = "\(asset.localIdentifier)-\(idx)"
@@ -173,11 +205,29 @@ final class SessionViewModel: ObservableObject {
       }
     }
 
+    switch mode {
+    case .shuffle:
+      sessionLabel = nil
+    case .recent:
+      sessionLabel = "Most recent first"
+    case .date:
+      sessionLabel = startDate.map { "Since \(Self.cardDateFormatter.string(from: $0))" }
+    }
+
     currentIndex = 0
     history = []
     deletedCount = 0
     screen = .review
     prefetchNextPhoto()
+    persistState()
+  }
+
+  /// Jumps straight to Pending Review regardless of how many photos are
+  /// left — the check-in overlay's "I'm done for now" and the review
+  /// top bar's Done button both go through here.
+  func finishEarly() {
+    guard screen == .review else { return }
+    screen = .pendingReview
     persistState()
   }
 
@@ -438,21 +488,25 @@ final class SessionViewModel: ObservableObject {
 
 #if DEBUG
   extension SessionViewModel {
-    /// Helper method specifically for configuring state in SwiftUI Previews
+    /// Configures a `SessionViewModel` for SwiftUI Previews. Every
+    /// parameter maps directly onto published state. `maxAvailable` and
+    /// `keptCount` are computed properties and can't be set directly —
+    /// drive them by passing `eligiblePhotoCount` and a `photos` array
+    /// (e.g. via `mockPhotos(count:)`) instead.
     static func mock(
       screen: AppScreen = .home,
       isAccessDenied: Bool = false,
       eligiblePhotoCount: Int = 100,
-      maxAvailable: Int = 500,
-      keptCount: Int = 0,
+      photos: [SessionPhoto] = [],
+      currentIndex: Int = 0,
       deletedCount: Int = 0
     ) -> SessionViewModel {
       let vm = SessionViewModel()
       vm.screen = screen
       vm.authorizationStatus = isAccessDenied ? .denied : .authorized
       vm.eligiblePhotoCount = eligiblePhotoCount
-      //      vm.maxAvailable = maxAvailable
-      //      vm.keptCount = keptCount
+      vm.photos = photos
+      vm.currentIndex = currentIndex
       vm.deletedCount = deletedCount
       return vm
     }

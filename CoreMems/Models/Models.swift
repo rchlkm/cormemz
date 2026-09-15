@@ -7,6 +7,13 @@ enum ReviewDecision: String, Equatable {
   case pendingDelete
 }
 
+/// How a session's photos are selected from the library.
+enum SelectionMode: String, Equatable, CaseIterable {
+  case shuffle
+  case recent
+  case date
+}
+
 /// A single photo in a review session. In production `assetIdentifier`
 /// maps to a `PHAsset.localIdentifier`; `previewImageName`/`previewURL`
 /// stand in for whatever thumbnail source you're using in the prototype.

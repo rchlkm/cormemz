@@ -1,3 +1,4 @@
+// CoreMems/App/CoreMemsApp.swift
 import Photos
 import SwiftUI
 
@@ -53,8 +54,9 @@ struct RootView: View {
             vm.screen = .setup
           }
         case .setup:
-          SetupView(maxAvailable: vm.maxAvailable) { size in
-            Task { await vm.startSession(requestedSize: size) }
+          SetupView(maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval) {
+            mode, startDate in
+            Task { await vm.startSession(mode: mode, startDate: startDate) }
           } onBack: {
             vm.screen = .home
           }

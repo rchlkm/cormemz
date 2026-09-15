@@ -1,3 +1,4 @@
+// CoreMems/Services/PhotoLibraryService.swift
 import Photos
 import PhotosUI
 import UIKit
@@ -9,6 +10,10 @@ protocol PhotoLibraryServicing {
 
   /// Fetches up to 'limit' eligible (image-only) assets
   func fetchRandomEligibleAssets(limit: Int) async -> [PHAsset]
+  /// Fetches up to 'limit' eligible assets, most recently created first
+  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset]
+  /// Fetches eligible assets created at or after 'since', oldest first
+  func fetchEligibleAssets(since: Date) async -> [PHAsset]
   func totalEligibleAssetCount() -> Int
 
   /// Submits confirmed assets for deletion via
@@ -45,6 +50,33 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     guard !all.isEmpty else { return [] }
     let count = min(limit, all.count)
     return Array(all.shuffled().prefix(count))
+  }
+
+  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset] {
+    let options = PHFetchOptions()
+    options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+    options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+    options.fetchLimit = limit
+
+    let result = PHAsset.fetchAssets(with: options)
+    var assets: [PHAsset] = []
+    assets.reserveCapacity(result.count)
+    result.enumerateObjects { asset, _, _ in assets.append(asset) }
+    return assets
+  }
+
+  func fetchEligibleAssets(since: Date) async -> [PHAsset] {
+    let options = PHFetchOptions()
+    options.predicate = NSPredicate(
+      format: "mediaType == %d AND creationDate >= %@",
+      PHAssetMediaType.image.rawValue, since as NSDate)
+    options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+
+    let result = PHAsset.fetchAssets(with: options)
+    var assets: [PHAsset] = []
+    assets.reserveCapacity(result.count)
+    result.enumerateObjects { asset, _, _ in assets.append(asset) }
+    return assets
   }
 
   func totalEligibleAssetCount() -> Int {
@@ -85,6 +117,18 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func currentAuthorizationStatus() -> PHAuthorizationStatus { mockAuthStatus }
 
   func fetchRandomEligibleAssets(limit: Int) async -> [PHAsset] {
+    // Previews/mocks never touch real PHAssets — callers should
+    // prefer 'SessionViewModel''s mock photo generator instead.
+    []
+  }
+
+  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset] {
+    // Previews/mocks never touch real PHAssets — callers should
+    // prefer 'SessionViewModel''s mock photo generator instead.
+    []
+  }
+
+  func fetchEligibleAssets(since: Date) async -> [PHAsset] {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.
     []

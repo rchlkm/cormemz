@@ -1,182 +1,185 @@
+// CoreMems/Views/Screens/SetupView.swift
 import SwiftUI
-
-struct OptionItem {
-  let count: Int
-  let title: String
-  let subtitle: String
-  let badge: String?
-}
 
 struct SetupView: View {
   let maxAvailable: Int
-  let onStart: (Int) -> Void
+  @Binding var checkInInterval: Int
+  let onStart: (SelectionMode, Date?) -> Void
   let onBack: () -> Void
 
-  private let presetOptions: [OptionItem] = [
-    OptionItem(count: 12, title: "12 photos", subtitle: "About a minute", badge: "Easy start"),
-    OptionItem(count: 25, title: "25 photos", subtitle: "A few minutes", badge: nil),
-  ]
+  @State private var mode: SelectionMode = .shuffle
+  @State private var selectedDate: Date?
+  @State private var showCheckInSettings = false
 
-  @State private var selectedCount: Int? = 12
-  @State private var customInputText: String = ""
-  @FocusState private var isCustomFieldFocused: Bool
+  private var canStart: Bool { mode != .date || selectedDate != nil }
 
-  private var effectiveCount: Int {
-    if let selectedCount { return selectedCount }
-    let parsed = Int(customInputText) ?? 0
-    return parsed > 0 ? parsed : 10
+  private var startButtonTitle: String {
+    mode == .date && selectedDate == nil ? "Pick a date to start" : "Start"
   }
-
-  private var capped: Int { min(effectiveCount, maxAvailable) }
-  private var shrunk: Bool { capped < effectiveCount }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      TopBar(title: "New session", onBack: onBack)
+      TopBar(
+        title: "New session",
+        onBack: onBack,
+        trailing: AnyView(checkInSettingsButton)
+      )
 
-      VStack(alignment: .leading, spacing: 8) {
-        Text("How many to review?")
-          .font(.system(size: 28, weight: .bold))
-        Text("You can always stop whenever")
-          .font(.system(size: 15))
-          .foregroundColor(.secondary)
+      VStack(alignment: .leading, spacing: 20) {
+        modePicker
+
+        VStack(alignment: .leading, spacing: 8) {
+          Text(mode.heading)
+            .font(.system(size: 28, weight: .bold))
+          Text("You can always stop whenever — nothing's deleted until the end.")
+            .font(.system(size: 15))
+            .foregroundColor(.secondary)
+        }
+
+        if mode == .date {
+          datePicker
+        } else {
+          Text(mode.blurb)
+            .font(.system(size: 13.5))
+            .foregroundColor(.secondary)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+              Color(uiColor: .secondarySystemGroupedBackground),
+              in: RoundedRectangle(cornerRadius: 16))
+        }
       }
       .padding(.horizontal, 24)
       .padding(.top, 24)
 
-      VStack(spacing: 12) {
-        ForEach(presetOptions, id: \.count) { option in
-          presetRow(option, isSelected: selectedCount == option.count)
-        }
-        customRow
-      }
-      .padding(.horizontal, 24)
-      .padding(.top, 28)
-
-      if shrunk {
-        Text(
-          "Only \(maxAvailable) eligible photo\(maxAvailable == 1 ? "" : "s") available right now — the session will use \(capped) instead."
-        )
+      Text("The session adjusts quietly if fewer photos are available.")
         .font(.footnote)
         .foregroundStyle(.secondary)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, 26)
         .padding(.top, 14)
-      }
 
       Spacer()
 
-      Button("Start") { onStart(capped) }
-        .buttonStyle(PrimaryActionButtonStyle())
+      Button(startButtonTitle) {
+        onStart(mode, mode == .date ? selectedDate : nil)
+      }
+      .buttonStyle(PrimaryActionButtonStyle())
+      .disabled(!canStart)
+      .opacity(canStart ? 1 : 0.5)
+    }
+    .sheet(isPresented: $showCheckInSettings) {
+      CheckInSettingsView(value: $checkInInterval)
     }
   }
 
-  // MARK: - Preset row (plain, no TextField → safe as a real Button)
-  private func presetRow(_ option: OptionItem, isSelected: Bool) -> some View {
+  // MARK: - Check-in settings entry point
+  private var checkInSettingsButton: some View {
     Button {
-      selectedCount = option.count
-      isCustomFieldFocused = false
+      showCheckInSettings = true
     } label: {
-      HStack(spacing: 16) {
-        Text("\(option.count)")
-          .font(.system(size: 16, weight: .bold))
-          .frame(width: 44, height: 44)
-          .background(innerBoxColor(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 10))
-
-        VStack(alignment: .leading, spacing: 2) {
-          Text(option.title).font(.system(size: 17, weight: .semibold))
-          Text(option.subtitle)
-            .font(.system(size: 14))
-            .foregroundColor(secondaryTextColor(isSelected: isSelected))
-        }
-
-        Spacer()
-
-        if let badge = option.badge {
-          Text(badge)
-            .font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(innerBoxColor(isSelected: isSelected), in: Capsule())
-        }
+      HStack(spacing: 4) {
+        Image(systemName: "slider.horizontal.3")
+        Text("Every \(checkInInterval)")
       }
+      .font(.system(size: 12.5, weight: .semibold))
+      .foregroundStyle(.secondary)
     }
-    .buttonStyle(CardButtonStyle(isSelected: isSelected))
   }
 
-  // MARK: - Custom row
-  private var customRow: some View {
-    let isCustomSelected = selectedCount == nil
-
-    return HStack(spacing: 16) {
-      ZStack {
-        Image(systemName: "number")
-          .opacity(isCustomSelected ? 0 : 1)
-        TextField("", text: $customInputText)
-          .keyboardType(.numberPad)
-          .multilineTextAlignment(.center)
-          .focused($isCustomFieldFocused)
-          .opacity(isCustomSelected ? 1 : 0)
-          .allowsHitTesting(isCustomSelected)
+  // MARK: - Mode picker (3-card row)
+  private var modePicker: some View {
+    HStack(spacing: 8) {
+      ForEach(SelectionMode.allCases, id: \.self) { candidate in
+        modeCard(candidate)
       }
-      .font(.system(size: 16, weight: .bold))
-      .frame(width: 44, height: 44)
-      .background(
-        innerBoxColor(isSelected: isCustomSelected), in: RoundedRectangle(cornerRadius: 10))
-
-      VStack(alignment: .leading, spacing: 2) {
-        Text("Custom amount").font(.system(size: 17, weight: .semibold))
-        Text(
-          isCustomSelected
-            ? (customInputText.isEmpty ? "Type a number" : "\(capped) photos selected")
-            : "Choose your own limit"
-        )
-        .font(.system(size: 14))
-        .foregroundColor(secondaryTextColor(isSelected: isCustomSelected))
-      }
-
-      Spacer()
     }
-    .padding(16)
-    .background(isCustomSelected ? (Color(.label).opacity(0.0)) : Color.clear)  // keep row static, CardButtonStyle handled below
-    .modifier(RowCardBackground(isSelected: isCustomSelected))
-    .contentShape(Rectangle())
-    .onTapGesture {
-      // Tapping the row (outside the TextField) selects "custom" mode.
-      // The TextField sits on top and handles its own taps for focus.
-      if !isCustomSelected {
-        selectedCount = nil
-        isCustomFieldFocused = true
+  }
+
+  private func modeCard(_ candidate: SelectionMode) -> some View {
+    Button {
+      mode = candidate
+    } label: {
+      VStack(spacing: 4) {
+        Text(candidate.icon)
+          .font(.system(size: 18))
+        Text(candidate.label)
+          .font(.system(size: 12, weight: .bold))
       }
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 11)
+    }
+    .buttonStyle(CardButtonStyle(isSelected: mode == candidate))
+  }
+
+  // MARK: - Date picker ("From a Date" mode)
+  private var datePicker: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("STARTING ON")
+        .font(.system(size: 12, weight: .bold))
+        .foregroundColor(.secondary)
+
+      DatePicker(
+        "Starting on",
+        selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
+        in: ...Date(),
+        displayedComponents: .date
+      )
+      .labelsHidden()
+      .datePickerStyle(.compact)
+
+      Text(SelectionMode.date.blurb)
+        .font(.system(size: 12.5))
+        .foregroundColor(.secondary)
     }
   }
 }
 
-/// Same visual treatment as `CardButtonStyle`, but usable outside a
-/// `Button` so it can wrap a row that also contains a `TextField`.
-private struct RowCardBackground: ViewModifier {
-  @Environment(\.colorScheme) private var colorScheme
-  let isSelected: Bool
-
-  func body(content: Content) -> some View {
-    content
-      .background(background, in: RoundedRectangle(cornerRadius: 20))
-      .foregroundColor(isSelected ? (colorScheme == .dark ? .black : .white) : .primary)
-      .animation(.snappy(duration: 0.2), value: isSelected)
+/// Setup-screen display text for each selection mode.
+extension SelectionMode {
+  fileprivate var icon: String {
+    switch self {
+    case .shuffle: return "🔀"
+    case .recent: return "🕒"
+    case .date: return "📅"
+    }
   }
 
-  private var background: Color {
-    if isSelected { return colorScheme == .dark ? .white : .black }
-    return colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : .white
+  fileprivate var label: String {
+    switch self {
+    case .shuffle: return "Shuffle"
+    case .recent: return "Most Recent"
+    case .date: return "From a Date"
+    }
+  }
+
+  fileprivate var heading: String {
+    switch self {
+    case .shuffle: return "Shuffle and review"
+    case .recent: return "Review your most recent photos"
+    case .date: return "Review from a specific date"
+    }
+  }
+
+  fileprivate var blurb: String {
+    switch self {
+    case .shuffle:
+      return "Pulls random photos from your whole library, one at a time."
+    case .recent:
+      return "Starts with today and works backward through your library."
+    case .date:
+      return
+        "Reviews everything from that day forward, oldest first — handy for picking up right where a trip started."
+    }
   }
 }
 
 #Preview("Light Mode") {
-  SetupView(maxAvailable: 200, onStart: { _ in }, onBack: {})
+  SetupView(maxAvailable: 200, checkInInterval: .constant(12), onStart: { _, _ in }, onBack: {})
     .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
-  SetupView(maxAvailable: 200, onStart: { _ in }, onBack: {})
+  SetupView(maxAvailable: 200, checkInInterval: .constant(12), onStart: { _, _ in }, onBack: {})
     .preferredColorScheme(.dark)
 }

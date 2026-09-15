@@ -6,6 +6,8 @@ struct ReviewView: View {
 
   @State private var showTray = false
   @State private var expandedPhoto: SessionPhoto?
+  @State private var showCheckIn = false
+  @State private var lastCheckInIndex = -1
   @Namespace private var heroNamespace
 
   private var current: SessionPhoto? {
@@ -19,14 +21,25 @@ struct ReviewView: View {
           title: "",
           onBack: { vm.exitToHome() },
           trailing: AnyView(
-            DeletionTrayButton(pendingCount: vm.pendingItems.count) { showTray = true }
+            HStack(spacing: 12) {
+              DeletionTrayButton(pendingCount: vm.pendingItems.count) { showTray = true }
+              Button("Done") { vm.finishEarly() }
+                .font(.system(size: 15, weight: .semibold))
+            }
           )
         )
 
-        Text("Photo \(min(vm.currentIndex + 1, vm.photos.count)) of \(vm.photos.count)")
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(.tertiary)
-          .padding(.bottom, 4)
+        VStack(spacing: 2) {
+          Text("\(vm.currentIndex) reviewed")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+          if let sessionLabel = vm.sessionLabel {
+            Text(sessionLabel)
+              .font(.caption2)
+              .foregroundStyle(.tertiary)
+          }
+        }
+        .padding(.bottom, 4)
 
         ZStack {
           if let current {
@@ -66,6 +79,79 @@ struct ReviewView: View {
         .ignoresSafeArea()
         .zIndex(1)
       }
+
+      if showCheckIn {
+        CheckInOverlayView(
+          reviewedCount: vm.currentIndex,
+          onContinue: { showCheckIn = false },
+          onDone: {
+            showCheckIn = false
+            vm.finishEarly()
+          }
+        )
+        .zIndex(2)
+      }
+    }
+    .onChange(of: vm.currentIndex) { _, newIndex in
+      guard
+        newIndex > 0,
+        newIndex % vm.checkInInterval == 0,
+        newIndex < vm.photos.count,
+        lastCheckInIndex != newIndex
+      else { return }
+      lastCheckInIndex = newIndex
+      showCheckIn = true
+    }
+  }
+}
+
+/// Open-ended session check-in, shown every `checkInInterval` photos so
+/// review never feels endless. Mirrors the mockup's `CheckpointOverlay`.
+private struct CheckInOverlayView: View {
+  @Environment(\.colorScheme) private var colorScheme
+  let reviewedCount: Int
+  let onContinue: () -> Void
+  let onDone: () -> Void
+
+  var body: some View {
+    ZStack {
+      Color.black.opacity(0.42)
+        .ignoresSafeArea()
+
+      VStack(spacing: 14) {
+        Text("👀")
+          .font(.system(size: 30))
+        Text("\(reviewedCount) photos reviewed")
+          .font(.system(size: 18, weight: .bold))
+        Text("Keep going, or call it here for now — your decisions are already saved.")
+          .font(.system(size: 13.5))
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+
+        Button(action: onContinue) {
+          Text("Keep going")
+            .font(.system(size: 16, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .foregroundColor(colorScheme == .dark ? .black : .white)
+        .background(
+          colorScheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: 14)
+        )
+
+        Button(action: onDone) {
+          Text("I'm done for now")
+            .font(.system(size: 16, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .foregroundColor(.primary)
+        .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+      }
+      .padding(24)
+      .frame(maxWidth: 300)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+      .shadow(radius: 24)
     }
   }
 }
