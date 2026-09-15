@@ -1,19 +1,17 @@
 // CoreMems/Views/Components/PhotoActionRailView.swift
 import SwiftUI
 
-/// Floating rail of photo-editing actions — favorite, album, caption,
-/// keywords — meant to sit on top of a review card. The host positions
-/// it outside the card's swipe-transform layer so swiping the photo
-/// never moves it; this view only handles the person dragging it to a
-/// new spot themselves.
-///
-/// Caption and keyword tagging have no backing feature yet, so those
-/// buttons render dimmed and don't respond to taps.
+/// Floating rail of photo-editing actions — favorite, album, show in
+/// Photos, caption, keywords — meant to sit on top of a review card.
+/// The host positions it outside the card's swipe-transform layer so
+/// swiping the photo never moves it; this view only handles the
+/// person dragging it to a new spot themselves.
 struct PhotoActionRailView: View {
   let isFavorite: Bool
   let containerSize: CGSize
   let onToggleFavorite: () -> Void
   let onAssignAlbum: () -> Void
+  let onShowInPhotos: () -> Void
 
   /// Position, as an offset from the default (trailing edge, vertically
   /// centered) spot. Lives for as long as this view does — it isn't
@@ -34,7 +32,7 @@ struct PhotoActionRailView: View {
       )
       actionRailButton(systemImage: "folder.badge.plus", tint: .white, action: onAssignAlbum)
       actionRailButton(systemImage: "text.bubble", tint: .white, enabled: false) {}
-      actionRailButton(systemImage: "tag", tint: .white, enabled: false) {}
+      actionRailButton(systemImage: "arrow.up.forward.app", tint: .white, action: onShowInPhotos)
       Image(systemName: "line.3.horizontal")
         .font(.system(size: 11, weight: .semibold))
         .foregroundStyle(.white.opacity(0.45))

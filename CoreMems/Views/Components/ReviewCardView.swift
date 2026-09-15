@@ -45,7 +45,8 @@ struct ReviewCardView: View {
             isFavorite: photo.isFavorite,
             containerSize: maxSize,
             onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
-            onAssignAlbum: { showFolderPicker = true }
+            onAssignAlbum: { showFolderPicker = true },
+            onShowInPhotos: { vm.showInPhotosApp(assetIdentifier: photo.assetIdentifier) }
           )
         }
       }
@@ -151,29 +152,6 @@ struct ReviewCardView: View {
         dragOffset = .zero
       }
   }
-
-  // /// Tapping plays the Live Photo in place of the static image;
-  // /// tapping again while playing reverts to it.
-  // private var livePhotoBadge: some View {
-  //   Button {
-  //     if isShowingLivePhoto {
-  //       isShowingLivePhoto = false
-  //     } else {
-  //       let targetSize = CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
-  //       Task {
-  //         inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
-  //           for: photo.assetIdentifier, targetSize: targetSize)
-  //         isShowingLivePhoto = inlineLivePhoto != nil
-  //       }
-  //     }
-  //   } label: {
-  //     Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
-  //       .foregroundStyle(.white)
-  //       .padding(8)
-  //       .background(.black.opacity(0.55), in: Circle())
-  //   }
-  //   .padding(12)
-  // }
 
   private var infoBadge: some View {
     Button {

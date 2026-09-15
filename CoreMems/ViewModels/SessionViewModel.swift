@@ -341,6 +341,19 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  /// Opens the Photos app directly to the asset behind this photo,
+  /// via the `photos-redirect://` URL scheme.
+  /// Mock/preview asset identifiers don't resolve to anything,
+  /// so this silently no-opp like opening any other unresolvable URL.
+  func showInPhotosApp(assetIdentifier: String) {
+    let uuid = assetIdentifier.components(separatedBy: "/").first ?? assetIdentifier
+    guard let url = URL(string: "photos-redirect://\(uuid)") else { return }
+    print("showInPhotosApp url", url)
+    Task { @MainActor in
+      UIApplication.shared.open(url)
+    }
+  }
+
   /// Restores any number of pending-delete photos to Keep
   /// powers the Deletion Tray and the end-of-session multi-select grid.
   func restoreMany(ids: [String]) {
