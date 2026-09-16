@@ -25,6 +25,7 @@ final class SessionViewModel: ObservableObject {
   @Published var pendingNewAlbums: [AlbumOption] = []  // created-this-session, not yet flushed
   @Published var albumAssignmentError: String?
   @Published var isFlushingAlbums: Bool = false
+  @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
   @Published var deletionError: String?
@@ -61,10 +62,13 @@ final class SessionViewModel: ObservableObject {
 
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
-  private var initialAlbumMembership: [String: Set<String>] = [:]  // photoID -> existing album IDs at first picker open
+  // @Published (despite being private) so toggling membership triggers
+  // objectWillChange — the album picker's checkmarks read these
+  // indirectly via `effectiveAlbums(for:)`.
+  @Published private var initialAlbumMembership: [String: Set<String>] = [:]  // photoID -> existing album IDs at first picker open
   private var didLoadAlbumMembership = false
-  private var stagedAdditions: [String: Set<AlbumRef>] = [:]
-  private var stagedRemovals: [String: Set<String>] = [:]
+  @Published private var stagedAdditions: [String: Set<AlbumRef>] = [:]
+  @Published private var stagedRemovals: [String: Set<String>] = [:]
   private let persistence: SessionPersisting
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
@@ -222,6 +226,14 @@ final class SessionViewModel: ObservableObject {
     currentIndex = 0
     history = []
     deletedCount = 0
+    userAlbums = []
+    pendingNewAlbums = []
+    albumAssignmentError = nil
+    albumAssignedCount = 0
+    initialAlbumMembership = [:]
+    didLoadAlbumMembership = false
+    stagedAdditions = [:]
+    stagedRemovals = [:]
     screen = .review
     prefetchNextPhoto()
     persistState()
@@ -430,6 +442,7 @@ final class SessionViewModel: ObservableObject {
         stagedAdditions[photoID, default: []].insert(ref)
       }
     }
+    refreshPendingAlbumCounts()
     persistState()
   }
 
@@ -442,7 +455,17 @@ final class SessionViewModel: ObservableObject {
     if let photoID = assignToPhotoID {
       stagedAdditions[photoID, default: []].insert(ref)
     }
+    refreshPendingAlbumCounts()
     persistState()
+  }
+
+  /// Keeps each pending album's displayed count in sync with how many
+  /// photos are currently staged into it this session.
+  private func refreshPendingAlbumCounts() {
+    for i in pendingNewAlbums.indices {
+      let ref = pendingNewAlbums[i].ref
+      pendingNewAlbums[i].assetCount = stagedAdditions.values.filter { $0.contains(ref) }.count
+    }
   }
 
   // MARK: Photo details
@@ -542,8 +565,10 @@ final class SessionViewModel: ObservableObject {
 
     switch result {
     case .success:
+      albumAssignedCount = stagedAdditions.keys.count
       stagedAdditions = [:]
       stagedRemovals = [:]
+      pendingNewAlbums = []
       persistState()
       return true
     case .failure(let error):
@@ -631,7 +656,10 @@ final class SessionViewModel: ObservableObject {
     }
     stagedAdditions = snapshot.albumAdditions
     stagedRemovals = snapshot.albumRemovals
-    pendingNewAlbums = snapshot.pendingNewAlbumRefs.map { AlbumOption(ref: $0, name: $0.name ?? "") }
+    pendingNewAlbums = snapshot.pendingNewAlbumRefs.map {
+      AlbumOption(ref: $0, name: $0.name ?? "")
+    }
+    refreshPendingAlbumCounts()
     currentIndex = snapshot.currentIndex
     history = zip(
       snapshot.historyPhotoIndices,

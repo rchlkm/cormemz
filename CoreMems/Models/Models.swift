@@ -60,6 +60,11 @@ struct AlbumRef: Hashable, Codable {
 struct AlbumOption: Identifiable, Equatable {
   let ref: AlbumRef
   let name: String
+  /// For `.existing`, the album's real photo count at fetch time
+  /// (`PHAssetCollection.estimatedAssetCount`). For `.pendingNew`, kept
+  /// live by `SessionViewModel` as photos are staged into it this
+  /// session. `nil` when unknown.
+  var assetCount: Int? = nil
   var id: AlbumRef { ref }
 }
 

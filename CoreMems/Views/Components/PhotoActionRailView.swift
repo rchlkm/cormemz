@@ -34,7 +34,6 @@ struct PhotoActionRailView: View {
       )
       actionRailButton(systemImage: "folder.badge.plus", tint: .white, action: onAssignAlbum)
       actionRailButton(systemImage: "text.bubble", tint: .white, enabled: false) {}
-      actionRailButton(systemImage: "tag", tint: .white, enabled: false) {}
       Image(systemName: "line.3.horizontal")
         .font(.system(size: 11, weight: .semibold))
         .foregroundStyle(.white.opacity(0.45))

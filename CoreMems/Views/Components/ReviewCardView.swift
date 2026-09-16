@@ -102,7 +102,8 @@ struct ReviewCardView: View {
         onToggle: { ref in vm.toggleAlbumMembership(photoID: photo.id, ref: ref) },
         onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: photo.id) }
       )
-      .presentationDetents([.medium])
+      .presentationDetents([.medium, .large])
+      .presentationDragIndicator(.visible)
     }
   }
 

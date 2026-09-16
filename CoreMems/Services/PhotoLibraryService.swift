@@ -235,8 +235,11 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     var albums: [AlbumOption] = []
     result.enumerateObjects { collection, _, _ in
       guard let title = collection.localizedTitle else { return }
+      let count = collection.estimatedAssetCount
       albums.append(
-        AlbumOption(ref: .existing(localIdentifier: collection.localIdentifier), name: title))
+        AlbumOption(
+          ref: .existing(localIdentifier: collection.localIdentifier), name: title,
+          assetCount: count == NSNotFound ? nil : count))
     }
     return albums
   }

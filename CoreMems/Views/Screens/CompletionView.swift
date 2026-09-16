@@ -4,8 +4,28 @@ import SwiftUI
 struct CompletionView: View {
   let keptCount: Int
   let deletedCount: Int
+  let albumAssignedCount: Int
   let lifetimeStats: LifetimeSessionStats
   let onAgain: () -> Void
+
+  private var summaryText: String {
+    var clauses = ["kept \(keptCount) photo\(keptCount == 1 ? "" : "s")"]
+    if deletedCount > 0 {
+      clauses.append("moved \(deletedCount) to Recently Deleted")
+    }
+    if albumAssignedCount > 0 {
+      clauses.append("added \(albumAssignedCount) to an album")
+    }
+    return "You " + Self.naturalJoin(clauses) + "."
+  }
+
+  private static func naturalJoin(_ items: [String]) -> String {
+    switch items.count {
+    case 1: return items[0]
+    case 2: return "\(items[0]) and \(items[1])"
+    default: return items.dropLast().joined(separator: ", ") + ", and " + items[items.count - 1]
+    }
+  }
 
   var body: some View {
     VStack(spacing: 20) {
@@ -18,14 +38,11 @@ struct CompletionView: View {
       Text("Session complete")
         .font(.title2.bold())
 
-      Text(
-        "You kept \(keptCount) photo\(keptCount == 1 ? "" : "s")"
-          + (deletedCount > 0 ? " and moved \(deletedCount) to Recently Deleted." : ".")
-      )
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal, 32)
+      Text(summaryText)
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 32)
 
       if deletedCount > 0 {
         Text("They're recoverable from the Photos app if you change your mind.")
@@ -76,6 +93,7 @@ struct CompletionScreen_Preview: PreviewProvider {
     CompletionView(
       keptCount: 7,
       deletedCount: 3,
+      albumAssignedCount: 2,
       lifetimeStats: LifetimeSessionStats(
         totalReviewed: 150,
         totalKept: 100,
