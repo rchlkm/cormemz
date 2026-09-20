@@ -56,7 +56,16 @@ final class SessionViewModel: ObservableObject {
     }
   }
   static let checkInIntervalRange = 5...100
+
+  /// When true, sessions also include photos kept in earlier sessions.
+  @Published var includesReviewedPhotos: Bool {
+    didSet {
+      UserDefaults.standard.set(includesReviewedPhotos, forKey: Self.includesReviewedDefaultsKey)
+    }
+  }
+  @Published private(set) var reviewedPhotoCount: Int = 0
   private static let checkInIntervalDefaultsKey = "cm_checkInInterval"
+  private static let includesReviewedDefaultsKey = "cm_includesReviewedPhotos"
   private static let recentAlbumIDsDefaultsKey = "cm_recentAlbumIDs"
   private static let defaultCheckInInterval = 12
 
@@ -87,6 +96,7 @@ final class SessionViewModel: ObservableObject {
   private let metadataService: PhotoMetadataServicing
   private let statsStore: LifetimeStatsServicing
   private let pinnedAlbumsStore: PinnedAlbumsStoring
+  private let reviewedPhotosStore: ReviewedPhotosStoring
 
   private static let cardDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -104,7 +114,8 @@ final class SessionViewModel: ObservableObject {
     haptics: HapticsServicing = HapticsService(),
     metadataService: PhotoMetadataServicing = PhotoMetadataService(),
     statsStore: LifetimeStatsServicing = LifetimeStatsService(),
-    pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore()
+    pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore(),
+    reviewedPhotosStore: ReviewedPhotosStoring = ReviewedPhotosStore()
   ) {
     self.library = library
     self.persistence = persistence
@@ -112,12 +123,16 @@ final class SessionViewModel: ObservableObject {
     self.metadataService = metadataService
     self.statsStore = statsStore
     self.pinnedAlbumsStore = pinnedAlbumsStore
+    self.reviewedPhotosStore = reviewedPhotosStore
     let storedInterval =
       UserDefaults.standard.object(forKey: Self.checkInIntervalDefaultsKey) as? Int
     self.checkInInterval =
       storedInterval.map {
         min(max($0, Self.checkInIntervalRange.lowerBound), Self.checkInIntervalRange.upperBound)
       } ?? Self.defaultCheckInInterval
+    self.includesReviewedPhotos = UserDefaults.standard.bool(
+      forKey: Self.includesReviewedDefaultsKey)
+    self.reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
     self.recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
     self.pinnedAlbumIdentifiers = pinnedAlbumsStore.pinnedAlbumIdentifiers()
     restoreIfInterrupted()
@@ -203,15 +218,12 @@ final class SessionViewModel: ObservableObject {
     }
 
     let limit = max(maxAvailable, 0)
-    let assets: [PHAsset]
-    switch mode {
-    case .shuffle:
-      assets = await library.fetchRandomEligibleAssets(limit: limit)
-    case .recent:
-      assets = await library.fetchMostRecentEligibleAssets(limit: limit)
-    case .date:
-      let sinceDate = startDate ?? .distantPast
-      assets = Array(await library.fetchEligibleAssets(since: sinceDate).prefix(limit))
+    let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
+    var assets = await fetchAssets(
+      mode: mode, startDate: startDate, limit: limit, excluding: reviewed)
+    // Everything in scope was already reviewed — show it again rather than an empty session.
+    if assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0 {
+      assets = await fetchAssets(mode: mode, startDate: startDate, limit: limit, excluding: [])
     }
 
     if assets.isEmpty {
@@ -254,6 +266,21 @@ final class SessionViewModel: ObservableObject {
     screen = .review
     prefetchNextPhoto()
     persistState()
+  }
+
+  private func fetchAssets(
+    mode: SelectionMode, startDate: Date?, limit: Int, excluding: Set<String>
+  ) async -> [PHAsset] {
+    switch mode {
+    case .shuffle:
+      return await library.fetchRandomEligibleAssets(limit: limit, excluding: excluding)
+    case .recent:
+      return await library.fetchMostRecentEligibleAssets(limit: limit, excluding: excluding)
+    case .date:
+      let sinceDate = startDate ?? .distantPast
+      return Array(
+        await library.fetchEligibleAssets(since: sinceDate, excluding: excluding).prefix(limit))
+    }
   }
 
   /// Jumps straight to Pending Review regardless of how many photos are
@@ -660,6 +687,7 @@ final class SessionViewModel: ObservableObject {
     haptics.sessionComplete()
     screen = .completion
     clearPersistedState()
+    recordReviewedPhotos()
     recordSessionStats(kept: keptNow, deleted: deletedCount)
   }
 
@@ -705,6 +733,7 @@ final class SessionViewModel: ObservableObject {
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()
+      recordReviewedPhotos()
       recordSessionStats(kept: keptCount, deleted: deletedCount)
     }
   }
@@ -715,7 +744,25 @@ final class SessionViewModel: ObservableObject {
     statsStore.recordSession(kept: kept, deleted: deleted)
   }
 
+  /// Remembers the session's kept photos so later sessions skip them.
+  /// Photos marked for deletion aren't recorded: they're either gone
+  /// after confirmation or, if the session is abandoned, still unreviewed.
+  private func recordReviewedPhotos() {
+    let keptIdentifiers = photos
+      .filter { $0.decision == .keep && pickedAssets[$0.id] != nil }
+      .map(\.assetIdentifier)
+    reviewedPhotosStore.markReviewed(Set(keptIdentifiers))
+    reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
+  }
+
+  /// Makes every photo eligible for review again.
+  func resetReviewedPhotos() {
+    reviewedPhotosStore.clear()
+    reviewedPhotoCount = 0
+  }
+
   func exitToHome() {
+    recordReviewedPhotos()
     clearPersistedState()
     screen = .home
   }

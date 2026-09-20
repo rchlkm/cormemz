@@ -4,6 +4,9 @@ import SwiftUI
 struct SetupView: View {
   let maxAvailable: Int
   @Binding var checkInInterval: Int
+  @Binding var includesReviewedPhotos: Bool
+  let reviewedPhotoCount: Int
+  let onResetReviewedPhotos: () -> Void
   let pinnedAlbums: [AlbumOption]
   let pinnedAlbumIdentifiers: Set<String>
   let isLoadingPinnedAlbums: Bool
@@ -18,6 +21,7 @@ struct SetupView: View {
   @State private var mode: SelectionMode = .shuffle
   @State private var selectedDate: Date?
   @State private var showCheckInSettings = false
+  @State private var showReviewedPhotosSettings = false
   @State private var showPinnedAlbumsSettings = false
 
   private var canStart: Bool { mode != .date || selectedDate != nil }
@@ -73,6 +77,8 @@ struct SetupView: View {
         .padding(.horizontal, 26)
         .padding(.top, 14)
 
+      reviewedPhotosButton
+
       Spacer()
 
       Button(startButtonTitle) {
@@ -85,6 +91,13 @@ struct SetupView: View {
     .sheet(isPresented: $showCheckInSettings) {
       CheckInSettingsView(value: $checkInInterval)
     }
+    .sheet(isPresented: $showReviewedPhotosSettings) {
+      ReviewedPhotosSettingsView(
+        includesReviewed: $includesReviewedPhotos,
+        reviewedCount: reviewedPhotoCount,
+        onReset: onResetReviewedPhotos
+      )
+    }
     .sheet(isPresented: $showPinnedAlbumsSettings) {
       PinnedAlbumsSettingsView(
         albums: pinnedAlbums,
@@ -96,6 +109,28 @@ struct SetupView: View {
         onCreateAndPin: onCreateAndPinAlbum
       )
     }
+  }
+
+  // MARK: - Reviewed photos settings entry point
+  private var reviewedPhotosButton: some View {
+    Button {
+      showReviewedPhotosSettings = true
+    } label: {
+      HStack(spacing: 4) {
+        Image(systemName: "checkmark.circle")
+        Text(reviewedPhotosSummary)
+      }
+      .font(.footnote.weight(.semibold))
+      .foregroundStyle(.secondary)
+    }
+    .frame(maxWidth: .infinity, alignment: .center)
+    .padding(.top, 10)
+  }
+
+  private var reviewedPhotosSummary: String {
+    if includesReviewedPhotos { return "Including reviewed photos" }
+    guard reviewedPhotoCount > 0 else { return "No reviewed photos yet" }
+    return "Skipping \(reviewedPhotoCount) reviewed photo\(reviewedPhotoCount == 1 ? "" : "s")"
   }
 
   // MARK: - Pinned albums settings entry point
@@ -216,7 +251,9 @@ extension SelectionMode {
 
 #Preview("Light Mode") {
   SetupView(
-    maxAvailable: 200, checkInInterval: .constant(12), pinnedAlbums: [],
+    maxAvailable: 200, checkInInterval: .constant(12),
+    includesReviewedPhotos: .constant(false), reviewedPhotoCount: 128,
+    onResetReviewedPhotos: {}, pinnedAlbums: [],
     pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
     onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
   )
@@ -225,7 +262,9 @@ extension SelectionMode {
 
 #Preview("Dark Mode") {
   SetupView(
-    maxAvailable: 200, checkInInterval: .constant(12), pinnedAlbums: [],
+    maxAvailable: 200, checkInInterval: .constant(12),
+    includesReviewedPhotos: .constant(false), reviewedPhotoCount: 128,
+    onResetReviewedPhotos: {}, pinnedAlbums: [],
     pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
     onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
   )

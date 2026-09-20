@@ -25,12 +25,15 @@ protocol PhotoLibraryServicing {
   func requestAuthorization() async -> PHAuthorizationStatus
   func currentAuthorizationStatus() -> PHAuthorizationStatus
 
-  /// Fetches up to 'limit' eligible (image-only) assets
-  func fetchRandomEligibleAssets(limit: Int) async -> [PHAsset]
-  /// Fetches up to 'limit' eligible assets, most recently created first
-  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset]
-  /// Fetches eligible assets created at or after 'since', oldest first
-  func fetchEligibleAssets(since: Date) async -> [PHAsset]
+  /// Fetches up to 'limit' eligible (image-only) assets, skipping the
+  /// local identifiers in 'excluding'
+  func fetchRandomEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset]
+  /// Fetches up to 'limit' eligible assets, most recently created first,
+  /// skipping the local identifiers in 'excluding'
+  func fetchMostRecentEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset]
+  /// Fetches eligible assets created at or after 'since', oldest first,
+  /// skipping the local identifiers in 'excluding'
+  func fetchEligibleAssets(since: Date, excluding: Set<String>) async -> [PHAsset]
   func totalEligibleAssetCount() -> Int
 
   /// Submits confirmed assets for deletion via
@@ -92,14 +95,12 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     PHPhotoLibrary.authorizationStatus(for: .readWrite)
   }
 
-  func fetchRandomEligibleAssets(limit: Int) async -> [PHAsset] {
+  func fetchRandomEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset] {
     let options = PHFetchOptions()
     options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
 
     let result = PHAsset.fetchAssets(with: options)
-    var all: [PHAsset] = []
-    all.reserveCapacity(result.count)
-    result.enumerateObjects { asset, _, _ in all.append(asset) }
+    let all = Self.assets(in: result, limit: result.count, excluding: excluding)
 
     // Insufficient-library case: requires the session to
     // silently shrink to the available count rather than error.
@@ -108,20 +109,16 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     return Array(all.shuffled().prefix(count))
   }
 
-  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset] {
+  func fetchMostRecentEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset] {
     let options = PHFetchOptions()
     options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
     options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-    options.fetchLimit = limit
 
     let result = PHAsset.fetchAssets(with: options)
-    var assets: [PHAsset] = []
-    assets.reserveCapacity(result.count)
-    result.enumerateObjects { asset, _, _ in assets.append(asset) }
-    return assets
+    return Self.assets(in: result, limit: limit, excluding: excluding)
   }
 
-  func fetchEligibleAssets(since: Date) async -> [PHAsset] {
+  func fetchEligibleAssets(since: Date, excluding: Set<String>) async -> [PHAsset] {
     let options = PHFetchOptions()
     options.predicate = NSPredicate(
       format: "mediaType == %d AND creationDate >= %@",
@@ -129,9 +126,21 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
 
     let result = PHAsset.fetchAssets(with: options)
+    return Self.assets(in: result, limit: result.count, excluding: excluding)
+  }
+
+  /// Walks `result` in order, collecting assets not in `excluding` and
+  /// stopping once `limit` are gathered.
+  private static func assets(
+    in result: PHFetchResult<PHAsset>, limit: Int, excluding: Set<String>
+  ) -> [PHAsset] {
     var assets: [PHAsset] = []
-    assets.reserveCapacity(result.count)
-    result.enumerateObjects { asset, _, _ in assets.append(asset) }
+    guard limit > 0 else { return assets }
+    result.enumerateObjects { asset, _, stop in
+      guard !excluding.contains(asset.localIdentifier) else { return }
+      assets.append(asset)
+      if assets.count >= limit { stop.pointee = true }
+    }
     return assets
   }
 
@@ -370,19 +379,19 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func requestAuthorization() async -> PHAuthorizationStatus { mockAuthStatus }
   func currentAuthorizationStatus() -> PHAuthorizationStatus { mockAuthStatus }
 
-  func fetchRandomEligibleAssets(limit: Int) async -> [PHAsset] {
+  func fetchRandomEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset] {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.
     []
   }
 
-  func fetchMostRecentEligibleAssets(limit: Int) async -> [PHAsset] {
+  func fetchMostRecentEligibleAssets(limit: Int, excluding: Set<String>) async -> [PHAsset] {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.
     []
   }
 
-  func fetchEligibleAssets(since: Date) async -> [PHAsset] {
+  func fetchEligibleAssets(since: Date, excluding: Set<String>) async -> [PHAsset] {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.
     []

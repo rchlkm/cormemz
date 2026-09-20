@@ -56,6 +56,9 @@ struct RootView: View {
         case .setup:
           SetupView(
             maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval,
+            includesReviewedPhotos: $vm.includesReviewedPhotos,
+            reviewedPhotoCount: vm.reviewedPhotoCount,
+            onResetReviewedPhotos: { vm.resetReviewedPhotos() },
             pinnedAlbums: vm.allAlbumsForPinning,
             pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
             isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,

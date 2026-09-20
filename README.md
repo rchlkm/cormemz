@@ -17,6 +17,11 @@ Selection modes, chosen at session start:
 3. ✅ **From a Date** — oldest-first from a chosen start date, e.g. a trip
 4. **Review Screenshots** — a dedicated mode scoped to just screenshots
 
+- ✅ **Reviewed photos are skipped**: photos you kept in earlier sessions
+  don't come back in any mode, so Most Recent picks up where you left off
+  and new photos show up first. Setup has a control to include reviewed
+  photos again or reset the review history. If everything in scope was
+  already reviewed, the session shows it all again.
 - ✅ Sessions are **open-ended**, not a fixed count — they run until the
   user stops.
 - ✅ **Check-in interval** (default 12, adjustable 5–100 in Settings): every
