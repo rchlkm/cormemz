@@ -69,6 +69,8 @@ struct ReviewView: View {
                   namespace: heroNamespace, expandedPhoto: $expandedPhoto
                 )
                 .frame(width: geo.size.width, height: geo.size.height)
+                // Per-photo card state (Live Photo playback, drag, zoom) must not carry over.
+                .id(current.id)
               }
             } else {
               ProgressView()

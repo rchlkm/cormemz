@@ -716,6 +716,7 @@ final class SessionViewModel: ObservableObject {
   }
 
   func exitToHome() {
+    clearPersistedState()
     screen = .home
   }
 

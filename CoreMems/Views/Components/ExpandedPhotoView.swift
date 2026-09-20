@@ -38,6 +38,13 @@ struct ExpandedPhotoView: View {
         .ignoresSafeArea()
 
       content
+        .livePhotoLongPress(
+          isEnabled: photo.isLivePhoto,
+          assetIdentifier: photo.assetIdentifier,
+          targetSize: UIScreen.main.bounds.size,
+          inlineLivePhoto: $inlineLivePhoto,
+          isShowingLivePhoto: $isShowingLivePhoto
+        )
         .matchedGeometryEffect(id: photo.id, in: namespace)
         .scaleEffect(scale)
         .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
@@ -69,7 +76,8 @@ struct ExpandedPhotoView: View {
   @ViewBuilder
   private var content: some View {
     if isShowingLivePhoto, let inlineLivePhoto {
-      LivePhotoPlayerView(livePhoto: inlineLivePhoto)
+      LivePhotoPlayerView(
+        livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false })
     } else {
       AdaptiveAssetImage(photo: photo, fitWithin: UIScreen.main.bounds.size)
     }

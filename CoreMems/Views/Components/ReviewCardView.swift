@@ -28,6 +28,10 @@ struct ReviewCardView: View {
 
   private var isExpanded: Bool { expandedPhoto?.id == photo.id }
 
+  private var livePhotoTargetSize: CGSize {
+    CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
+  }
+
   var body: some View {
     // ExpandedPhotoView shares this card's matchedGeometryEffect id,
     // so while expanded this spot renders nothing and the photo
@@ -42,14 +46,23 @@ struct ReviewCardView: View {
   private var swipableCard: some View {
     Group {
       if isShowingLivePhoto, let inlineLivePhoto {
-        LivePhotoPlayerView(livePhoto: inlineLivePhoto)
-          .aspectRatio(inlineLivePhoto.size, contentMode: .fit)
-          .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
+        LivePhotoPlayerView(
+          livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false }
+        )
+        .aspectRatio(inlineLivePhoto.size, contentMode: .fit)
+        .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
       } else {
         PhotoCardView(photo: photo, maxSize: maxSize)
           .matchedGeometryEffect(id: photo.id, in: namespace)
       }
     }
+    .livePhotoLongPress(
+      isEnabled: photo.isLivePhoto,
+      assetIdentifier: photo.assetIdentifier,
+      targetSize: livePhotoTargetSize,
+      inlineLivePhoto: $inlineLivePhoto,
+      isShowingLivePhoto: $isShowingLivePhoto
+    )
     .scaleEffect(zoomScale)
     .gesture(pinchToZoom)
     .overlay(alignment: .top) { topBar }
@@ -57,7 +70,7 @@ struct ReviewCardView: View {
       if photo.isLivePhoto {
         LivePhotoBadgeView(
           assetIdentifier: photo.assetIdentifier,
-          targetSize: CGSize(width: maxSize.width * 2, height: maxSize.height * 2),
+          targetSize: livePhotoTargetSize,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto,
           onConvertToStill: { vm.convertLivePhotoToStill(photoID: photo.id) }

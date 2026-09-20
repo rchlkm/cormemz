@@ -71,7 +71,7 @@ struct AlbumQuickStripView: View {
 
   private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> String {
     if isChecked { return "checkmark.circle.fill" }
-    return album.ref.kind == .pendingNew ? "sparkles" : "photo.stack"
+    return album.ref.kind == .pendingNew ? "sparkles" : "pin.fill"
   }
 
   private func chip(_ album: AlbumOption, isChecked: Bool) -> some View {

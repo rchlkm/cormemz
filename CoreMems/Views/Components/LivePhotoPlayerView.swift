@@ -4,52 +4,37 @@ import SwiftUI
 
 /// Thin SwiftUI wrapper around `PHLivePhotoView` — SwiftUI has no
 /// native Live Photo player, so this bridges UIKit's. Autoplays
-/// whenever a non-nil live photo is set.
+/// whenever a new non-nil live photo is set, and reports when
+/// playback finishes.
 struct LivePhotoPlayerView: UIViewRepresentable {
   let livePhoto: PHLivePhoto?
+  var onPlaybackEnded: (() -> Void)?
+
+  func makeCoordinator() -> Coordinator { Coordinator() }
 
   func makeUIView(context: Context) -> PHLivePhotoView {
     let view = PHLivePhotoView()
     view.contentMode = .scaleAspectFit
+    view.delegate = context.coordinator
     return view
   }
 
   func updateUIView(_ uiView: PHLivePhotoView, context: Context) {
+    context.coordinator.onPlaybackEnded = onPlaybackEnded
+    guard uiView.livePhoto !== livePhoto else { return }
     uiView.livePhoto = livePhoto
     if livePhoto != nil {
       uiView.startPlayback(with: .full)
     }
   }
-}
 
-struct LivePhotoPlaybackView: View {
-  let photo: SessionPhoto
+  final class Coordinator: NSObject, PHLivePhotoViewDelegate {
+    var onPlaybackEnded: (() -> Void)?
 
-  @Environment(\.dismiss) private var dismiss
-  @State private var livePhoto: PHLivePhoto?
-  @State private var isLoading = true
-
-  var body: some View {
-    ZStack {
-      Color.black.ignoresSafeArea()
-
-      if let livePhoto {
-        LivePhotoPlayerView(livePhoto: livePhoto)
-          .ignoresSafeArea()
-      } else if isLoading {
-        ProgressView()
-          .tint(.white)
-      } else {
-        Text("Couldn't load Live Photo")
-          .foregroundStyle(.white)
-      }
+    func livePhotoView(
+      _ livePhotoView: PHLivePhotoView, didEndPlaybackWith playbackStyle: PHLivePhotoViewPlaybackStyle
+    ) {
+      onPlaybackEnded?()
     }
-    .onTapGesture { dismiss() }
-    .task {
-      livePhoto = await LivePhotoLoader.shared.livePhoto(
-        for: photo.assetIdentifier, targetSize: UIScreen.main.bounds.size)
-      isLoading = false
-    }
-    .statusBarHidden()
   }
 }
