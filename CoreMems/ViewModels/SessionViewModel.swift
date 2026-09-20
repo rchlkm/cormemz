@@ -86,6 +86,7 @@ final class SessionViewModel: ObservableObject {
 
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: AssetBatchSource?
   private var sessionBatchSize = SessionViewModel.defaultCheckInInterval
@@ -264,6 +265,7 @@ final class SessionViewModel: ObservableObject {
     currentIndex = 0
     history = []
     deletedCount = 0
+    deletedBytes = 0
     pendingNewAlbums = []
     albumAssignmentError = nil
     albumAssignedCount = 0
@@ -414,6 +416,7 @@ final class SessionViewModel: ObservableObject {
     livePhotoConversionError = nil
 
     Task { @MainActor in
+      let originalSize = await library.storageSize(of: [asset])
       let result = await library.convertLivePhotoToStill(asset)
       isConvertingLivePhoto = false
 
@@ -422,16 +425,28 @@ final class SessionViewModel: ObservableObject {
         guard let currentIndex = self.photos.firstIndex(where: { $0.id == photoID }) else { return }
         self.photos[currentIndex].assetIdentifier = newIdentifier
         self.photos[currentIndex].isLivePhoto = false
-        if let newAsset = PHAsset.fetchAssets(
+        let newAsset = PHAsset.fetchAssets(
           withLocalIdentifiers: [newIdentifier], options: nil
-        ).firstObject {
+        ).firstObject
+        if let newAsset {
           self.pickedAssets[photoID] = newAsset
         }
         self.persistState()
+        await self.recordLivePhotoConversion(originalSize: originalSize, newAsset: newAsset)
       case .failure(let error):
         self.livePhotoConversionError = error.localizedDescription
       }
     }
+  }
+
+  /// Counts the conversion and the space its dropped video freed. A missing size
+  /// still counts the conversion.
+  private func recordLivePhotoConversion(originalSize: Int64?, newAsset: PHAsset?) async {
+    var bytesSaved: Int64 = 0
+    if let originalSize, let newAsset, let newSize = await library.storageSize(of: [newAsset]) {
+      bytesSaved = max(originalSize - newSize, 0)
+    }
+    statsStore.recordLivePhotoConversion(bytesSaved: bytesSaved)
   }
 
   /// Restores any number of pending-delete photos to Keep
@@ -697,6 +712,7 @@ final class SessionViewModel: ObservableObject {
       deletionError = nil
 
       let assets = toDelete.compactMap { pickedAssets[$0.id] }
+      let bytes = await library.storageSize(of: assets) ?? 0
       let result = await library.deleteAssets(assets)
 
       isDeleting = false
@@ -704,6 +720,7 @@ final class SessionViewModel: ObservableObject {
       switch result {
       case .success:
         deletedCount = toDelete.count
+        deletedBytes = bytes
         let deletedIDs = Set(toDelete.map(\.id))
         photos.removeAll { deletedIDs.contains($0.id) }
         history.removeAll()  // reversible window closes here
@@ -775,7 +792,7 @@ final class SessionViewModel: ObservableObject {
   /// Folds a finished session's decisions into the persisted lifetime
   /// stats via `statsStore`, which also logs a snapshot for debugging.
   private func recordSessionStats(kept: Int, deleted: Int) {
-    statsStore.recordSession(kept: kept, deleted: deleted)
+    statsStore.recordSession(kept: kept, deleted: deleted, bytesDeleted: deletedBytes)
   }
 
   /// Remembers the session's kept photos so later sessions skip them.
@@ -787,6 +804,12 @@ final class SessionViewModel: ObservableObject {
       .map(\.assetIdentifier)
     reviewedPhotosStore.markReviewed(Set(keptIdentifiers))
     reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
+  }
+
+  /// Zeroes the lifetime stats; the next recorded activity restarts the tracking date.
+  func clearLifetimeStats() {
+    statsStore.clear()
+    objectWillChange.send()
   }
 
   /// Makes every photo eligible for review again.

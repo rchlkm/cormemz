@@ -37,6 +37,10 @@ protocol PhotoLibraryServicing {
   /// Recently Deleted per Apple's standard retention window.
   /// Returns the identifiers that failed, if any (empty = full success).
   func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error>
+  /// Combined stored size in bytes of every resource (photo, paired video,
+  /// edits) of `assets`; `nil` if the system doesn't report sizes. Read it
+  /// before deleting, since a deleted asset's resources are gone.
+  func storageSize(of assets: [PHAsset]) async -> Int64?
   /// Writes the favorite flag to the Photos library via
   /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
   /// signal to roll back any optimistic UI update.
@@ -115,6 +119,22 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     } catch {
       return .failure(error)
     }
+  }
+
+  /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
+  /// `fileSize` key, so the lookup is guarded against the key going away.
+  func storageSize(of assets: [PHAsset]) async -> Int64? {
+    await Task.detached(priority: .userInitiated) { () -> Int64? in
+      let sizeKey = "fileSize"
+      var total: Int64 = 0
+      for asset in assets {
+        for resource in PHAssetResource.assetResources(for: asset) {
+          guard resource.responds(to: NSSelectorFromString(sizeKey)) else { return nil }
+          total += (resource.value(forKey: sizeKey) as? NSNumber)?.int64Value ?? 0
+        }
+      }
+      return total
+    }.value
   }
 
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> {
@@ -345,6 +365,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func totalEligibleAssetCount() -> Int { mockEligibleCount }
 
   func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error> { .success(()) }
+
+  func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> { .success(()) }
 

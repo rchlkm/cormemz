@@ -5,14 +5,56 @@ struct LifetimeSessionStats: Codable {
   var totalReviewed = 0
   var totalKept = 0
   var totalDeleted = 0
+  var bytesDeleted: Int64 = 0
+  var livePhotosConverted = 0
+  var bytesSavedByConversion: Int64 = 0
   var sessionsCompleted = 0
   var trackingSince: Date?
+
+  var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
+
+  mutating func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) {
+    startTrackingIfNeeded()
+    totalReviewed += kept + deleted
+    totalKept += kept
+    totalDeleted += deleted
+    self.bytesDeleted += bytesDeleted
+    sessionsCompleted += 1
+  }
+
+  mutating func recordLivePhotoConversion(bytesSaved: Int64) {
+    startTrackingIfNeeded()
+    livePhotosConverted += 1
+    bytesSavedByConversion += bytesSaved
+  }
+
+  private mutating func startTrackingIfNeeded() {
+    if trackingSince == nil { trackingSince = Date() }
+  }
+}
+
+/// Decodes missing keys as zero so stats saved by earlier versions still load.
+extension LifetimeSessionStats {
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    totalReviewed = try container.decodeIfPresent(Int.self, forKey: .totalReviewed) ?? 0
+    totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
+    totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
+    bytesDeleted = try container.decodeIfPresent(Int64.self, forKey: .bytesDeleted) ?? 0
+    livePhotosConverted = try container.decodeIfPresent(Int.self, forKey: .livePhotosConverted) ?? 0
+    bytesSavedByConversion =
+      try container.decodeIfPresent(Int64.self, forKey: .bytesSavedByConversion) ?? 0
+    sessionsCompleted = try container.decodeIfPresent(Int.self, forKey: .sessionsCompleted) ?? 0
+    trackingSince = try container.decodeIfPresent(Date.self, forKey: .trackingSince)
+  }
 }
 
 protocol LifetimeStatsServicing {
   func currentStats() -> LifetimeSessionStats
   @discardableResult
-  func recordSession(kept: Int, deleted: Int) -> LifetimeSessionStats
+  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats
+  @discardableResult
+  func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats
   func clear()
 }
 
@@ -42,15 +84,19 @@ final class LifetimeStatsService: LifetimeStatsServicing {
   }
 
   @discardableResult
-  func recordSession(kept: Int, deleted: Int) -> LifetimeSessionStats {
+  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
     var stats = currentStats()
-    if stats.trackingSince == nil { stats.trackingSince = Date() }
-    stats.totalReviewed += kept + deleted
-    stats.totalKept += kept
-    stats.totalDeleted += deleted
-    stats.sessionsCompleted += 1
+    stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
     save(stats)
     print("[CoreMems] session stats:", stats)
+    return stats
+  }
+
+  @discardableResult
+  func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats {
+    var stats = currentStats()
+    stats.recordLivePhotoConversion(bytesSaved: bytesSaved)
+    save(stats)
     return stats
   }
 
@@ -71,12 +117,14 @@ final class LifetimeStatsService: LifetimeStatsServicing {
     func currentStats() -> LifetimeSessionStats { stats }
 
     @discardableResult
-    func recordSession(kept: Int, deleted: Int) -> LifetimeSessionStats {
-      if stats.trackingSince == nil { stats.trackingSince = Date() }
-      stats.totalReviewed += kept + deleted
-      stats.totalKept += kept
-      stats.totalDeleted += deleted
-      stats.sessionsCompleted += 1
+    func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
+      stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
+      return stats
+    }
+
+    @discardableResult
+    func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats {
+      stats.recordLivePhotoConversion(bytesSaved: bytesSaved)
       return stats
     }
 

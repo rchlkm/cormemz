@@ -71,7 +71,8 @@ import SwiftUI
         onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
         onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
         onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) },
-        lifetimeStats: vm.lifetimeStats
+        lifetimeStats: vm.lifetimeStats,
+        onClearLifetimeStats: { vm.clearLifetimeStats() }
       )
     }
 

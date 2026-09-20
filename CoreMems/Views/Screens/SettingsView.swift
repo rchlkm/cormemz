@@ -1,7 +1,7 @@
 // CoreMems/Views/Screens/SettingsView.swift
 import SwiftUI
 
-/// Review preferences and lifetime app stats. Pushed from Setup.
+/// Lifetime stats summary and review preferences. Pushed from Setup.
 struct SettingsView: View {
   @Binding var checkInInterval: Int
   @Binding var includesReviewedPhotos: Bool
@@ -16,48 +16,26 @@ struct SettingsView: View {
   let onTogglePinnedAlbum: (String) -> Void
   let onCreateAndPinAlbum: (String) -> Void
   let lifetimeStats: LifetimeSessionStats
+  let onClearLifetimeStats: () -> Void
 
   @State private var showResetConfirmation = false
-
-  private struct StatRow: Identifiable {
-    let label: String
-    let value: String
-    var id: String { label }
-  }
 
   private var checkInRange: ClosedRange<Double> {
     let bounds = SessionViewModel.checkInIntervalRange
     return Double(bounds.lowerBound)...Double(bounds.upperBound)
   }
 
-  private var statRows: [StatRow] {
-    var rows = [
-      StatRow(label: "Photos reviewed", value: lifetimeStats.totalReviewed.formatted()),
-      StatRow(label: "Kept", value: lifetimeStats.totalKept.formatted()),
-      StatRow(
-        label: "Moved to Recently Deleted", value: lifetimeStats.totalDeleted.formatted()),
-      StatRow(label: "Sessions completed", value: lifetimeStats.sessionsCompleted.formatted()),
-    ]
-    if let since = lifetimeStats.trackingSince {
-      rows.append(
-        StatRow(
-          label: "Tracking since", value: since.formatted(date: .abbreviated, time: .omitted)))
-    }
-    return rows
-  }
-
   var body: some View {
     Form {
+      statsSection
       pinnedAlbumsSection
       checkInSection
       reviewedPhotosSection
-      statsSection
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)
-    .confirmationDialog(
-      "Reset review history?", isPresented: $showResetConfirmation, titleVisibility: .visible
-    ) {
+    .alert("Reset review history?", isPresented: $showResetConfirmation) {
+      Button("Cancel", role: .cancel) {}
       Button("Reset", role: .destructive, action: onResetReviewedPhotos)
     } message: {
       Text("Every photo becomes eligible for review again. Your photos aren't changed.")
@@ -133,9 +111,22 @@ struct SettingsView: View {
 
   private var statsSection: some View {
     Section {
-      ForEach(statRows) { LabeledContent($0.label, value: $0.value) }
+      NavigationLink {
+        LifetimeStatsView(stats: lifetimeStats, onClear: onClearLifetimeStats)
+      } label: {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(lifetimeStats.totalDeleted.formatted())
+            .font(.system(size: 34, weight: .bold, design: .rounded))
+            .monospacedDigit()
+          Text("photos deleted")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+      }
     } header: {
-      Text("Stats")
+      Text("Lifetime stats")
     } footer: {
       if lifetimeStats.sessionsCompleted == 0 {
         Text("Stats appear after you complete your first session.")
@@ -163,7 +154,8 @@ struct SettingsView: View {
         totalDeleted: 50,
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)
-      )
+      ),
+      onClearLifetimeStats: {}
     )
   }
 }

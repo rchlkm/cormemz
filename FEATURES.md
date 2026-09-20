@@ -11,13 +11,13 @@ unless a feature is called out as photo- or video-specific.
 
 ### Session Setup
 
-Three selection modes, chosen at session start:
+**Selection modes**, chosen at session start:
 
 1. **Shuffle** — random from the whole library
 2. **Most Recent** — newest first, working backward
 3. **From a Date** — oldest-first from a chosen start date, e.g. a trip
 
-Protocols(?):
+**How sessions run**
 
 - Sessions run until you stop, with a periodic check-in
 - Photos you've already kept are skipped in later sessions
@@ -31,25 +31,21 @@ Protocols(?):
 
 ### Review Interaction
 
-One photo at a time, full-screen, decided with a swipe or the buttons below it:
+One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
-- Swipe right → **Keep**
-- Swipe down → **Mark for deletion**
-- Swipe left → **Quick undo** (reverses only the most recent decision)
-- Swipe up → **Details** (photo metadata)
+**Gestures**
 
-#### Favorites & tagging
+- Swipe right → Keep
+- Swipe down → Mark for deletion
+- Swipe left → Quick undo (reverses only the most recent decision)
+- Swipe up → Details (photo metadata)
+
+**Along the way**
 
 - Favorite a photo
 - File a photo into a Photos album, including a new one, with pinned albums shown first
-
-#### In-flow editing
-
 - Convert a Live Photo to a still photo
-
-### Deletion Tray (mid-session)
-
-- See everything marked for deletion and restore items to Keep
+- Open the deletion tray to see everything marked for deletion and restore items to Keep
 
 ### End-of-Session Review & Confirmation
 
@@ -57,39 +53,32 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it:
 - Deleted photos move to Recently Deleted, and favorites are flagged before you confirm
 - See a summary of what was kept and deleted
 
-### Lifetime Stats ("Your Core Mems")
+### Lifetime Stats
 
+- "Your core memories"
 - Running totals across sessions: reviewed, kept, deleted, sessions completed
+- Live Photos converted to stills
+- Storage cleaned, split between deleted photos and Live Photo conversions
+- Kept-vs-deleted ratio bar
+- Clear lifetime stats, which resets the totals and the tracking date
 
 ### Access & Inventory Edge States
 
 - Prompt to share more photos when access is limited
 - Friendly message when the library is empty
 
+---
+
 ## Planned
 
 ### Session Setup
 
-- **Review Screenshots** — a dedicated selection mode scoped to just
-  screenshots.
+- **Review Screenshots** — a dedicated selection mode scoped to just screenshots
 
 ### Review Interaction
 
-#### Favorites & tagging
-
-- **Smart folder suggestions**: auto-recommend a folder based on recency or
-  visual similarity.
-
-#### In-flow editing
-
-- **Edit photos**: crop, adjust, etc. — saved as a new photo, retaining the
-  original's metadata.
-- **Edit videos**: trim clip duration, saved as a new clip while deleting
-  the original.
+- **Smart folder suggestions** — auto-recommend a folder based on recency or visual similarity
+- **Edit photos** — crop, adjust, etc., saved as a new photo that retains the original's metadata
+- **Edit videos** — trim clip duration, saved as a new clip while deleting the original
 - **Paste filter presets**
-- **Show item in Photos app**: jump straight to it in Apple Photos.
-
-### Lifetime Stats
-
-- **Kept-vs-deleted ratio bar**.
-- **Clear lifetime stats** from Settings.
+- ~~**Show item in Photos app** — jump straight to it in Apple Photos~~ — PhotoKit does not support this
