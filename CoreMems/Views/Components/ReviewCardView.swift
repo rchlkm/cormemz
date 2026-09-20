@@ -170,10 +170,8 @@ struct ReviewCardView: View {
       showMetadata = true
     } label: {
       Image(systemName: "info.circle.fill")
-        .foregroundStyle(.white)
-        .padding(8)
-        .background(.black.opacity(0.55), in: Circle())
     }
+    .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .padding(12)
   }
 

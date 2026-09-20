@@ -91,25 +91,24 @@ struct PhotoActionRailView: View {
 
   private var albumRailButton: some View {
     Button(action: onToggleAlbumStrip) {
-      ZStack(alignment: .topTrailing) {
-        Image(systemName: "rectangle.stack.badge.plus")
-          .font(.system(size: 22))
+      Image(systemName: "rectangle.stack.badge.plus")
+    }
+    .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
+    .overlay(alignment: .topTrailing) {
+      if isLoadingAlbumData {
+        ProgressView()
+          .scaleEffect(0.55)
+          .frame(width: 16, height: 16)
+          .offset(x: 2, y: 2)
+          .allowsHitTesting(false)
+      } else if albumCount > 0 {
+        Text("\(albumCount)")
+          .font(.system(size: 10, weight: .bold))
           .foregroundStyle(.white)
-          .frame(width: 46, height: 46)
-
-        if isLoadingAlbumData {
-          ProgressView()
-            .scaleEffect(0.55)
-            .frame(width: 16, height: 16)
-            .offset(x: 2, y: 2)
-        } else if albumCount > 0 {
-          Text("\(albumCount)")
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(4)
-            .background(Color.accentColor, in: Circle())
-            .offset(x: 2, y: 2)
-        }
+          .padding(4)
+          .background(Color.accentColor, in: Circle())
+          .offset(x: 2, y: 2)
+          .allowsHitTesting(false)
       }
     }
   }
@@ -122,10 +121,8 @@ struct PhotoActionRailView: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: 22))
-        .foregroundStyle(enabled ? tint : tint.opacity(0.35))
-        .frame(width: 46, height: 46)
     }
+    .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(tint)))
     .disabled(!enabled)
   }
 }

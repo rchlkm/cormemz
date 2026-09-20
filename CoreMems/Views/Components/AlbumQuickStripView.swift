@@ -80,33 +80,21 @@ struct AlbumQuickStripView: View {
     } label: {
       HStack(spacing: 5) {
         Image(systemName: chipIcon(album, isChecked: isChecked))
-          .font(.system(size: 12, weight: .semibold))
         Text(album.name)
-          .font(.system(size: 13, weight: .medium))
           .lineLimit(1)
       }
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(isChecked ? Color.accentColor : Color.secondary.opacity(0.15), in: Capsule())
-      .foregroundStyle(isChecked ? .white : .primary)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(ChipButtonStyle(isSelected: isChecked))
   }
 
   private var moreChip: some View {
     Button(action: onMore) {
       HStack(spacing: 5) {
         Image(systemName: "ellipsis.circle")
-          .font(.system(size: 12, weight: .semibold))
         Text("More")
-          .font(.system(size: 13, weight: .medium))
       }
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(Color.secondary.opacity(0.15), in: Capsule())
-      .foregroundStyle(.primary)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(ChipButtonStyle())
   }
 }
 

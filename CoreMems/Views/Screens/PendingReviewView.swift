@@ -1,3 +1,4 @@
+// CoreMems/Views/Screens/PendingReviewView.swift
 import SwiftUI
 
 struct PendingReviewView: View {
@@ -47,7 +48,7 @@ struct PendingReviewView: View {
           Button("Retry saving to albums") {
             vm.retryAlbumAssignments()
           }
-          .font(.footnote.weight(.semibold))
+          .buttonStyle(InlineButtonStyle(tint: .accentColor))
         }
         .padding(.horizontal, 26)
       }
@@ -61,20 +62,14 @@ struct PendingReviewView: View {
       } label: {
         if vm.isFlushingAlbums {
           ProgressView()
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
         } else {
           Text(
             hasItems
               ? "Delete \(items.count) photo\(items.count == 1 ? "" : "s")" : "Finish session"
           )
-          .font(.headline)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 14)
         }
       }
-      .buttonStyle(.borderedProminent)
-      .tint(hasItems ? .red : .blue)
+      .buttonStyle(ActionButtonStyle(role: hasItems ? .destructive : .primary))
       .disabled(vm.isFlushingAlbums)
       .padding(26)
     }

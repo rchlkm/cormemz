@@ -1,3 +1,4 @@
+// CoreMems/Views/Sheets/ConfirmSheetView.swift
 import SwiftUI
 
 struct ConfirmSheetView: View {
@@ -46,7 +47,7 @@ struct ConfirmSheetView: View {
             .foregroundStyle(.red)
             .multilineTextAlignment(.center)
           Button("Retry saving to albums", action: onRetryAlbums)
-            .font(.footnote.weight(.semibold))
+            .buttonStyle(InlineButtonStyle(tint: .accentColor))
             .disabled(isDeleting)
         }
       }
@@ -54,8 +55,7 @@ struct ConfirmSheetView: View {
       GeometryReader { geo in
         HStack(spacing: 10) {
           Button("Cancel", action: onCancel)
-            .buttonStyle(SecondaryActionButtonStyle())
-            .frame(height: 56)
+            .buttonStyle(ActionButtonStyle(role: .secondary))
             .disabled(isDeleting)
 
           Button(action: onConfirm) {
@@ -65,9 +65,8 @@ struct ConfirmSheetView: View {
               Text("Confirm")
             }
           }
-          .buttonStyle(DestructiveActionButtonStyle())
+          .buttonStyle(ActionButtonStyle(role: .destructive))
           .frame(minWidth: 140, maxWidth: .infinity)
-          .frame(height: 56)
           .disabled(isDeleting)
         }
         .frame(maxWidth: .infinity)

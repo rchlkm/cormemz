@@ -1,3 +1,4 @@
+// CoreMems/Views/Screens/CompletionView.swift
 import Foundation
 import SwiftUI
 
@@ -77,7 +78,9 @@ struct CompletionView: View {
       Spacer()
 
       Button("Another session", action: onAgain)
-        .buttonStyle(PrimaryActionButtonStyle())
+        .buttonStyle(ActionButtonStyle(role: .primary))
+        .padding(.horizontal, 32)
+        .padding(.bottom, 26)
     }
   }
 

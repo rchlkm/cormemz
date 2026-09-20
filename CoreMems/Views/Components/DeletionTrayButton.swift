@@ -9,20 +9,21 @@ struct DeletionTrayButton: View {
 
   var body: some View {
     Button(action: action) {
-      ZStack(alignment: .topTrailing) {
-        Image(systemName: "tray.full")
-          .frame(width: 34, height: 34)
-          .background(.thinMaterial, in: Circle())
-          .foregroundStyle(pendingCount == 0 ? Color.secondary : Color.blue)
-
-        if pendingCount > 0 {
-          Text("\(pendingCount)")
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(4)
-            .background(Color.blue, in: Circle())
-            .offset(x: 4, y: -4)
-        }
+      Image(systemName: "tray.full")
+    }
+    .buttonStyle(
+      IconButtonStyle(
+        size: .small, surface: .material(pendingCount == 0 ? Color.secondary : Color.blue))
+    )
+    .overlay(alignment: .topTrailing) {
+      if pendingCount > 0 {
+        Text("\(pendingCount)")
+          .font(.system(size: 10, weight: .bold))
+          .foregroundStyle(.white)
+          .padding(4)
+          .background(Color.blue, in: Circle())
+          .offset(x: 4, y: -4)
+          .allowsHitTesting(false)
       }
     }
   }

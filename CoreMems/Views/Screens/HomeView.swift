@@ -1,3 +1,4 @@
+// CoreMems/Views/Screens/HomeView.swift
 import SwiftUI
 
 struct HomeView: View {
@@ -35,7 +36,8 @@ struct HomeView: View {
       .padding(.horizontal, 24)
 
       Button("Check Photos access", action: onManageAccess)
-        .buttonStyle(.bordered)
+        .buttonStyle(ActionButtonStyle(role: .secondary))
+        .padding(.horizontal, 60)
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,14 +79,8 @@ struct HomeView: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
-        Button(action: onStart) {
-          Text("Start a session")
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(.blue)
+        Button("Start a session", action: onStart)
+          .buttonStyle(ActionButtonStyle(role: .primary))
       }
       .padding(.horizontal, 30)
 

@@ -1,3 +1,4 @@
+// CoreMems/Views/Components/TopBar.swift
 import SwiftUI
 
 struct TopBar: View {
@@ -5,13 +6,14 @@ struct TopBar: View {
   var onBack: (() -> Void)? = nil
   var trailing: AnyView? = nil
 
+  private let controlSize = IconButtonSize.small
+
   var body: some View {
     HStack {
       Button(action: { onBack?() }) {
         Image(systemName: "chevron.left")
-          .frame(width: 34, height: 34)
-          .background(.thinMaterial, in: Circle())
       }
+      .buttonStyle(IconButtonStyle(size: controlSize, surface: .material(.primary)))
       .opacity(onBack == nil ? 0 : 1)
 
       Spacer()
@@ -21,7 +23,7 @@ struct TopBar: View {
       if let trailing {
         trailing
       } else {
-        Color.clear.frame(width: 34, height: 34)
+        Color.clear.frame(width: controlSize.diameter, height: controlSize.diameter)
       }
     }
     .padding(.horizontal, 14)

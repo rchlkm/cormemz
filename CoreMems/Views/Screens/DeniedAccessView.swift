@@ -1,3 +1,4 @@
+// CoreMems/Views/Screens/DeniedAccessView.swift
 import SwiftUI
 
 struct DeniedAccessView: View {
@@ -22,14 +23,9 @@ struct DeniedAccessView: View {
       .multilineTextAlignment(.center)
       .padding(.horizontal, 34)
 
-      Button(action: onOpenSettings) {
-        Text("Open Settings")
-          .font(.headline)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 12)
-      }
-      .buttonStyle(.borderedProminent)
-      .padding(.horizontal, 60)
+      Button("Open Settings", action: onOpenSettings)
+        .buttonStyle(ActionButtonStyle(role: .primary))
+        .padding(.horizontal, 60)
       .padding(.top, 6)
     }
     .padding()

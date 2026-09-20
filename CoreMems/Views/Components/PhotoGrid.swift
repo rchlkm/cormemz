@@ -1,3 +1,4 @@
+// CoreMems/Views/Components/PhotoGrid.swift
 import SwiftUI
 
 struct PhotoGrid: View {
@@ -25,11 +26,8 @@ struct PhotoGrid: View {
                 onRestore(photo.id)
               } label: {
                 Image(systemName: "arrow.uturn.backward")
-                  .font(.caption)
-                  .foregroundStyle(.green)
-                  .padding(6)
-                  .background(.white.opacity(0.9), in: Circle())
               }
+              .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
               .padding(6)
             }
           }

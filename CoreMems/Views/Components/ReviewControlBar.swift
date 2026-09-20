@@ -12,11 +12,13 @@ struct ReviewControlBar: View {
 
   var body: some View {
     HStack(spacing: 22) {
-      CircleIconButton(
-        system: "arrow.uturn.backward", tint: .secondary, size: 48, disabled: !canUndo,
-        action: onUndo)
-      CircleIconButton(system: "trash", tint: .red, size: 64, action: onDelete)
-      CircleIconButton(system: "checkmark", tint: .green, size: 64, action: onKeep)
+      Button(action: onUndo) { Image(systemName: "arrow.uturn.backward") }
+        .buttonStyle(IconButtonStyle(size: .medium, surface: .tinted(.secondary)))
+        .disabled(!canUndo)
+      Button(action: onDelete) { Image(systemName: "trash") }
+        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(.red)))
+      Button(action: onKeep) { Image(systemName: "checkmark") }
+        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(.green)))
     }
     .padding(.vertical, 18)
     .padding(.bottom, 12)

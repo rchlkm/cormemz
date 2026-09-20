@@ -162,7 +162,6 @@ struct ReviewView: View {
 }
 
 private struct CheckInOverlayView: View {
-  @Environment(\.colorScheme) private var colorScheme
   let reviewedCount: Int
   let onContinue: () -> Void
   let onDone: () -> Void
@@ -182,25 +181,11 @@ private struct CheckInOverlayView: View {
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
 
-        Button(action: onContinue) {
-          Text("Keep going")
-            .font(.system(size: 16, weight: .semibold))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-        }
-        .foregroundColor(colorScheme == .dark ? .black : .white)
-        .background(
-          colorScheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: 14)
-        )
+        Button("Keep going", action: onContinue)
+          .buttonStyle(ActionButtonStyle(role: .primary))
 
-        Button(action: onDone) {
-          Text("I'm done for now")
-            .font(.system(size: 16, weight: .semibold))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-        }
-        .foregroundColor(.primary)
-        .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+        Button("I'm done for now", action: onDone)
+          .buttonStyle(ActionButtonStyle(role: .secondary))
       }
       .padding(24)
       .frame(maxWidth: 300)

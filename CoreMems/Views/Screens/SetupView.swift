@@ -81,12 +81,15 @@ struct SetupView: View {
 
       Spacer()
 
-      Button(startButtonTitle) {
+      Button {
         onStart(mode, mode == .date ? selectedDate : nil)
+      } label: {
+          Text(startButtonTitle)
+
       }
-      .buttonStyle(PrimaryActionButtonStyle())
-      .disabled(!canStart)
-      .opacity(canStart ? 1 : 0.5)
+      .buttonStyle(ActionButtonStyle(role: .primary))
+      .padding(.horizontal, 32)
+      .padding(.bottom, 26)
     }
     .sheet(isPresented: $showCheckInSettings) {
       CheckInSettingsView(value: $checkInInterval)
@@ -120,9 +123,8 @@ struct SetupView: View {
         Image(systemName: "checkmark.circle")
         Text(reviewedPhotosSummary)
       }
-      .font(.footnote.weight(.semibold))
-      .foregroundStyle(.secondary)
     }
+    .buttonStyle(InlineButtonStyle())
     .frame(maxWidth: .infinity, alignment: .center)
     .padding(.top, 10)
   }
@@ -143,9 +145,8 @@ struct SetupView: View {
         Image(systemName: "pin")
         Text("Albums")
       }
-      .font(.system(size: 12.5, weight: .semibold))
-      .foregroundStyle(.secondary)
     }
+    .buttonStyle(InlineButtonStyle())
   }
 
   // MARK: - Check-in settings entry point
@@ -157,9 +158,8 @@ struct SetupView: View {
         Image(systemName: "slider.horizontal.3")
         Text("Every \(checkInInterval)")
       }
-      .font(.system(size: 12.5, weight: .semibold))
-      .foregroundStyle(.secondary)
     }
+    .buttonStyle(InlineButtonStyle())
   }
 
   // MARK: - Mode picker (3-card row)

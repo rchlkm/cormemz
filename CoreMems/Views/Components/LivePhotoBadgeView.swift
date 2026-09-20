@@ -29,11 +29,8 @@ struct LivePhotoBadgeView: View {
       }
     } label: {
       Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
-        .font(.system(size: 18))
-        .foregroundStyle(.white)
-        .padding(10)
-        .background(.black.opacity(0.55), in: Circle())
     }
+    .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .contextMenu {
       Button {
         isShowingConvertConfirmation = true
