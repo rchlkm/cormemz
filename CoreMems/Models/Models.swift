@@ -64,8 +64,18 @@ struct AlbumOption: Identifiable, Equatable {
   /// (`PHAssetCollection.estimatedAssetCount`). For `.pendingNew`, kept
   /// live by `SessionViewModel` as photos are staged into it this
   /// session. `nil` when unknown.
-  var assetCount: Int? = nil
+  var assetCount: Int?
+  /// `name` folded (case- and diacritic-insensitive) once, so search is a
+  /// plain substring check.
+  let searchKey: String
   var id: AlbumRef { ref }
+
+  init(ref: AlbumRef, name: String, assetCount: Int? = nil) {
+    self.ref = ref
+    self.name = name
+    self.assetCount = assetCount
+    self.searchKey = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+  }
 }
 
 enum SessionLifecycleState: Equatable {

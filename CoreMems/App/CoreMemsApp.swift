@@ -88,9 +88,14 @@ struct RootView: View {
     .task {
       vm.refreshAuthorizationStatus()
     }
-    .onChange(of: scenePhase) { _, newPhase in
+    .onChange(of: scenePhase) { oldPhase, newPhase in
       if newPhase == .active {
         vm.refreshAuthorizationStatus()
+        // Albums may have changed in Photos while backgrounded; brief
+        // inactive blips (e.g. Control Center) don't count.
+        if oldPhase == .background {
+          Task { await vm.refreshLibraryAlbumsIfLoaded() }
+        }
       }
     }
     .onChange(of: vm.screen) { _, newScreen in

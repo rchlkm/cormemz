@@ -35,10 +35,13 @@ One item at a time, full-screen, with drag-gesture swiping:
 - ✅ **Favorites**: heart-toggle on an item, carried through review, the
   Tray, Pending Review, and the delete confirmation (surfaced as "N of
   these are favorites").
-- **Folder tagging**: assign an item to a real Photos album (native
-  `PHAssetCollection`) during review; create a new album inline (name +
-  emoji). *(The prototype has folder tagging today, but as an app-internal
-  tag — not a real Photos album.)*
+- ✅ **Album tagging**: assign an item to a real Photos album (native
+  `PHAssetCollection`) during review, from an inline quick-access strip
+  (pinned + recent albums) or the full album sheet. The sheet's search
+  field also creates a new album; albums are created in Photos when the
+  session ends.
+- ✅ **Pinned albums** (Settings): choose which albums show first in the
+  strip and sheet; creating an album from Settings pins it automatically.
 - **Smart folder suggestions**: auto-recommend a folder based on
   recency or visual similarity.
 

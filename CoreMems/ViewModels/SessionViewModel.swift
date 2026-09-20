@@ -21,22 +21,14 @@ final class SessionViewModel: ObservableObject {
   @Published var photos: [SessionPhoto] = []
   @Published var currentIndex: Int = 0
   @Published var history: [DecisionHistoryEntry] = []
-  @Published var userAlbums: [AlbumOption] = []  // real albums, fetched lazily
   @Published var pendingNewAlbums: [AlbumOption] = []  // created-this-session, not yet flushed
   @Published var albumAssignmentError: String?
   @Published var isFlushingAlbums: Bool = false
-  @Published var isLoadingAlbumPicker: Bool = false
-  @Published var isLoadingMoreAlbums: Bool = false
-  @Published var hasLoadedAllAlbums: Bool = false
-  /// Whether the inline album quick-access strip is expanded — a
-  /// session-level toggle (persists as the person swipes through
-  /// photos), not per-photo. Reset in `startSession`, never persisted
-  /// across sessions.
-  @Published var isAlbumStripExpanded: Bool = false
-  /// Most-recently-turned-on album identifiers, most-recent-first,
-  /// capped at 5 — drives the quick-access strip's suggestions
-  /// independent of the current photo's actual membership. Session-only
-  /// (reset in `startSession`, never persisted to disk).
+  /// Every user album (names and counts only), loaded once per app launch and
+  /// refreshed on foreground return and after album creation. `nil` until loaded.
+  @Published var libraryAlbums: [AlbumOption]?
+  /// Most recently used album IDs, newest first, capped at `recentAlbumIDsLimit`.
+  /// Persisted, except session-local `.pendingNew` IDs.
   @Published var recentAlbumIDs: [String] = []
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
@@ -47,8 +39,8 @@ final class SessionViewModel: ObservableObject {
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
-  /// Settings > Pinned Albums screen state — independent of the active
-  /// review session, unlike the album-picker state above.
+  /// Pinned Albums settings state. `pinnedAlbumIdentifiers` also drives the
+  /// quick-access strip.
   @Published var allAlbumsForPinning: [AlbumOption] = []
   @Published var pinnedAlbumIdentifiers: Set<String> = []
   @Published var isLoadingAlbumsForPinning: Bool = false
@@ -65,6 +57,7 @@ final class SessionViewModel: ObservableObject {
   }
   static let checkInIntervalRange = 5...100
   private static let checkInIntervalDefaultsKey = "cm_checkInInterval"
+  private static let recentAlbumIDsDefaultsKey = "cm_recentAlbumIDs"
   private static let defaultCheckInInterval = 12
 
   /// Describes how the active session's photos were selected, shown as
@@ -86,8 +79,7 @@ final class SessionViewModel: ObservableObject {
   // @Published (despite being private) so toggling membership triggers
   // objectWillChange — the album picker's checkmarks read these
   // indirectly via `effectiveAlbums(for:)`.
-  @Published private var initialAlbumMembership: [String: Set<String>] = [:]  // photoID -> existing album IDs at first picker open
-  private var didLoadAlbumMembership = false
+  @Published private var initialAlbumMembership: [String: Set<String>] = [:]
   @Published private var stagedAdditions: [String: Set<AlbumRef>] = [:]
   @Published private var stagedRemovals: [String: Set<String>] = [:]
   private let persistence: SessionPersisting
@@ -126,6 +118,8 @@ final class SessionViewModel: ObservableObject {
       storedInterval.map {
         min(max($0, Self.checkInIntervalRange.lowerBound), Self.checkInIntervalRange.upperBound)
       } ?? Self.defaultCheckInInterval
+    self.recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
+    self.pinnedAlbumIdentifiers = pinnedAlbumsStore.pinnedAlbumIdentifiers()
     restoreIfInterrupted()
   }
 
@@ -250,17 +244,11 @@ final class SessionViewModel: ObservableObject {
     currentIndex = 0
     history = []
     deletedCount = 0
-    userAlbums = []
     pendingNewAlbums = []
     albumAssignmentError = nil
     albumAssignedCount = 0
     initialAlbumMembership = [:]
-    didLoadAlbumMembership = false
-    isLoadingAlbumPicker = false
-    isLoadingMoreAlbums = false
-    hasLoadedAllAlbums = false
-    isAlbumStripExpanded = false
-    recentAlbumIDs = []
+    recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
     stagedAdditions = [:]
     stagedRemovals = [:]
     screen = .review
@@ -413,66 +401,36 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Album assignment
 
-  /// Lazily (once per session) loads the album picker's default album
-  /// list plus this session's membership in just those albums. Call
-  /// before presenting the picker — cheap to call repeatedly, only
-  /// fetches once. The fetch itself runs off the main thread, so the
-  /// picker sheet can present immediately; it shows a loading state via
-  /// `isLoadingAlbumPicker` until the data lands.
-  ///
-  /// The default list is just the user's pinned albums (tracked in
-  /// `pinnedAlbumsStore` — see Settings > Pinned Albums, and
-  /// `loadAlbumsForPinning()`/`togglePinnedAlbum(_:)` below) rather than
-  /// their whole Photos library — most libraries have far more albums
-  /// than anyone wants to scroll through here, and scanning every one of
-  /// them for membership is what made the picker slow to open.
-  /// `loadAllAlbums()` expands both the list and the membership check to
-  /// everything, on request — until then, "Already in" only reflects
-  /// membership among the pinned albums already loaded.
-  func prepareAlbumPicker(for photoID: String) async {
-    guard !didLoadAlbumMembership else { return }
-    didLoadAlbumMembership = true
-    isLoadingAlbumPicker = true
-
-    let pinnedAlbumIDs = pinnedAlbumsStore.pinnedAlbumIdentifiers()
-    let assetIDToPhotoID = Dictionary(
-      uniqueKeysWithValues: photos.map { ($0.assetIdentifier, $0.id) })
-
-    let pinnedAlbums = await library.fetchAlbums(withIdentifiers: pinnedAlbumIDs)
-    let membership = await library.fetchAlbumMembership(
-      assetIdentifiers: Set(assetIDToPhotoID.keys), albums: pinnedAlbums)
-
-    userAlbums = pinnedAlbums
-    for (assetID, albumIDs) in membership {
-      guard let photoID = assetIDToPhotoID[assetID] else { continue }
-      initialAlbumMembership[photoID] = albumIDs
-    }
-    isLoadingAlbumPicker = false
+  /// Pinned plus recently used albums, resolved from `libraryAlbums` (empty until it loads).
+  var quickAccessAlbums: [AlbumOption] {
+    let ids = pinnedAlbumIdentifiers.union(recentAlbumIDs)
+    return (libraryAlbums ?? []).filter { ids.contains($0.ref.identifier) }
   }
 
-  /// Expands the picker's album list — and the membership check behind
-  /// "Already in" — from "just the pinned ones" to every real album in
-  /// the user's library. One-shot per session, mirroring
-  /// `prepareAlbumPicker`.
-  func loadAllAlbums() {
-    guard !hasLoadedAllAlbums, !isLoadingMoreAlbums else { return }
-    isLoadingMoreAlbums = true
-    Task { @MainActor in
-      let assetIDToPhotoID = Dictionary(
-        uniqueKeysWithValues: photos.map { ($0.assetIdentifier, $0.id) })
+  /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
+  func loadAlbumMembership(for photoID: String) async {
+    guard initialAlbumMembership[photoID] == nil,
+      let assetID = photos.first(where: { $0.id == photoID })?.assetIdentifier
+    else { return }
+    initialAlbumMembership[photoID] = await library.fetchAlbumIdentifiers(
+      containingAssetIdentifier: assetID)
+  }
 
-      let all = await library.fetchAllUserAlbums()
-      let membership = await library.fetchAlbumMembership(
-        assetIdentifiers: Set(assetIDToPhotoID.keys), albums: all)
+  /// Loads the library's album list once per app launch.
+  func preloadLibraryAlbums() async {
+    guard libraryAlbums == nil else { return }
+    await refreshLibraryAlbums()
+  }
 
-      userAlbums = all
-      for (assetID, albumIDs) in membership {
-        guard let photoID = assetIDToPhotoID[assetID] else { continue }
-        initialAlbumMembership[photoID] = albumIDs
-      }
-      hasLoadedAllAlbums = true
-      isLoadingMoreAlbums = false
-    }
+  func refreshLibraryAlbums() async {
+    libraryAlbums = await library.fetchAllUserAlbums()
+  }
+
+  /// Refreshes only once a list is loaded. Foreground album changes (e.g. iCloud
+  /// sync) aren't observed; a `PHPhotoLibraryChangeObserver` would call this.
+  func refreshLibraryAlbumsIfLoaded() async {
+    guard libraryAlbums != nil else { return }
+    await refreshLibraryAlbums()
   }
 
   // MARK: Pinned albums settings
@@ -523,6 +481,7 @@ final class SessionViewModel: ObservableObject {
         allAlbumsForPinning.sort {
           $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
+        await refreshLibraryAlbumsIfLoaded()
       case .failure(let error):
         pinnedAlbumCreationError = error.localizedDescription
       }
@@ -550,14 +509,13 @@ final class SessionViewModel: ObservableObject {
       ref.kind == .existing && (initialAlbumMembership[photoID]?.contains(ref.identifier) ?? false)
 
     if effectiveAlbums(for: photoID).contains(ref) {
-      // Turning off.
+      // Also drops an add staged before membership loaded.
+      stagedAdditions[photoID]?.remove(ref)
+      if stagedAdditions[photoID]?.isEmpty == true {
+        stagedAdditions.removeValue(forKey: photoID)
+      }
       if wasInitialMember {
         stagedRemovals[photoID, default: []].insert(ref.identifier)
-      } else {
-        stagedAdditions[photoID]?.remove(ref)
-        if stagedAdditions[photoID]?.isEmpty == true {
-          stagedAdditions.removeValue(forKey: photoID)
-        }
       }
     } else {
       // Turning on.
@@ -575,16 +533,27 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  /// Tracks the quick-access strip's MRU suggestions — most-recent-first,
-  /// capped at 5. Only called when a membership is turned *on*; turning
-  /// one back off doesn't touch this list.
-  private static let recentAlbumIDsLimit = 5
+  /// Only called when an album is turned on; turning one off leaves the list alone.
+  private static let recentAlbumIDsLimit = 15
   private func recordRecentAlbum(_ identifier: String) {
     recentAlbumIDs.removeAll { $0 == identifier }
     recentAlbumIDs.insert(identifier, at: 0)
     if recentAlbumIDs.count > Self.recentAlbumIDsLimit {
       recentAlbumIDs.removeLast(recentAlbumIDs.count - Self.recentAlbumIDsLimit)
     }
+    persistRecentAlbumIDs()
+  }
+
+  /// `.pendingNew` IDs are session-local temp UUIDs, so they're not persisted.
+  private func persistRecentAlbumIDs() {
+    let pendingIDs = Set(pendingNewAlbums.map(\.ref.identifier))
+    let persistable = recentAlbumIDs.filter { !pendingIDs.contains($0) }
+    UserDefaults.standard.set(persistable, forKey: Self.recentAlbumIDsDefaultsKey)
+  }
+
+  private static func loadPersistedRecentAlbumIDs() -> [String] {
+    let stored = UserDefaults.standard.stringArray(forKey: recentAlbumIDsDefaultsKey) ?? []
+    return Array(stored.prefix(recentAlbumIDsLimit))
   }
 
   /// Creates a not-yet-real album, staying pickable for other photos
@@ -711,6 +680,9 @@ final class SessionViewModel: ObservableObject {
     switch result {
     case .success(let createdAlbumIDs):
       pinnedAlbumsStore.pin(createdAlbumIDs)
+      if !createdAlbumIDs.isEmpty {
+        Task { await refreshLibraryAlbumsIfLoaded() }
+      }
       albumAssignedCount = stagedAdditions.keys.count
       stagedAdditions = [:]
       stagedRemovals = [:]

@@ -3,9 +3,8 @@ import PhotosUI
 import SwiftUI
 
 /// Interactive review card: swipe-to-decide gestures, pinch zoom, and
-/// all card chrome (date, action rail, favorite/Live Photo badges).
-/// `PhotoCardView` underneath only renders the photo; `PhotoActionRailView`
-/// owns the floating rail of photo-editing actions.
+/// all card chrome (date, info and Live Photo badges). `PhotoCardView`
+/// underneath only renders the photo.
 ///
 /// Expanding to full screen is a `matchedGeometryEffect` hand-off to
 /// `ExpandedPhotoView`, not a `.fullScreenCover` — the photo grows into
@@ -35,26 +34,7 @@ struct ReviewCardView: View {
     // appears to grow out of it instead.
     Group {
       if !isExpanded {
-        // The rail sits as a sibling here, not inside `swipableCard` —
-        // it must stay fixed on top of the photo while the card
-        // underneath offsets/rotates with the swipe gesture.
-        ZStack(alignment: .trailing) {
-          swipableCard
-          PhotoActionRailView(
-            isFavorite: photo.isFavorite,
-            containerSize: maxSize,
-            albumCount: vm.effectiveAlbums(for: photo.id).count,
-            isAlbumStripOpen: vm.isAlbumStripExpanded,
-            isLoadingAlbumData: vm.isLoadingAlbumPicker,
-            onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
-            onToggleAlbumStrip: {
-              vm.isAlbumStripExpanded.toggle()
-              if vm.isAlbumStripExpanded {
-                Task { await vm.prepareAlbumPicker(for: photo.id) }
-              }
-            }
-          )
-        }
+        swipableCard
       }
     }
   }

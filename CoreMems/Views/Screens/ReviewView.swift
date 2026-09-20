@@ -1,4 +1,4 @@
-// CoreMems/Views/ReviewView.swift
+// CoreMems/Views/Screens/ReviewView.swift
 import SwiftUI
 
 struct ReviewView: View {
@@ -9,10 +9,27 @@ struct ReviewView: View {
   @State private var showCheckIn = false
   @State private var lastCheckInIndex = -1
   @State private var showAlbumPicker = false
+  @AppStorage("cm_albumStripExpanded") private var isAlbumStripExpanded = true
   @Namespace private var heroNamespace
+
+  private static let compactAlbumSheetHeight: CGFloat = 340
 
   private var current: SessionPhoto? {
     vm.photos.indices.contains(vm.currentIndex) ? vm.photos[vm.currentIndex] : nil
+  }
+
+  private func actionRail(for photo: SessionPhoto) -> some View {
+    GeometryReader { geo in
+      PhotoActionRailView(
+        isFavorite: photo.isFavorite,
+        containerSize: geo.size,
+        albumCount: vm.effectiveAlbums(for: photo.id).count,
+        isLoadingAlbumData: vm.libraryAlbums == nil,
+        onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
+        onToggleAlbumStrip: { isAlbumStripExpanded.toggle() }
+      )
+      .frame(width: geo.size.width, height: geo.size.height, alignment: .trailing)
+    }
   }
 
   var body: some View {
@@ -42,28 +59,37 @@ struct ReviewView: View {
         }
         .padding(.bottom, 4)
 
-        ZStack {
-          if let current {
-            GeometryReader { geo in
-              let maxSize = CGSize(width: geo.size.width - 16, height: geo.size.height - 8)
-              ReviewCardView(
-                photo: current, maxSize: maxSize, vm: vm,
-                namespace: heroNamespace, expandedPhoto: $expandedPhoto
-              )
-              .frame(width: geo.size.width, height: geo.size.height)
+        VStack(spacing: 0) {
+          ZStack {
+            if let current {
+              GeometryReader { geo in
+                let maxSize = CGSize(width: geo.size.width - 16, height: geo.size.height - 8)
+                ReviewCardView(
+                  photo: current, maxSize: maxSize, vm: vm,
+                  namespace: heroNamespace, expandedPhoto: $expandedPhoto
+                )
+                .frame(width: geo.size.width, height: geo.size.height)
+              }
+            } else {
+              ProgressView()
             }
-          } else {
-            ProgressView()
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+          if let current, isAlbumStripExpanded {
+            AlbumQuickStripView(
+              vm: vm, photoID: current.id,
+              onMore: { showAlbumPicker = true }
+            )
           }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        if vm.isAlbumStripExpanded, let current {
-          AlbumQuickStripView(
-            vm: vm, photoID: current.id,
-            onMore: { showAlbumPicker = true }
-          )
-          .transition(.move(edge: .bottom).combined(with: .opacity))
+        // Overlaid on the card-plus-strip container, so the rail stays put
+        // as the strip shows and hides and the card resizes.
+        .overlay {
+          if let current, expandedPhoto?.id != current.id {
+            actionRail(for: current)
+          }
         }
 
         ReviewControlBar(
@@ -73,7 +99,6 @@ struct ReviewView: View {
           onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
         )
       }
-      .animation(.easeOut(duration: 0.22), value: vm.isAlbumStripExpanded)
       .sheet(isPresented: $showTray) {
         DeletionTrayView(
           items: vm.pendingItems,
@@ -84,16 +109,13 @@ struct ReviewView: View {
       .sheet(isPresented: $showAlbumPicker) {
         if let current {
           AlbumPickerView(
-            albums: vm.userAlbums + vm.pendingNewAlbums,
+            albums: vm.quickAccessAlbums + vm.pendingNewAlbums,
             assignedRefs: vm.effectiveAlbums(for: current.id),
-            isLoading: vm.isLoadingAlbumPicker,
-            hasLoadedAllAlbums: vm.hasLoadedAllAlbums,
-            isLoadingMoreAlbums: vm.isLoadingMoreAlbums,
-            onLoadAllAlbums: { vm.loadAllAlbums() },
+            libraryAlbums: vm.libraryAlbums,
             onToggle: { ref in vm.toggleAlbumMembership(photoID: current.id, ref: ref) },
             onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: current.id) }
           )
-          .presentationDetents([.height(340), .medium])
+          .presentationDetents([.height(Self.compactAlbumSheetHeight), .medium])
           .presentationDragIndicator(.visible)
         }
       }
@@ -117,6 +139,12 @@ struct ReviewView: View {
         )
         .zIndex(2)
       }
+    }
+    .task {
+      await vm.preloadLibraryAlbums()
+    }
+    .task(id: current?.id) {
+      if let id = current?.id { await vm.loadAlbumMembership(for: id) }
     }
     .onChange(of: vm.currentIndex) { _, newIndex in
       guard

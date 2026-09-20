@@ -53,24 +53,12 @@ protocol PhotoLibraryServicing {
   /// Photos Access user can grant access to more photos in-app.
   func presentLimitedLibraryPicker(from viewController: UIViewController)
 
-  /// Fetches only the given real albums by identifier — the default,
-  /// app-created-only album list the picker opens with. Runs off the
-  /// main thread.
-  func fetchAlbums(withIdentifiers identifiers: Set<String>) async -> [AlbumOption]
-  /// User-created albums only — `.album`/`.albumRegular` excludes
-  /// Favorites, Recently Deleted, Screenshots, and other smart albums.
-  /// Fetches every one of them; used by the picker's "Load all albums"
-  /// action, not the default open. Runs off the main thread.
+  /// Every user-created album (names and counts only); `.albumRegular`
+  /// excludes smart albums like Favorites. Runs off the main thread.
   func fetchAllUserAlbums() async -> [AlbumOption]
-  /// For a session's asset identifiers, which of the given albums each
-  /// is already in, keyed by `PHAsset.localIdentifier`. Only scans the
-  /// albums passed in — callers control the cost by controlling
-  /// `albums` (the default picker load passes just the app-created
-  /// list; "Load all albums" passes everything). Runs off the main
-  /// thread and filters natively via predicate rather than enumerating
-  /// every asset in every album.
-  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) async -> [String:
-    Set<String>]
+  /// Identifiers of every user album containing the asset. A direct lookup
+  /// for one asset, so it stays fast at any library size. Runs off the main thread.
+  func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String>
   /// Commits staged album membership changes in a single
   /// `PHPhotoLibrary.performChanges` transaction, independent of
   /// `deleteAssets`. `assets` maps a session-scoped photoID to its
@@ -91,6 +79,9 @@ protocol PhotoLibraryServicing {
   func createAlbum(named name: String) async -> Result<String, Error>
 }
 
+/// Library changes aren't observed. Live album updates would register a
+/// `PHPhotoLibraryChangeObserver` here and call
+/// `SessionViewModel.refreshLibraryAlbumsIfLoaded`.
 final class PhotoLibraryService: PhotoLibraryServicing {
 
   func requestAuthorization() async -> PHAuthorizationStatus {
@@ -250,68 +241,39 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }
   }
 
-  func fetchAlbums(withIdentifiers identifiers: Set<String>) async -> [AlbumOption] {
-    guard !identifiers.isEmpty else { return [] }
-    return await Task.detached(priority: .userInitiated) {
-      let options = PHFetchOptions()
-      options.sortDescriptors = [NSSortDescriptor(key: "localizedTitle", ascending: true)]
-      let result = PHAssetCollection.fetchAssetCollections(
-        withLocalIdentifiers: Array(identifiers), options: options)
-      return Self.albumOptions(from: result)
-    }.value
-  }
-
   func fetchAllUserAlbums() async -> [AlbumOption] {
     await Task.detached(priority: .userInitiated) {
       let options = PHFetchOptions()
       options.sortDescriptors = [NSSortDescriptor(key: "localizedTitle", ascending: true)]
       let result = PHAssetCollection.fetchAssetCollections(
         with: .album, subtype: .albumRegular, options: options)
-      return Self.albumOptions(from: result)
+      var albums: [AlbumOption] = []
+      result.enumerateObjects { collection, _, _ in
+        guard let title = collection.localizedTitle else { return }
+        let count = collection.estimatedAssetCount
+        albums.append(
+          AlbumOption(
+            ref: .existing(localIdentifier: collection.localIdentifier), name: title,
+            assetCount: count == NSNotFound ? nil : count))
+      }
+      return albums
     }.value
   }
 
-  private nonisolated static func albumOptions(from result: PHFetchResult<PHAssetCollection>)
-    -> [AlbumOption]
-  {
-    var albums: [AlbumOption] = []
-    result.enumerateObjects { collection, _, _ in
-      guard let title = collection.localizedTitle else { return }
-      let count = collection.estimatedAssetCount
-      albums.append(
-        AlbumOption(
-          ref: .existing(localIdentifier: collection.localIdentifier), name: title,
-          assetCount: count == NSNotFound ? nil : count))
-    }
-    return albums
-  }
-
-  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) async -> [String:
-    Set<String>]
-  {
-    guard !assetIdentifiers.isEmpty, !albums.isEmpty else { return [:] }
-    return await Task.detached(priority: .userInitiated) {
-      // Filtering natively via predicate lets PhotoKit's own index do the
-      // matching, instead of enumerating every asset in every album (which
-      // scaled with total library size rather than session size). The
-      // other lever callers have is `albums` itself — passing just the
-      // app-created subset (the default) keeps this to a handful of
-      // PhotoKit round-trips instead of one per album in the library.
-      let assetOptions = PHFetchOptions()
-      assetOptions.predicate = NSPredicate(format: "localIdentifier IN %@", assetIdentifiers)
-
-      let existingIDs = albums.filter { $0.ref.kind == .existing }.map(\.ref.identifier)
-      let collections = PHAssetCollection.fetchAssetCollections(
-        withLocalIdentifiers: existingIDs, options: nil)
-
-      var membership: [String: Set<String>] = [:]
+  func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String> {
+    await Task.detached(priority: .userInitiated) { () -> Set<String> in
+      guard
+        let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil)
+          .firstObject
+      else { return [] }
+      let collections = PHAssetCollection.fetchAssetCollectionsContaining(
+        asset, with: .album, options: nil)
+      var identifiers: Set<String> = []
       collections.enumerateObjects { collection, _, _ in
-        let assetsInAlbum = PHAsset.fetchAssets(in: collection, options: assetOptions)
-        assetsInAlbum.enumerateObjects { asset, _, _ in
-          membership[asset.localIdentifier, default: []].insert(collection.localIdentifier)
-        }
+        guard collection.assetCollectionSubtype == .albumRegular else { return }
+        identifiers.insert(collection.localIdentifier)
       }
-      return membership
+      return identifiers
     }.value
   }
 
@@ -438,13 +400,11 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
 
-  func fetchAlbums(withIdentifiers identifiers: Set<String>) async -> [AlbumOption] { [] }
-
   func fetchAllUserAlbums() async -> [AlbumOption] { [] }
 
-  func fetchAlbumMembership(assetIdentifiers: Set<String>, albums: [AlbumOption]) async -> [String:
-    Set<String>]
-  { [:] }
+  func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String> {
+    []
+  }
 
   func commitAlbumAssignments(
     additions: [String: Set<AlbumRef>],

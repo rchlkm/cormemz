@@ -1,13 +1,8 @@
 // CoreMems/Views/Sheets/PinnedAlbumsSettingsView.swift
 import SwiftUI
 
-/// Lets the user pick which real Photos albums show up by default in
-/// the album picker (see `AlbumPickerView`), instead of the picker
-/// showing everything or nothing. Pinning here is the same mechanism
-/// that auto-pins an album CoreMems just created — and "New album"
-/// here creates a real (initially empty) Photos album and pins it
-/// immediately, since unlike the review picker there's no photo to
-/// wait on before the album becomes real.
+/// Lets the user pin the Photos albums that show first in the album picker and strip.
+/// The search field also creates and pins a new album (see `AlbumSearchList`).
 struct PinnedAlbumsSettingsView: View {
   let albums: [AlbumOption]
   let pinnedIdentifiers: Set<String>
@@ -18,58 +13,41 @@ struct PinnedAlbumsSettingsView: View {
   let onCreateAndPin: (String) -> Void
 
   @Environment(\.dismiss) private var dismiss
-  @State private var searchText = ""
-  @State private var showNewAlbumAlert = false
-  @State private var newAlbumName = ""
 
-  // `albums` arrives pre-sorted by `localizedTitle` from PhotoKit —
-  // filtering preserves that order, so there's no need to re-sort here.
-  private var pinnedAlbums: [AlbumOption] {
-    filtered(albums.filter { pinnedIdentifiers.contains($0.ref.identifier) })
-  }
-
-  private var otherAlbums: [AlbumOption] {
-    filtered(albums.filter { !pinnedIdentifiers.contains($0.ref.identifier) })
-  }
-
-  private func filtered(_ options: [AlbumOption]) -> [AlbumOption] {
-    guard !searchText.isEmpty else { return options }
-    return options.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+  /// Splits `albums` into pinned and other, keeping its order.
+  private func split(for search: AlbumSearchQuery) -> (pinned: [AlbumOption], others: [AlbumOption])
+  {
+    var pinned: [AlbumOption] = []
+    var others: [AlbumOption] = []
+    for album in albums where search.matches(album) {
+      if pinnedIdentifiers.contains(album.ref.identifier) {
+        pinned.append(album)
+      } else {
+        others.append(album)
+      }
+    }
+    return (pinned, others)
   }
 
   var body: some View {
     NavigationStack {
-      List {
-        if isLoading && albums.isEmpty {
-          HStack {
-            Spacer()
-            ProgressView("Loading albums…")
-            Spacer()
-          }
-          .padding(.vertical, 24)
-        } else {
+      AlbumSearchList(
+        albums: albums,
+        isLoading: isLoading && albums.isEmpty,
+        isCreating: isCreating,
+        onCreate: onCreateAndPin
+      ) { search in
+        let (pinned, others) = split(for: search)
+
+        if let creationError {
           Section {
-            Button {
-              newAlbumName = ""
-              showNewAlbumAlert = true
-            } label: {
-              HStack {
-                Label("New album", systemImage: "plus.circle.fill")
-                if isCreating {
-                  Spacer()
-                  ProgressView()
-                }
-              }
-            }
-            .disabled(isCreating)
-
-            if let creationError {
-              Text(creationError)
-                .font(.caption)
-                .foregroundStyle(.red)
-            }
+            Text(creationError)
+              .font(.caption)
+              .foregroundStyle(.red)
           }
+        }
 
+        if !search.isSearching {
           Section {
             Text(
               "Pinned albums show up first when adding a photo to an album, so you can rotate through the ones you use most instead of scrolling your whole library."
@@ -77,46 +55,28 @@ struct PinnedAlbumsSettingsView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
           }
+        }
 
-          if !pinnedAlbums.isEmpty {
-            Section("Pinned") {
-              ForEach(pinnedAlbums) { album in
-                albumRow(album)
-              }
-            }
+        if !pinned.isEmpty {
+          Section("Pinned") {
+            ForEach(pinned) { albumRow($0) }
           }
+        }
 
-          if !otherAlbums.isEmpty {
-            Section("All Albums") {
-              ForEach(otherAlbums) { album in
-                albumRow(album)
-              }
-            }
-          } else if !searchText.isEmpty && pinnedAlbums.isEmpty {
-            ContentUnavailableView.search(text: searchText)
+        if !others.isEmpty {
+          Section("All Albums") {
+            ForEach(others) { albumRow($0) }
           }
+        } else if !search.isSearching && pinned.isEmpty {
+          Section { AlbumSearchHint() }
         }
       }
       .navigationTitle("Pinned Albums")
       .navigationBarTitleDisplayMode(.inline)
-      .searchable(
-        text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
-        prompt: "Search albums"
-      )
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Done") { dismiss() }
         }
-      }
-      .alert("New Album", isPresented: $showNewAlbumAlert) {
-        TextField("Album name", text: $newAlbumName)
-        Button("Cancel", role: .cancel) {}
-        Button("Create") {
-          let trimmed = newAlbumName.trimmingCharacters(in: .whitespaces)
-          guard !trimmed.isEmpty else { return }
-          onCreateAndPin(trimmed)
-        }
-        .disabled(newAlbumName.trimmingCharacters(in: .whitespaces).isEmpty)
       }
     }
   }

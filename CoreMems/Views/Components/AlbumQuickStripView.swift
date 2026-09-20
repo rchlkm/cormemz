@@ -1,62 +1,77 @@
 // CoreMems/Views/Components/AlbumQuickStripView.swift
 import SwiftUI
 
-/// Inline, horizontally-scrolling row of album chips shown between the
-/// review card and `ReviewControlBar` while `vm.isAlbumStripExpanded` is
-/// true. Chips, in order: albums the current photo is already in
-/// (checked, tap removes), up to a few recently-used albums it isn't in
-/// yet (unchecked, tap adds), then a trailing "More" chip that opens the
-/// full `AlbumPickerView` sheet for search/creation/seeing everything.
+/// Album chips under the review card: a fixed "More" chip, then the photo's albums
+/// (checked), pinned, and recent ones.
 struct AlbumQuickStripView: View {
   @ObservedObject var vm: SessionViewModel
   let photoID: String
   let onMore: () -> Void
 
-  private static let maxSuggestions = 3
-
   private var allAlbums: [AlbumOption] {
-    vm.userAlbums + vm.pendingNewAlbums
+    vm.quickAccessAlbums + vm.pendingNewAlbums
   }
 
   private var assignedRefs: Set<AlbumRef> {
     vm.effectiveAlbums(for: photoID)
   }
 
+  /// Resolved against the whole library, so unpinned albums still appear.
   private var assignedAlbums: [AlbumOption] {
-    allAlbums.filter { assignedRefs.contains($0.ref) }
+    let assigned = assignedRefs
+    return (vm.libraryAlbums ?? []).filter { assigned.contains($0.ref) }
+      + vm.pendingNewAlbums.filter { assigned.contains($0.ref) }
   }
 
-  /// Recently-used albums the photo isn't already in, capped so the
-  /// total (assigned + suggested) chip count stays small and scannable.
-  private var suggestedAlbums: [AlbumOption] {
-    let slotCount = max(0, Self.maxSuggestions - assignedAlbums.count)
-    guard slotCount > 0 else { return [] }
+  private var pinnedAlbums: [AlbumOption] {
+    let assigned = assignedRefs
+    return allAlbums.filter {
+      vm.pinnedAlbumIdentifiers.contains($0.ref.identifier) && !assigned.contains($0.ref)
+    }
+  }
+
+  /// Recents missing from the library are skipped.
+  private var recentAlbums: [AlbumOption] {
+    let all = allAlbums
+    let assigned = assignedRefs
     var result: [AlbumOption] = []
     for identifier in vm.recentAlbumIDs {
-      guard result.count < slotCount else { break }
-      guard let album = allAlbums.first(where: { $0.ref.identifier == identifier }) else {
+      guard !vm.pinnedAlbumIdentifiers.contains(identifier) else { continue }
+      guard let album = all.first(where: { $0.ref.identifier == identifier }) else {
         continue
       }
-      guard !assignedRefs.contains(album.ref) else { continue }
+      guard !assigned.contains(album.ref) else { continue }
       result.append(album)
     }
     return result
   }
 
   var body: some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 8) {
-        ForEach(assignedAlbums) { album in
-          chip(album, isChecked: true)
+    HStack(spacing: 8) {
+      moreChip
+        .padding(.leading, 16)
+
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+          ForEach(assignedAlbums) { album in
+            chip(album, isChecked: true)
+          }
+          ForEach(pinnedAlbums) { album in
+            chip(album, isChecked: false)
+          }
+          ForEach(recentAlbums) { album in
+            chip(album, isChecked: false)
+          }
         }
-        ForEach(suggestedAlbums) { album in
-          chip(album, isChecked: false)
-        }
-        moreChip
+        .padding(.trailing, 16)
       }
-      .padding(.horizontal, 16)
     }
     .padding(.vertical, 8)
+  }
+
+  private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> String {
+    if isChecked { return "checkmark.circle.fill" }
+    return album.ref.kind == .pendingNew ? "sparkles" : "photo.stack"
   }
 
   private func chip(_ album: AlbumOption, isChecked: Bool) -> some View {
@@ -64,11 +79,8 @@ struct AlbumQuickStripView: View {
       vm.toggleAlbumMembership(photoID: photoID, ref: album.ref)
     } label: {
       HStack(spacing: 5) {
-        Image(
-          systemName: isChecked
-            ? "checkmark.circle.fill" : (album.ref.kind == .pendingNew ? "sparkles" : "photo.stack")
-        )
-        .font(.system(size: 12, weight: .semibold))
+        Image(systemName: chipIcon(album, isChecked: isChecked))
+          .font(.system(size: 12, weight: .semibold))
         Text(album.name)
           .font(.system(size: 13, weight: .medium))
           .lineLimit(1)

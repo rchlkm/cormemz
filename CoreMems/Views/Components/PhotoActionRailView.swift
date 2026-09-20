@@ -12,15 +12,16 @@ import SwiftUI
 struct PhotoActionRailView: View {
   let isFavorite: Bool
   let containerSize: CGSize
+
   /// How many albums the current photo already belongs to — shown as a
-  /// small count badge on the folder button. No badge when 0.
+  /// small count badge on the album button. No badge when 0.
   var albumCount: Int = 0
-  /// Whether the album quick-access strip is currently expanded — shows
-  /// a subtle active state on the folder button, and a spinner in place
-  /// of the badge while `isLoadingAlbumData` is true.
-  var isAlbumStripOpen: Bool = false
+
+  /// Shows a spinner in place of the badge while album data loads.
   var isLoadingAlbumData: Bool = false
   let onToggleFavorite: () -> Void
+
+  /// Shows or hides the album quick strip.
   let onToggleAlbumStrip: () -> Void
 
   /// Position, as an offset from the default (trailing edge, vertically
@@ -91,13 +92,10 @@ struct PhotoActionRailView: View {
   private var albumRailButton: some View {
     Button(action: onToggleAlbumStrip) {
       ZStack(alignment: .topTrailing) {
-        Image(systemName: "folder.badge.plus")
+        Image(systemName: "rectangle.stack.badge.plus")
           .font(.system(size: 22))
           .foregroundStyle(.white)
           .frame(width: 46, height: 46)
-          .background(
-            isAlbumStripOpen ? Color.white.opacity(0.18) : Color.clear, in: Circle()
-          )
 
         if isLoadingAlbumData {
           ProgressView()

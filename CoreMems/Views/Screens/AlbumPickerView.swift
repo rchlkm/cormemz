@@ -1,121 +1,101 @@
+// CoreMems/Views/Screens/AlbumPickerView.swift
 import SwiftUI
 
 struct AlbumPickerView: View {
   let albums: [AlbumOption]
   let assignedRefs: Set<AlbumRef>
-  var isLoading: Bool = false
-  /// "Your Albums" defaults to just the pinned albums — these two drive
-  /// the row that expands it to the user's whole library on request.
-  var hasLoadedAllAlbums: Bool = true
-  var isLoadingMoreAlbums: Bool = false
-  var onLoadAllAlbums: () -> Void = {}
+
+  /// The whole library, nil until loaded. Listed on search or "Show all albums".
+  var libraryAlbums: [AlbumOption]? = []
   let onToggle: (AlbumRef) -> Void
   let onCreate: (String) -> Void
 
+  @State private var showAllAlbums = false
   @Environment(\.dismiss) private var dismiss
-  @State private var showNewAlbumAlert = false
-  @State private var newAlbumName = ""
-  @State private var searchText = ""
 
-  // `albums` (existing ones, at least) arrives pre-sorted by
-  // `localizedTitle` from PhotoKit — filtering preserves that order, so
-  // there's no need to re-sort here.
-  private var alreadyInAlbums: [AlbumOption] {
-    filtered(albums.filter { assignedRefs.contains($0.ref) })
+  private struct Results {
+    var alreadyIn: [AlbumOption] = []
+    var new: [AlbumOption] = []
+    var existing: [AlbumOption] = []
   }
 
-  private var newAlbums: [AlbumOption] {
-    filtered(albums.filter { $0.ref.kind == .pendingNew && !assignedRefs.contains($0.ref) })
-  }
+  /// One pass over `albums`, then `libraryAlbums`, so per-keystroke search stays cheap.
+  /// Library albums outside `albums` are listed only when searching or after "Show all albums".
+  private func computeResults(for search: AlbumSearchQuery) -> Results {
+    var results = Results()
 
-  private var existingAlbums: [AlbumOption] {
-    filtered(albums.filter { $0.ref.kind == .existing && !assignedRefs.contains($0.ref) })
-  }
+    for album in albums where search.matches(album) {
+      if assignedRefs.contains(album.ref) {
+        results.alreadyIn.append(album)
+      } else if album.ref.kind == .pendingNew {
+        results.new.append(album)
+      } else {
+        results.existing.append(album)
+      }
+    }
 
-  private func filtered(_ options: [AlbumOption]) -> [AlbumOption] {
-    guard !searchText.isEmpty else { return options }
-    return options.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    if let libraryAlbums, !libraryAlbums.isEmpty {
+      let loadedIDs = Set(albums.map(\.ref.identifier))
+      for album in libraryAlbums where !loadedIDs.contains(album.ref.identifier) {
+        guard search.matches(album) else { continue }
+        if assignedRefs.contains(album.ref) {
+          results.alreadyIn.append(album)
+        } else if search.isSearching || showAllAlbums {
+          results.existing.append(album)
+        }
+      }
+    }
+
+    return results
   }
 
   var body: some View {
     NavigationStack {
-      List {
-        if isLoading && albums.isEmpty {
-          HStack {
-            Spacer()
-            ProgressView("Loading albums…")
-            Spacer()
+      AlbumSearchList(
+        albums: albums,
+        libraryAlbums: libraryAlbums,
+        isLoading: libraryAlbums == nil && albums.isEmpty,
+        onCreate: onCreate
+      ) { search in
+        let results = computeResults(for: search)
+
+        if !results.alreadyIn.isEmpty {
+          Section("Already in") {
+            ForEach(results.alreadyIn) { albumRow($0) }
           }
-          .padding(.vertical, 24)
-        } else {
+        }
+
+        if !results.new.isEmpty {
+          Section("New albums") {
+            ForEach(results.new) { albumRow($0) }
+          }
+        }
+
+        if !results.existing.isEmpty {
+          Section("Your Albums") {
+            ForEach(results.existing) { albumRow($0) }
+          }
+        } else if !search.isSearching && results.alreadyIn.isEmpty && results.new.isEmpty {
+          Section { AlbumSearchHint() }
+        }
+
+        if libraryAlbums != nil && !showAllAlbums && !search.isSearching {
           Section {
             Button {
-              newAlbumName = ""
-              showNewAlbumAlert = true
+              showAllAlbums = true
             } label: {
-              Label("New album", systemImage: "plus.circle.fill")
-            }
-          }
-
-          if !alreadyInAlbums.isEmpty {
-            Section("Already in") {
-              ForEach(alreadyInAlbums) { albumRow($0) }
-            }
-          }
-
-          if !newAlbums.isEmpty {
-            Section("New albums") {
-              ForEach(newAlbums) { albumRow($0) }
-            }
-          }
-
-          if !existingAlbums.isEmpty {
-            Section("Your Albums") {
-              ForEach(existingAlbums) { albumRow($0) }
-            }
-          } else if !searchText.isEmpty && alreadyInAlbums.isEmpty && newAlbums.isEmpty {
-            ContentUnavailableView.search(text: searchText)
-          }
-
-          if !hasLoadedAllAlbums {
-            Section {
-              Button {
-                onLoadAllAlbums()
-              } label: {
-                HStack {
-                  Label("Load all albums", systemImage: "ellipsis.circle")
-                  if isLoadingMoreAlbums {
-                    Spacer()
-                    ProgressView()
-                  }
-                }
-              }
-              .disabled(isLoadingMoreAlbums)
+              Label("Show all albums", systemImage: "ellipsis.circle")
             }
           }
         }
       }
       .navigationTitle("Albums")
       .navigationBarTitleDisplayMode(.inline)
-      .searchable(
-        text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
-        prompt: "Search albums"
-      )
       .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Close") { dismiss() }
         }
-      }
-      .alert("New Album", isPresented: $showNewAlbumAlert) {
-        TextField("Album name", text: $newAlbumName)
-        Button("Cancel", role: .cancel) {}
-        Button("Create") {
-          let trimmed = newAlbumName.trimmingCharacters(in: .whitespaces)
-          guard !trimmed.isEmpty else { return }
-          onCreate(trimmed)
-        }
-        .disabled(newAlbumName.trimmingCharacters(in: .whitespaces).isEmpty)
       }
     }
   }
