@@ -12,8 +12,16 @@ import SwiftUI
 struct PhotoActionRailView: View {
   let isFavorite: Bool
   let containerSize: CGSize
+  /// How many albums the current photo already belongs to — shown as a
+  /// small count badge on the folder button. No badge when 0.
+  var albumCount: Int = 0
+  /// Whether the album quick-access strip is currently expanded — shows
+  /// a subtle active state on the folder button, and a spinner in place
+  /// of the badge while `isLoadingAlbumData` is true.
+  var isAlbumStripOpen: Bool = false
+  var isLoadingAlbumData: Bool = false
   let onToggleFavorite: () -> Void
-  let onAssignAlbum: () -> Void
+  let onToggleAlbumStrip: () -> Void
 
   /// Position, as an offset from the default (trailing edge, vertically
   /// centered) spot. Lives for as long as this view does — it isn't
@@ -32,7 +40,7 @@ struct PhotoActionRailView: View {
         tint: isFavorite ? .pink : .white,
         action: onToggleFavorite
       )
-      actionRailButton(systemImage: "folder.badge.plus", tint: .white, action: onAssignAlbum)
+      albumRailButton
       actionRailButton(systemImage: "text.bubble", tint: .white, enabled: false) {}
       Image(systemName: "line.3.horizontal")
         .font(.system(size: 11, weight: .semibold))
@@ -78,6 +86,34 @@ struct PhotoActionRailView: View {
       width: min(max(proposed.width, -maxLeftShift), 0),
       height: min(max(proposed.height, -maxY), maxY)
     )
+  }
+
+  private var albumRailButton: some View {
+    Button(action: onToggleAlbumStrip) {
+      ZStack(alignment: .topTrailing) {
+        Image(systemName: "folder.badge.plus")
+          .font(.system(size: 22))
+          .foregroundStyle(.white)
+          .frame(width: 46, height: 46)
+          .background(
+            isAlbumStripOpen ? Color.white.opacity(0.18) : Color.clear, in: Circle()
+          )
+
+        if isLoadingAlbumData {
+          ProgressView()
+            .scaleEffect(0.55)
+            .frame(width: 16, height: 16)
+            .offset(x: 2, y: 2)
+        } else if albumCount > 0 {
+          Text("\(albumCount)")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(4)
+            .background(Color.accentColor, in: Circle())
+            .offset(x: 2, y: 2)
+        }
+      }
+    }
   }
 
   private func actionRailButton(

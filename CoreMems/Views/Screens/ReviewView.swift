@@ -8,6 +8,7 @@ struct ReviewView: View {
   @State private var expandedPhoto: SessionPhoto?
   @State private var showCheckIn = false
   @State private var lastCheckInIndex = -1
+  @State private var showAlbumPicker = false
   @Namespace private var heroNamespace
 
   private var current: SessionPhoto? {
@@ -57,6 +58,14 @@ struct ReviewView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+        if vm.isAlbumStripExpanded, let current {
+          AlbumQuickStripView(
+            vm: vm, photoID: current.id,
+            onMore: { showAlbumPicker = true }
+          )
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+
         ReviewControlBar(
           canUndo: vm.canUndo,
           onUndo: { vm.quickUndo() },
@@ -64,12 +73,29 @@ struct ReviewView: View {
           onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
         )
       }
+      .animation(.easeOut(duration: 0.22), value: vm.isAlbumStripExpanded)
       .sheet(isPresented: $showTray) {
         DeletionTrayView(
           items: vm.pendingItems,
           onRestore: { id in vm.restoreMany(ids: [id]) }
         )
         .presentationDetents([.medium, .large])
+      }
+      .sheet(isPresented: $showAlbumPicker) {
+        if let current {
+          AlbumPickerView(
+            albums: vm.userAlbums + vm.pendingNewAlbums,
+            assignedRefs: vm.effectiveAlbums(for: current.id),
+            isLoading: vm.isLoadingAlbumPicker,
+            hasLoadedAllAlbums: vm.hasLoadedAllAlbums,
+            isLoadingMoreAlbums: vm.isLoadingMoreAlbums,
+            onLoadAllAlbums: { vm.loadAllAlbums() },
+            onToggle: { ref in vm.toggleAlbumMembership(photoID: current.id, ref: ref) },
+            onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: current.id) }
+          )
+          .presentationDetents([.height(340), .medium])
+          .presentationDragIndicator(.visible)
+        }
       }
 
       if let expandedPhoto {

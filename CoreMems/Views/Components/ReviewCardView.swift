@@ -20,7 +20,6 @@ struct ReviewCardView: View {
   @State private var dragOffset: CGSize = .zero
   @State private var zoomScale: CGFloat = 1.0
   @State private var showMetadata = false
-  @State private var showAlbumPicker = false
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
 
@@ -44,10 +43,15 @@ struct ReviewCardView: View {
           PhotoActionRailView(
             isFavorite: photo.isFavorite,
             containerSize: maxSize,
+            albumCount: vm.effectiveAlbums(for: photo.id).count,
+            isAlbumStripOpen: vm.isAlbumStripExpanded,
+            isLoadingAlbumData: vm.isLoadingAlbumPicker,
             onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
-            onAssignAlbum: {
-              vm.prepareAlbumPicker(for: photo.id)
-              showAlbumPicker = true
+            onToggleAlbumStrip: {
+              vm.isAlbumStripExpanded.toggle()
+              if vm.isAlbumStripExpanded {
+                Task { await vm.prepareAlbumPicker(for: photo.id) }
+              }
             }
           )
         }
@@ -94,16 +98,6 @@ struct ReviewCardView: View {
     .animation(.easeOut(duration: 0.2), value: dragOffset)
     .sheet(isPresented: $showMetadata) {
       PhotoMetadataSheetView(vm: vm)
-    }
-    .sheet(isPresented: $showAlbumPicker) {
-      AlbumPickerView(
-        albums: vm.userAlbums + vm.pendingNewAlbums,
-        assignedRefs: vm.effectiveAlbums(for: photo.id),
-        onToggle: { ref in vm.toggleAlbumMembership(photoID: photo.id, ref: ref) },
-        onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: photo.id) }
-      )
-      .presentationDetents([.medium, .large])
-      .presentationDragIndicator(.visible)
     }
   }
 

@@ -54,7 +54,17 @@ struct RootView: View {
             vm.screen = .setup
           }
         case .setup:
-          SetupView(maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval) {
+          SetupView(
+            maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval,
+            pinnedAlbums: vm.allAlbumsForPinning,
+            pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
+            isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
+            isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
+            pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
+            onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
+            onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
+            onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) }
+          ) {
             mode, startDate in
             Task { await vm.startSession(mode: mode, startDate: startDate) }
           } onBack: {

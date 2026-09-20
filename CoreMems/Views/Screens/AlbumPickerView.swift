@@ -3,17 +3,25 @@ import SwiftUI
 struct AlbumPickerView: View {
   let albums: [AlbumOption]
   let assignedRefs: Set<AlbumRef>
+  var isLoading: Bool = false
+  /// "Your Albums" defaults to just the pinned albums — these two drive
+  /// the row that expands it to the user's whole library on request.
+  var hasLoadedAllAlbums: Bool = true
+  var isLoadingMoreAlbums: Bool = false
+  var onLoadAllAlbums: () -> Void = {}
   let onToggle: (AlbumRef) -> Void
   let onCreate: (String) -> Void
 
   @Environment(\.dismiss) private var dismiss
-  @State private var creating = false
-  @State private var name = ""
+  @State private var showNewAlbumAlert = false
+  @State private var newAlbumName = ""
   @State private var searchText = ""
 
+  // `albums` (existing ones, at least) arrives pre-sorted by
+  // `localizedTitle` from PhotoKit — filtering preserves that order, so
+  // there's no need to re-sort here.
   private var alreadyInAlbums: [AlbumOption] {
     filtered(albums.filter { assignedRefs.contains($0.ref) })
-      .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
   }
 
   private var newAlbums: [AlbumOption] {
@@ -22,7 +30,6 @@ struct AlbumPickerView: View {
 
   private var existingAlbums: [AlbumOption] {
     filtered(albums.filter { $0.ref.kind == .existing && !assignedRefs.contains($0.ref) })
-      .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
   }
 
   private func filtered(_ options: [AlbumOption]) -> [AlbumOption] {
@@ -33,7 +40,23 @@ struct AlbumPickerView: View {
   var body: some View {
     NavigationStack {
       List {
-        if !creating {
+        if isLoading && albums.isEmpty {
+          HStack {
+            Spacer()
+            ProgressView("Loading albums…")
+            Spacer()
+          }
+          .padding(.vertical, 24)
+        } else {
+          Section {
+            Button {
+              newAlbumName = ""
+              showNewAlbumAlert = true
+            } label: {
+              Label("New album", systemImage: "plus.circle.fill")
+            }
+          }
+
           if !alreadyInAlbums.isEmpty {
             Section("Already in") {
               ForEach(alreadyInAlbums) { albumRow($0) }
@@ -54,30 +77,25 @@ struct AlbumPickerView: View {
             ContentUnavailableView.search(text: searchText)
           }
 
-          Section {
-            Button {
-              creating = true
-            } label: {
-              Label("New album", systemImage: "plus.circle.fill")
+          if !hasLoadedAllAlbums {
+            Section {
+              Button {
+                onLoadAllAlbums()
+              } label: {
+                HStack {
+                  Label("Load all albums", systemImage: "ellipsis.circle")
+                  if isLoadingMoreAlbums {
+                    Spacer()
+                    ProgressView()
+                  }
+                }
+              }
+              .disabled(isLoadingMoreAlbums)
             }
-          }
-        } else {
-          Section {
-            TextField("Album name", text: $name)
-          }
-
-          Section {
-            Button("Create album") {
-              guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-              onCreate(name)
-              name = ""
-              creating = false
-            }
-            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
           }
         }
       }
-      .navigationTitle("Add to album")
+      .navigationTitle("Albums")
       .navigationBarTitleDisplayMode(.inline)
       .searchable(
         text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
@@ -88,6 +106,16 @@ struct AlbumPickerView: View {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Close") { dismiss() }
         }
+      }
+      .alert("New Album", isPresented: $showNewAlbumAlert) {
+        TextField("Album name", text: $newAlbumName)
+        Button("Cancel", role: .cancel) {}
+        Button("Create") {
+          let trimmed = newAlbumName.trimmingCharacters(in: .whitespaces)
+          guard !trimmed.isEmpty else { return }
+          onCreate(trimmed)
+        }
+        .disabled(newAlbumName.trimmingCharacters(in: .whitespaces).isEmpty)
       }
     }
   }

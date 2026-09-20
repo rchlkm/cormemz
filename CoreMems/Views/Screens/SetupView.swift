@@ -4,12 +4,21 @@ import SwiftUI
 struct SetupView: View {
   let maxAvailable: Int
   @Binding var checkInInterval: Int
+  let pinnedAlbums: [AlbumOption]
+  let pinnedAlbumIdentifiers: Set<String>
+  let isLoadingPinnedAlbums: Bool
+  var isCreatingPinnedAlbum: Bool = false
+  var pinnedAlbumCreationError: String? = nil
+  let onLoadPinnedAlbums: () -> Void
+  let onTogglePinnedAlbum: (String) -> Void
+  let onCreateAndPinAlbum: (String) -> Void
   let onStart: (SelectionMode, Date?) -> Void
   let onBack: () -> Void
 
   @State private var mode: SelectionMode = .shuffle
   @State private var selectedDate: Date?
   @State private var showCheckInSettings = false
+  @State private var showPinnedAlbumsSettings = false
 
   private var canStart: Bool { mode != .date || selectedDate != nil }
 
@@ -22,7 +31,12 @@ struct SetupView: View {
       TopBar(
         title: "New session",
         onBack: onBack,
-        trailing: AnyView(checkInSettingsButton)
+        trailing: AnyView(
+          HStack(spacing: 14) {
+            pinnedAlbumsSettingsButton
+            checkInSettingsButton
+          }
+        )
       )
 
       VStack(alignment: .leading, spacing: 20) {
@@ -70,6 +84,32 @@ struct SetupView: View {
     }
     .sheet(isPresented: $showCheckInSettings) {
       CheckInSettingsView(value: $checkInInterval)
+    }
+    .sheet(isPresented: $showPinnedAlbumsSettings) {
+      PinnedAlbumsSettingsView(
+        albums: pinnedAlbums,
+        pinnedIdentifiers: pinnedAlbumIdentifiers,
+        isLoading: isLoadingPinnedAlbums,
+        isCreating: isCreatingPinnedAlbum,
+        creationError: pinnedAlbumCreationError,
+        onTogglePin: onTogglePinnedAlbum,
+        onCreateAndPin: onCreateAndPinAlbum
+      )
+    }
+  }
+
+  // MARK: - Pinned albums settings entry point
+  private var pinnedAlbumsSettingsButton: some View {
+    Button {
+      onLoadPinnedAlbums()
+      showPinnedAlbumsSettings = true
+    } label: {
+      HStack(spacing: 4) {
+        Image(systemName: "pin")
+        Text("Albums")
+      }
+      .font(.system(size: 12.5, weight: .semibold))
+      .foregroundStyle(.secondary)
     }
   }
 
@@ -175,11 +215,19 @@ extension SelectionMode {
 }
 
 #Preview("Light Mode") {
-  SetupView(maxAvailable: 200, checkInInterval: .constant(12), onStart: { _, _ in }, onBack: {})
-    .preferredColorScheme(.light)
+  SetupView(
+    maxAvailable: 200, checkInInterval: .constant(12), pinnedAlbums: [],
+    pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
+    onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
+  )
+  .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
-  SetupView(maxAvailable: 200, checkInInterval: .constant(12), onStart: { _, _ in }, onBack: {})
-    .preferredColorScheme(.dark)
+  SetupView(
+    maxAvailable: 200, checkInInterval: .constant(12), pinnedAlbums: [],
+    pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
+    onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
+  )
+  .preferredColorScheme(.dark)
 }
