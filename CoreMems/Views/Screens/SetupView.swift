@@ -3,27 +3,13 @@ import SwiftUI
 
 struct SetupView: View {
   let maxAvailable: Int
-  @Binding var checkInInterval: Int
-  @Binding var includesReviewedPhotos: Bool
-  let reviewedPhotoCount: Int
-  let onResetReviewedPhotos: () -> Void
-  let pinnedAlbums: [AlbumOption]
-  let pinnedAlbumIdentifiers: Set<String>
-  let isLoadingPinnedAlbums: Bool
-  var isCreatingPinnedAlbum: Bool = false
-  var pinnedAlbumCreationError: String? = nil
   var isStarting: Bool = false
-  let onLoadPinnedAlbums: () -> Void
-  let onTogglePinnedAlbum: (String) -> Void
-  let onCreateAndPinAlbum: (String) -> Void
+  let onOpenSettings: () -> Void
   let onStart: (SelectionMode, Date?) -> Void
   let onBack: () -> Void
 
   @State private var mode: SelectionMode = .shuffle
   @State private var selectedDate: Date?
-  @State private var showCheckInSettings = false
-  @State private var showReviewedPhotosSettings = false
-  @State private var showPinnedAlbumsSettings = false
 
   private var canStart: Bool { mode != .date || selectedDate != nil }
 
@@ -36,12 +22,7 @@ struct SetupView: View {
       TopBar(
         title: "New session",
         onBack: onBack,
-        trailing: AnyView(
-          HStack(spacing: 14) {
-            pinnedAlbumsSettingsButton
-            checkInSettingsButton
-          }
-        )
+        trailing: AnyView(settingsButton)
       )
 
       VStack(alignment: .leading, spacing: 20) {
@@ -78,8 +59,6 @@ struct SetupView: View {
         .padding(.horizontal, 26)
         .padding(.top, 14)
 
-      reviewedPhotosButton
-
       Spacer()
 
       Button {
@@ -96,75 +75,15 @@ struct SetupView: View {
       .padding(.horizontal, 32)
       .padding(.bottom, 26)
     }
-    .sheet(isPresented: $showCheckInSettings) {
-      CheckInSettingsView(value: $checkInInterval)
-    }
-    .sheet(isPresented: $showReviewedPhotosSettings) {
-      ReviewedPhotosSettingsView(
-        includesReviewed: $includesReviewedPhotos,
-        reviewedCount: reviewedPhotoCount,
-        onReset: onResetReviewedPhotos
-      )
-    }
-    .sheet(isPresented: $showPinnedAlbumsSettings) {
-      PinnedAlbumsSettingsView(
-        albums: pinnedAlbums,
-        pinnedIdentifiers: pinnedAlbumIdentifiers,
-        isLoading: isLoadingPinnedAlbums,
-        isCreating: isCreatingPinnedAlbum,
-        creationError: pinnedAlbumCreationError,
-        onTogglePin: onTogglePinnedAlbum,
-        onCreateAndPin: onCreateAndPinAlbum
-      )
-    }
   }
 
-  // MARK: - Reviewed photos settings entry point
-  private var reviewedPhotosButton: some View {
-    Button {
-      showReviewedPhotosSettings = true
-    } label: {
-      HStack(spacing: 4) {
-        Image(systemName: "checkmark.circle")
-        Text(reviewedPhotosSummary)
-      }
+  // MARK: - Settings entry point
+  private var settingsButton: some View {
+    Button(action: onOpenSettings) {
+      Image(systemName: "gearshape")
     }
-    .buttonStyle(InlineButtonStyle())
-    .frame(maxWidth: .infinity, alignment: .center)
-    .padding(.top, 10)
-  }
-
-  private var reviewedPhotosSummary: String {
-    if includesReviewedPhotos { return "Including reviewed photos" }
-    guard reviewedPhotoCount > 0 else { return "No reviewed photos yet" }
-    return "Skipping \(reviewedPhotoCount) reviewed photo\(reviewedPhotoCount == 1 ? "" : "s")"
-  }
-
-  // MARK: - Pinned albums settings entry point
-  private var pinnedAlbumsSettingsButton: some View {
-    Button {
-      onLoadPinnedAlbums()
-      showPinnedAlbumsSettings = true
-    } label: {
-      HStack(spacing: 4) {
-        Image(systemName: "pin")
-        Text("Albums")
-      }
-    }
-    .buttonStyle(InlineButtonStyle())
-  }
-
-  // MARK: - Check-in settings entry point
-  private var checkInSettingsButton: some View {
-    Button {
-      showCheckInSettings = true
-    } label: {
-      HStack(spacing: 4) {
-        Image(systemName: "slider.horizontal.3")
-        Text("Every \(checkInInterval)")
-      }
-    }
-    .buttonStyle(InlineButtonStyle())
+    .buttonStyle(IconButtonStyle(size: .small, surface: .material(.primary)))
+    .accessibilityLabel("Settings")
   }
 
   // MARK: - Mode picker (3-card row)
@@ -255,23 +174,11 @@ extension SelectionMode {
 }
 
 #Preview("Light Mode") {
-  SetupView(
-    maxAvailable: 200, checkInInterval: .constant(12),
-    includesReviewedPhotos: .constant(false), reviewedPhotoCount: 128,
-    onResetReviewedPhotos: {}, pinnedAlbums: [],
-    pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
-    onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
-  )
-  .preferredColorScheme(.light)
+  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onBack: {})
+    .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
-  SetupView(
-    maxAvailable: 200, checkInInterval: .constant(12),
-    includesReviewedPhotos: .constant(false), reviewedPhotoCount: 128,
-    onResetReviewedPhotos: {}, pinnedAlbums: [],
-    pinnedAlbumIdentifiers: [], isLoadingPinnedAlbums: false, onLoadPinnedAlbums: {},
-    onTogglePinnedAlbum: { _ in }, onCreateAndPinAlbum: { _ in }, onStart: { _, _ in }, onBack: {}
-  )
-  .preferredColorScheme(.dark)
+  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onBack: {})
+    .preferredColorScheme(.dark)
 }

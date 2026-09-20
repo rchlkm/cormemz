@@ -55,6 +55,25 @@ import SwiftUI
   private struct RootViewContent: View {
     @ObservedObject var vm: SessionViewModel
     @State private var showConfirm = false
+    @State private var showSettings = false
+
+    private var settingsView: some View {
+      SettingsView(
+        checkInInterval: $vm.checkInInterval,
+        includesReviewedPhotos: $vm.includesReviewedPhotos,
+        reviewedPhotoCount: vm.reviewedPhotoCount,
+        onResetReviewedPhotos: { vm.resetReviewedPhotos() },
+        pinnedAlbums: vm.allAlbumsForPinning,
+        pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
+        isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
+        isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
+        pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
+        onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
+        onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
+        onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) },
+        lifetimeStats: vm.lifetimeStats
+      )
+    }
 
     var body: some View {
       ZStack {
@@ -75,24 +94,19 @@ import SwiftUI
               }
             )
           case .setup:
-            SetupView(
-              maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval,
-              includesReviewedPhotos: $vm.includesReviewedPhotos,
-              reviewedPhotoCount: vm.reviewedPhotoCount,
-              onResetReviewedPhotos: { vm.resetReviewedPhotos() },
-              pinnedAlbums: vm.allAlbumsForPinning,
-              pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
-              isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
-              isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
-              pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
-              onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
-              onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
-              onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) }
-            ) {
-              mode, startDate in
-              Task { await vm.startSession(mode: mode, startDate: startDate) }
-            } onBack: {
-              vm.screen = .home
+            NavigationStack {
+              SetupView(
+                maxAvailable: vm.maxAvailable,
+                isStarting: vm.isStartingSession,
+                onOpenSettings: { showSettings = true }
+              ) {
+                mode, startDate in
+                Task { await vm.startSession(mode: mode, startDate: startDate) }
+              } onBack: {
+                vm.screen = .home
+              }
+              .toolbar(.hidden, for: .navigationBar)
+              .navigationDestination(isPresented: $showSettings) { settingsView }
             }
           case .review:
             ReviewView(vm: vm)

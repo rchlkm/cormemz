@@ -15,12 +15,31 @@ struct RootView: View {
   @StateObject private var vm = SessionViewModel()
   @AppStorage("cm_hasOnboarded") private var hasOnboarded = false
   @State private var showConfirm = false
+  @State private var showSettings = false
   @Environment(\.scenePhase) private var scenePhase
 
   /// True until the user has granted access at least once. While
   /// true, show the full permission-request Home screen.
   private var needsOnboarding: Bool {
     !hasOnboarded || vm.authorizationStatus == .notDetermined
+  }
+
+  private var settingsView: some View {
+    SettingsView(
+      checkInInterval: $vm.checkInInterval,
+      includesReviewedPhotos: $vm.includesReviewedPhotos,
+      reviewedPhotoCount: vm.reviewedPhotoCount,
+      onResetReviewedPhotos: { vm.resetReviewedPhotos() },
+      pinnedAlbums: vm.allAlbumsForPinning,
+      pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
+      isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
+      isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
+      pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
+      onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
+      onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
+      onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) },
+      lifetimeStats: vm.lifetimeStats
+    )
   }
 
   var body: some View {
@@ -54,25 +73,19 @@ struct RootView: View {
             vm.screen = .setup
           }
         case .setup:
-          SetupView(
-            maxAvailable: vm.maxAvailable, checkInInterval: $vm.checkInInterval,
-            includesReviewedPhotos: $vm.includesReviewedPhotos,
-            reviewedPhotoCount: vm.reviewedPhotoCount,
-            onResetReviewedPhotos: { vm.resetReviewedPhotos() },
-            pinnedAlbums: vm.allAlbumsForPinning,
-            pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
-            isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
-            isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
-            pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
-            isStarting: vm.isStartingSession,
-            onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
-            onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
-            onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) }
-          ) {
-            mode, startDate in
-            Task { await vm.startSession(mode: mode, startDate: startDate) }
-          } onBack: {
-            vm.screen = .home
+          NavigationStack {
+            SetupView(
+              maxAvailable: vm.maxAvailable,
+              isStarting: vm.isStartingSession,
+              onOpenSettings: { showSettings = true }
+            ) {
+              mode, startDate in
+              Task { await vm.startSession(mode: mode, startDate: startDate) }
+            } onBack: {
+              vm.screen = .home
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showSettings) { settingsView }
           }
         case .review:
           ReviewView(vm: vm)
