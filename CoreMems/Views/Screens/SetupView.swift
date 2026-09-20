@@ -12,6 +12,7 @@ struct SetupView: View {
   let isLoadingPinnedAlbums: Bool
   var isCreatingPinnedAlbum: Bool = false
   var pinnedAlbumCreationError: String? = nil
+  var isStarting: Bool = false
   let onLoadPinnedAlbums: () -> Void
   let onTogglePinnedAlbum: (String) -> Void
   let onCreateAndPinAlbum: (String) -> Void
@@ -84,10 +85,14 @@ struct SetupView: View {
       Button {
         onStart(mode, mode == .date ? selectedDate : nil)
       } label: {
+        if isStarting {
+          ProgressView()
+        } else {
           Text(startButtonTitle)
-
+        }
       }
       .buttonStyle(ActionButtonStyle(role: .primary))
+      .disabled(!canStart || isStarting)
       .padding(.horizontal, 32)
       .padding(.bottom, 26)
     }

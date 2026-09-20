@@ -24,6 +24,7 @@ final class SessionViewModel: ObservableObject {
   @Published var pendingNewAlbums: [AlbumOption] = []  // created-this-session, not yet flushed
   @Published var albumAssignmentError: String?
   @Published var isFlushingAlbums: Bool = false
+  @Published var isStartingSession: Bool = false
   /// Every user album (names and counts only), loaded once per app launch and
   /// refreshed on foreground return and after album creation. `nil` until loaded.
   @Published var libraryAlbums: [AlbumOption]?
@@ -85,6 +86,12 @@ final class SessionViewModel: ObservableObject {
 
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
+  private var assetSource: AssetBatchSource?
+  private var sessionBatchSize = SessionViewModel.defaultCheckInInterval
+  private var isLoadingBatch = false
+  /// Batches of unreviewed photos kept loaded ahead of the current card.
+  private static let lookaheadBatches = 2
   // @Published (despite being private) so toggling membership triggers
   // objectWillChange — the album picker's checkmarks read these
   // indirectly via `effectiveAlbums(for:)`.
@@ -203,11 +210,15 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Session lifecycle
 
-  /// Request/confirm authorization, fetch real assets via the method
-  /// matching `mode`, or fall back to mock data when running in
-  /// previews/simulator without a populated library. Every session is
-  /// capped only by `maxAvailable` — there's no separate requested size.
+  /// Request/confirm authorization, then load the first batches of real
+  /// assets in `mode`'s order, or fall back to mock data when running in
+  /// previews/simulator without a populated library. A batch is
+  /// `checkInInterval` photos; later batches load as the user reviews.
   func startSession(mode: SelectionMode, startDate: Date?) async {
+    guard !isStartingSession else { return }
+    isStartingSession = true
+    defer { isStartingSession = false }
+
     let status = await checkAuthorization()
     guard status == .authorized || status == .limited else {
       // Denied/restricted — bounce back to Home, where
@@ -218,31 +229,28 @@ final class SessionViewModel: ObservableObject {
     }
 
     let limit = max(maxAvailable, 0)
+    let batchSize = checkInInterval
+    let initialCount = Self.lookaheadBatches * batchSize
     let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
-    var assets = await fetchAssets(
-      mode: mode, startDate: startDate, limit: limit, excluding: reviewed)
+    var source = await library.makeAssetSource(
+      mode: mode, startDate: startDate, excluding: reviewed)
+    var assets = await source.nextBatch(count: initialCount)
     // Everything in scope was already reviewed — show it again rather than an empty session.
     if assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0 {
-      assets = await fetchAssets(mode: mode, startDate: startDate, limit: limit, excluding: [])
+      source = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: [])
+      assets = await source.nextBatch(count: initialCount)
     }
 
     if assets.isEmpty {
       // Preview/mock path — generates placeholder SessionPhoto data.
       photos = Self.mockPhotos(count: limit)
+      assetSource = nil
     } else {
-      photos = assets.enumerated().map { idx, asset in
-        let id = "\(asset.localIdentifier)-\(idx)"
-        pickedAssets[id] = asset
-        return SessionPhoto(
-          id: id,
-          assetIdentifier: asset.localIdentifier,
-          previewURL: nil,
-          isFavorite: asset.isFavorite,
-          isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
-          dateLabel: asset.creationDate.map(Self.cardDateFormatter.string) ?? ""
-        )
-      }
+      photos = sessionPhotos(from: assets, startingAt: 0)
+      assetSource = assets.count < initialCount ? nil : source
     }
+    sessionBatchSize = batchSize
+    isLoadingBatch = false
 
     switch mode {
     case .shuffle:
@@ -268,19 +276,46 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  private func fetchAssets(
-    mode: SelectionMode, startDate: Date?, limit: Int, excluding: Set<String>
-  ) async -> [PHAsset] {
-    switch mode {
-    case .shuffle:
-      return await library.fetchRandomEligibleAssets(limit: limit, excluding: excluding)
-    case .recent:
-      return await library.fetchMostRecentEligibleAssets(limit: limit, excluding: excluding)
-    case .date:
-      let sinceDate = startDate ?? .distantPast
-      return Array(
-        await library.fetchEligibleAssets(since: sinceDate, excluding: excluding).prefix(limit))
+  private func sessionPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
+    assets.enumerated().map { idx, asset in
+      let id = "\(asset.localIdentifier)-\(offset + idx)"
+      pickedAssets[id] = asset
+      return SessionPhoto(
+        id: id,
+        assetIdentifier: asset.localIdentifier,
+        previewURL: nil,
+        isFavorite: asset.isFavorite,
+        isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
+        dateLabel: asset.creationDate.map(Self.cardDateFormatter.string) ?? ""
+      )
     }
+  }
+
+  /// Loads another batch whenever fewer than `lookaheadBatches` batches of
+  /// photos remain ahead of the current card.
+  private func loadMoreIfNeeded() {
+    let batchSize = sessionBatchSize
+    guard let source = assetSource, !isLoadingBatch,
+      photos.count - currentIndex < Self.lookaheadBatches * batchSize
+    else { return }
+    isLoadingBatch = true
+    Task {
+      let assets = await source.nextBatch(count: batchSize)
+      guard source === assetSource else { return }
+      isLoadingBatch = false
+      photos.append(contentsOf: sessionPhotos(from: assets, startingAt: photos.count))
+      if assets.count < batchSize { assetSource = nil }
+      prefetchNextPhoto()
+      showPendingReviewIfDeckEmpty()
+      loadMoreIfNeeded()
+      persistState()
+    }
+  }
+
+  /// An empty deck only means the session is over once no more photos can arrive.
+  private func showPendingReviewIfDeckEmpty() {
+    guard currentIndex >= photos.count, assetSource == nil, screen == .review else { return }
+    screen = .pendingReview
   }
 
   /// Jumps straight to Pending Review regardless of how many photos are
@@ -320,11 +355,10 @@ final class SessionViewModel: ObservableObject {
     if advanced {
       currentIndex += 1
       prefetchNextPhoto()
+      loadMoreIfNeeded()
     }
 
-    if currentIndex >= photos.count && screen == .review {
-      screen = .pendingReview
-    }
+    showPendingReviewIfDeckEmpty()
     persistState()
   }
 

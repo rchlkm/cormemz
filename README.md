@@ -23,7 +23,9 @@ Selection modes, chosen at session start:
   photos again or reset the review history. If everything in scope was
   already reviewed, the session shows it all again.
 - ✅ Sessions are **open-ended**, not a fixed count — they run until the
-  user stops.
+  user stops. Photos load in batches the size of the check-in interval,
+  keeping two batches ahead of the current card, so starting a session
+  stays fast on large libraries.
 - ✅ **Check-in interval** (default 12, adjustable 5–100 in Settings): every
   N items, a checkpoint overlay asks "keep going or stop here" so the
   session never feels endless. Decisions made so far are preserved either

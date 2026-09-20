@@ -64,6 +64,7 @@ struct RootView: View {
             isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
             isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
             pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
+            isStarting: vm.isStartingSession,
             onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
             onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
             onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) }
