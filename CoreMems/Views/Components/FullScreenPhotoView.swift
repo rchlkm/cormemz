@@ -9,6 +9,8 @@ import SwiftUI
 /// toggles zoom as a shortcut.
 struct FullScreenPhotoView: View {
   let photo: SessionPhoto
+  /// Shows what the photo is marked for with an Undo action; the viewer closes once it runs.
+  var onUndo: (() -> Void)? = nil
 
   @Environment(\.dismiss) private var dismiss
 
@@ -43,7 +45,57 @@ struct FullScreenPhotoView: View {
       .simultaneousGesture(dragGesture)
       .onTapGesture(count: 2) { toggleZoom() }
     }
+    .overlay(alignment: .topTrailing) { closeButton.opacity(chromeOpacity) }
+    .overlay(alignment: .bottom) { undoBar.opacity(chromeOpacity) }
     .statusBarHidden()
+    .uiTestContainer(AccessibilityID.photoViewer)
+  }
+
+  private var chromeOpacity: Double {
+    isZoomed ? 0 : max(0, 1 - hypot(dismissDrag.width, dismissDrag.height) / fadeDistance)
+  }
+
+  private var closeButton: some View {
+    Button {
+      dismiss()
+    } label: {
+      Image(systemName: "xmark")
+    }
+    .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
+    .accessibilityLabel("Close")
+    .disabled(isZoomed)
+    .padding(16)
+  }
+
+  @ViewBuilder
+  private var undoBar: some View {
+    if let onUndo {
+      let status = DecisionOverlay(decision: photo.decision)
+      VStack(spacing: 12) {
+        Label {
+          Text(status.title).foregroundStyle(.white)
+        } icon: {
+          Image(systemName: status.icon).foregroundStyle(status.tint)
+        }
+        .font(.headline)
+
+        Button {
+          dismiss()
+          onUndo()
+        } label: {
+          Label("Undo", systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(ActionButtonStyle(role: .secondary))
+        .accessibilityIdentifier(AccessibilityID.photoViewerUndo)
+        .disabled(isZoomed)
+      }
+      .environment(\.colorScheme, .dark)
+      .padding(26)
+      .frame(maxWidth: .infinity)
+      .background(
+        LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+      )
+    }
   }
 
   private var magnification: some Gesture {

@@ -16,12 +16,15 @@ struct PhotoGrid: View {
   }
 }
 
-/// The grid without a scroll view, for screens that stack several grids in one.
-/// Decision tags tell deletions and conversions apart when they share a grid.
+/// The grid without a scroll view, for screens that supply their own.
+/// Tapping a photo opens it full screen, where its mark can be undone.
+/// Decision tags tell deletions and conversions apart.
 struct PhotoGridCells: View {
   let photos: [SessionPhoto]
   var showsDecisionTags = false
   let onRestore: (String) -> Void
+
+  @State private var viewing: SessionPhoto?
 
   var body: some View {
     LazyVGrid(
@@ -37,6 +40,12 @@ struct PhotoGridCells: View {
                 .scaledToFill()
             )
             .clipShape(RoundedRectangle(cornerRadius: 14))
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+            .onTapGesture { viewing = photo }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("View photo")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(AccessibilityID.gridPhoto)
 
           Button {
             onRestore(photo.id)
@@ -57,6 +66,9 @@ struct PhotoGridCells: View {
     }
     .padding(.horizontal, 26)
     .padding(.top, 16)
+    .fullScreenCover(item: $viewing) { photo in
+      FullScreenPhotoView(photo: photo, onUndo: { onRestore(photo.id) })
+    }
   }
 }
 

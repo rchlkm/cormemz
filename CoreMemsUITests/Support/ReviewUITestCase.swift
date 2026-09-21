@@ -56,6 +56,26 @@ class ReviewUITestCase: XCTestCase {
     XCTAssertEqual(result, .completed, "Progress never read \"\(label)\"", file: file, line: line)
   }
 
+  func waitForDisappearance(
+    of element: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let gone = NSPredicate(format: "exists == false")
+    let result = XCTWaiter().wait(
+      for: [XCTNSPredicateExpectation(predicate: gone, object: element)],
+      timeout: Self.uiTimeout)
+    XCTAssertEqual(result, .completed, "Element never disappeared", file: file, line: line)
+  }
+
+  func waitUntilSelected(
+    _ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let selected = NSPredicate(format: "isSelected == true")
+    let result = XCTWaiter().wait(
+      for: [XCTNSPredicateExpectation(predicate: selected, object: element)],
+      timeout: Self.uiTimeout)
+    XCTAssertEqual(result, .completed, "Element never became selected", file: file, line: line)
+  }
+
   /// The number of photos listed in the marked-photos tray.
   func markedPhotoCount() -> Int {
     button(AccessibilityID.reviewTray).tap()

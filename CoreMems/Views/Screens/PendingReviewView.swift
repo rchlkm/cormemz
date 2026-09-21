@@ -5,42 +5,48 @@ struct PendingReviewView: View {
   @ObservedObject var vm: SessionViewModel
 
   @State private var selected: Set<String> = []
+  @State private var filter: Filter = .all
+
+  private enum Filter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case delete = "Delete"
+    case convert = "Convert"
+    var id: String { rawValue }
+  }
 
   private var items: [SessionPhoto] { vm.pendingItems }
   private var conversions: [SessionPhoto] { vm.pendingConversions }
+  private var marked: [SessionPhoto] { items + conversions }
   private var hasItems: Bool { !items.isEmpty }
+  private var favoritesCount: Int { items.filter(\.isFavorite).count }
+
+  /// Only offered when both kinds are present; otherwise everything is shown.
+  private var showsFilter: Bool { hasItems && !conversions.isEmpty }
+  private var activeFilter: Filter { showsFilter ? filter : .all }
+
+  private func photos(for filter: Filter) -> [SessionPhoto] {
+    switch filter {
+    case .all: return marked
+    case .delete: return items
+    case .convert: return conversions
+    }
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       TopBar(title: "Before you go", onBack: { vm.screen = .review })
 
-      ScrollView {
-        VStack(alignment: .leading, spacing: 24) {
-          if items.isEmpty && conversions.isEmpty {
-            header(
-              title: "Nothing marked for deletion",
-              subtitle: "You kept all \(vm.keptCount) photos from this session. Nothing will be deleted."
-            )
-          }
-          if hasItems {
-            section(
-              title: "\(items.count) photo\(items.count == 1 ? "" : "s") will move to Recently Deleted",
-              subtitle:
-                "Nothing is deleted yet. They'll sit in Recently Deleted for Apple's usual 30 days, so you can still change your mind after this.",
-              photos: items,
-              favoritesCount: items.filter(\.isFavorite).count)
-          }
-          if !conversions.isEmpty {
-            section(
-              title: conversions.count == 1
-                ? "1 Live Photo will become a still photo"
-                : "\(conversions.count) Live Photos will become still photos",
-              subtitle:
-                "Each keeps its still image, and the Live Photo original moves to Recently Deleted.",
-              photos: conversions)
-          }
+      if marked.isEmpty {
+        ScrollView {
+          header(
+            title: "Nothing marked for deletion",
+            subtitle: "You kept all \(vm.keptCount) photos from this session. Nothing will be deleted."
+          )
+          .padding(.top, 4)
         }
-        .padding(.top, 4)
+      } else {
+        summary
+        pages
       }
 
       if let deletionError = vm.deletionError {
@@ -58,8 +64,8 @@ struct PendingReviewView: View {
           ProgressView()
         } else {
           Text(
-            hasItems
-              ? "Delete \(items.count) photo\(items.count == 1 ? "" : "s")" : "Finish session"
+            marked.isEmpty
+              ? "Finish session" : "Confirm \(marked.count) change\(marked.count == 1 ? "" : "s")"
           )
         }
       }
@@ -67,6 +73,30 @@ struct PendingReviewView: View {
       .accessibilityIdentifier(AccessibilityID.pendingConfirm)
       .disabled(vm.isDeleting)
       .padding(26)
+    }
+  }
+
+  /// Swipeable pages keep each grid alive, so switching filters doesn't reload thumbnails.
+  @ViewBuilder
+  private var pages: some View {
+    if showsFilter {
+      TabView(selection: $filter) {
+        ForEach(Filter.allCases) { option in
+          gridPage(photos(for: option)).tag(option)
+        }
+      }
+      .tabViewStyle(.page(indexDisplayMode: .never))
+      .animation(.default, value: filter)
+    } else {
+      gridPage(marked)
+    }
+  }
+
+  private func gridPage(_ photos: [SessionPhoto]) -> some View {
+    ScrollView {
+      PhotoGridCells(photos: photos, showsDecisionTags: true) { id in
+        vm.restoreMany(ids: [id])
+      }
     }
   }
 
@@ -81,24 +111,50 @@ struct PendingReviewView: View {
     .padding(.horizontal, 26)
   }
 
-  private func section(
-    title: String, subtitle: String, photos: [SessionPhoto], favoritesCount: Int = 0
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      header(title: title, subtitle: subtitle)
-      if favoritesCount > 0 {
+  private var summary: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if showsFilter {
+        filterPicker
+      } else if hasItems {
+        summaryLabel("\(items.count) to delete", symbol: "trash", decision: .pendingDelete)
+      } else {
+        summaryLabel(
+          "\(conversions.count) to convert", symbol: "livephoto.slash",
+          decision: .convertToStill)
+      }
+      Text("Deleted items stay in Recently Deleted for 30 days.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+      if favoritesCount > 0 && activeFilter != .convert {
         Label(
           "\(favoritesCount) \(favoritesCount == 1 ? "is" : "are") marked as a favorite",
           systemImage: "heart.fill"
         )
         .font(.footnote)
         .foregroundStyle(.pink)
-        .padding(.horizontal, 26)
-        .padding(.top, 8)
-      }
-      PhotoGridCells(photos: photos) { id in
-        vm.restoreMany(ids: [id])
       }
     }
+    .padding(.horizontal, 26)
+    .padding(.top, 4)
+  }
+
+  private var filterPicker: some View {
+    Picker("Show", selection: $filter) {
+      ForEach(Filter.allCases) { option in
+        Text("\(option.rawValue) \(photos(for: option).count)").tag(option)
+      }
+    }
+    .pickerStyle(.segmented)
+  }
+
+  private func summaryLabel(_ title: String, symbol: String, decision: ReviewDecision)
+    -> some View
+  {
+    Label {
+      Text(title)
+    } icon: {
+      Image(systemName: symbol).foregroundStyle(decision.tint)
+    }
+    .font(.title3.bold())
   }
 }

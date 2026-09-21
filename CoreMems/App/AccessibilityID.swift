@@ -14,6 +14,9 @@ enum AccessibilityID {
   static let liveBadge = "review.liveBadge"
   static let expandedPhoto = "expanded.photo"
   static let trayRestore = "tray.restore"
+  static let gridPhoto = "grid.photo"
+  static let photoViewer = "photoViewer.root"
+  static let photoViewerUndo = "photoViewer.undo"
   static let pendingConfirm = "pending.confirm"
   static let completion = "completion.root"
 }

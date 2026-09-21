@@ -48,10 +48,11 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 - Mark a Live Photo for conversion to a still photo
 - Undo back onto a photo marked for conversion keeps it marked, so you can file the still into an album or change your mind
 - Open the marked-photos tray to see everything marked for deletion or conversion and restore items to Keep
+- Open a marked photo full screen to undo its mark, from the tray or the final review
 
 ### End-of-Session Review & Confirmation
 
-- Review everything marked for deletion before confirming
+- Review everything marked for deletion or conversion before confirming, and filter or swipe between All, Delete, and Convert
 - Deleted photos move to Recently Deleted, and favorites are flagged before you confirm
 - See a summary of what was kept and deleted
 - See how much of your library you've reviewed, here and in lifetime stats

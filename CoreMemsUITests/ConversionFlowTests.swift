@@ -5,7 +5,7 @@ import XCTest
 final class ConversionFlowTests: ReviewUITestCase {
   private static let firstLivePhotoPosition = 2
   private static let convertMenuItem = "Convert to Still Photo"
-  private static let conversionSummary = "1 Live Photo will become a still photo"
+  private static let conversionSummary = "1 to convert"
  
   private func reachFirstLivePhoto() {
     XCTAssertFalse(element(AccessibilityID.liveBadge).exists)
@@ -22,6 +22,41 @@ final class ConversionFlowTests: ReviewUITestCase {
     XCTAssertTrue(menuItem.waitForExistence(timeout: Self.uiTimeout))
     menuItem.tap()
     waitForProgress("\(Self.firstLivePhotoPosition + 1) reviewed")
+  }
+
+  /// Converts the first Live Photo, deletes the next photo, and opens the final review.
+  private func openFinalReviewWithOneOfEach() {
+    reachFirstLivePhoto()
+    convertCurrentPhoto()
+    element(AccessibilityID.reviewDelete).tap()
+    waitForProgress("\(Self.firstLivePhotoPosition + 2) reviewed")
+    element(AccessibilityID.reviewDone).tap()
+    XCTAssertTrue(
+      element(AccessibilityID.pendingConfirm).waitForExistence(timeout: Self.uiTimeout))
+  }
+
+  func testSwipingTheFinalReviewMovesBetweenFilters() {
+    openFinalReviewWithOneOfEach()
+    let filters = app.segmentedControls.firstMatch
+    waitUntilSelected(filters.buttons["All 2"])
+
+    app.swipeLeft()
+    waitUntilSelected(filters.buttons["Delete 1"])
+
+    app.swipeLeft()
+    waitUntilSelected(filters.buttons["Convert 1"])
+  }
+
+  func testUndoingFromFullScreenInTheFinalReviewDropsThatPhoto() {
+    openFinalReviewWithOneOfEach()
+    app.segmentedControls.firstMatch.buttons["Delete 1"].tap()
+
+    element(AccessibilityID.gridPhoto).firstMatch.tap()
+    let viewer = element(AccessibilityID.photoViewer)
+    XCTAssertTrue(viewer.waitForExistence(timeout: Self.uiTimeout))
+    viewer.buttons[AccessibilityID.photoViewerUndo].tap()
+
+    XCTAssertTrue(app.staticTexts[Self.conversionSummary].waitForExistence(timeout: Self.uiTimeout))
   }
 
   func testConvertingALivePhotoMarksItInTheTray() {

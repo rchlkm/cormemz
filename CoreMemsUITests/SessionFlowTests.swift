@@ -15,6 +15,34 @@ final class SessionFlowTests: ReviewUITestCase {
     XCTAssertEqual(markedPhotoCount(), 0)
   }
 
+  func testMarkedPhotoOpensFullScreenFromTheTrayAndCanBeUndone() {
+    element(AccessibilityID.reviewDelete).tap()
+    waitForProgress("1 reviewed")
+    button(AccessibilityID.reviewTray).tap()
+
+    element(AccessibilityID.gridPhoto).firstMatch.tap()
+    let viewer = element(AccessibilityID.photoViewer)
+    XCTAssertTrue(viewer.waitForExistence(timeout: Self.uiTimeout))
+    viewer.buttons[AccessibilityID.photoViewerUndo].tap()
+
+    waitForDisappearance(of: viewer)
+    XCTAssertEqual(app.buttons.matching(identifier: AccessibilityID.trayRestore).count, 0)
+  }
+
+  func testClosingTheFullScreenViewerLeavesThePhotoMarked() {
+    element(AccessibilityID.reviewDelete).tap()
+    waitForProgress("1 reviewed")
+    button(AccessibilityID.reviewTray).tap()
+
+    element(AccessibilityID.gridPhoto).firstMatch.tap()
+    let viewer = element(AccessibilityID.photoViewer)
+    XCTAssertTrue(viewer.waitForExistence(timeout: Self.uiTimeout))
+    viewer.buttons["Close"].tap()
+
+    waitForDisappearance(of: viewer)
+    XCTAssertEqual(app.buttons.matching(identifier: AccessibilityID.trayRestore).count, 1)
+  }
+
   func testDoneLeadsThroughPendingReviewToCompletion() {
     element(AccessibilityID.reviewKeep).tap()
     waitForProgress("1 reviewed")
