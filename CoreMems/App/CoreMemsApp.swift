@@ -97,6 +97,7 @@ struct RootView: View {
             keptCount: vm.keptCount,
             deletedCount: vm.deletedCount,
             albumAssignedCount: vm.albumAssignedCount,
+            convertedCount: vm.convertedLivePhotoCount,
             lifetimeStats: vm.lifetimeStats,
             onAgain: { vm.resetForAnotherSession() }
           )
@@ -128,8 +129,10 @@ struct RootView: View {
       ConfirmSheetView(
         count: vm.pendingItems.count,
         favoritesCount: vm.pendingItems.filter(\.isFavorite).count,
-        isDeleting: vm.isDeleting || vm.isFlushingAlbums,
+        conversionCount: vm.pendingConversions.count,
+        isDeleting: vm.isDeleting || vm.isFlushingAlbums || vm.isConvertingLivePhoto,
         errorMessage: vm.deletionError,
+        conversionErrorMessage: vm.livePhotoConversionError,
         albumErrorMessage: vm.albumAssignmentError,
         onCancel: { showConfirm = false },
         onConfirm: { Task { await vm.confirmDeletion() } },

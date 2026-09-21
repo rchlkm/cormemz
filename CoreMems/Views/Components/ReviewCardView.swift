@@ -73,7 +73,7 @@ struct ReviewCardView: View {
           targetSize: livePhotoTargetSize,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto,
-          onConvertToStill: { vm.convertLivePhotoToStill(photoID: photo.id) }
+          onConvertToStill: { Task { await vm.markForConversion(index: vm.currentIndex) } }
         )
       }
     }
@@ -81,6 +81,12 @@ struct ReviewCardView: View {
       infoBadge
     }
     .overlay(keepDeleteStamps)
+    .overlay {
+      if vm.isMarkingForConversion {
+        ConvertToStillOverlay().transition(.opacity)
+      }
+    }
+    .animation(.easeOut(duration: 0.15), value: vm.isMarkingForConversion)
     .clipShape(RoundedRectangle(cornerRadius: 26))
     .contentShape(RoundedRectangle(cornerRadius: 26))
     .onTapGesture { expand() }

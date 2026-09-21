@@ -37,6 +37,10 @@ final class SessionViewModel: ObservableObject {
   @Published var deletionError: String?
   @Published var isConvertingLivePhoto: Bool = false
   @Published var livePhotoConversionError: String?
+  @Published var convertedLivePhotoCount: Int = 0
+  
+  /// True while a conversion mark is held on screen; decisions and undo are ignored.
+  @Published private(set) var isMarkingForConversion: Bool = false
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
@@ -87,12 +91,22 @@ final class SessionViewModel: ObservableObject {
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   private var deletedBytes: Int64 = 0
+  /// Live Photos whose still copy exists; the originals are deleted with the
+  /// pending-delete batch, and the conversion is recorded once that succeeds.
+  private var convertedOriginals: [ConvertedOriginal] = []
+
+  private struct ConvertedOriginal {
+    let asset: PHAsset
+    let bytesSaved: Int64
+  }
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: AssetBatchSource?
   private var sessionBatchSize = SessionViewModel.defaultCheckInInterval
   private var isLoadingBatch = false
   /// Batches of unreviewed photos kept loaded ahead of the current card.
   private static let lookaheadBatches = 2
+  /// How long a conversion mark stays on screen before the deck advances.
+  private static let conversionHold: Duration = .milliseconds(450)
   // @Published (despite being private) so toggling membership triggers
   // objectWillChange — the album picker's checkmarks read these
   // indirectly via `effectiveAlbums(for:)`.
@@ -149,7 +163,10 @@ final class SessionViewModel: ObservableObject {
   // MARK: Derived state
 
   var pendingItems: [SessionPhoto] { photos.filter { $0.decision == .pendingDelete } }
-  var keptCount: Int { photos.filter { $0.decision == .keep }.count }
+  var pendingConversions: [SessionPhoto] { photos.filter { $0.decision == .convertToStill } }
+  /// Deletions and conversions together, in the order they were reviewed.
+  var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
+  var keptCount: Int { photos.filter { $0.decision.isKept }.count }
   var canUndo: Bool { !history.isEmpty }
   var isSessionShrunk: Bool { false }  // set true after startSession if capped
 
@@ -266,6 +283,9 @@ final class SessionViewModel: ObservableObject {
     history = []
     deletedCount = 0
     deletedBytes = 0
+    convertedLivePhotoCount = 0
+    convertedOriginals = []
+    livePhotoConversionError = nil
     pendingNewAlbums = []
     albumAssignmentError = nil
     albumAssignedCount = 0
@@ -336,7 +356,8 @@ final class SessionViewModel: ObservableObject {
   /// swipe/tap gesture path. Restoring an earlier photo from the Tray
   /// goes through `restoreMany` instead, which never advances index.
   func decide(index: Int, decision: ReviewDecision) {
-    guard photos.indices.contains(index) else { return }
+    guard !isMarkingForConversion, photos.indices.contains(index) else { return }
+    guard decision != .convertToStill || photos[index].isLivePhoto else { return }
     let previous = photos[index].decision
     let advanced = (index == currentIndex)
     history.append(
@@ -350,8 +371,8 @@ final class SessionViewModel: ObservableObject {
       haptics.keep()
     case .pendingDelete:
       haptics.markForDeletion()
-    case .undecided:
-      break
+    case .convertToStill, .undecided:
+      break  // The convert haptic plays in `markForConversion`.
     }
 
     if advanced {
@@ -364,12 +385,24 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
+  /// Decides `.convertToStill` for the photo at `index` after a short hold,
+  /// so the caller can show the mark before the deck moves on.
+  func markForConversion(index: Int) async {
+    guard !isMarkingForConversion, photos.indices.contains(index), photos[index].isLivePhoto
+    else { return }
+    isMarkingForConversion = true
+    haptics.convertToStill()
+    try? await Task.sleep(for: Self.conversionHold)
+    isMarkingForConversion = false
+    decide(index: index, decision: .convertToStill)
+  }
+
   /// Quick single-step Undo (swipe left / Undo button). Invariant #4:
   /// must never restore a photo submitted after final confirmation —
   /// enforced simply by the fact that `history` is cleared once
   /// deletion is confirmed (see `confirmDeletion`).
   func quickUndo() {
-    guard let last = history.popLast() else { return }
+    guard !isMarkingForConversion, let last = history.popLast() else { return }
     photos[last.photoIndex].decision = last.previousDecision
     if last.advancedIndex {
       currentIndex = last.photoIndex
@@ -401,65 +434,63 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
-  /// Converts a Live Photo to a plain still image in the user's library
-  /// (new asset created, original deleted afterward — see
-  /// `PhotoLibraryServicing.convertLivePhotoToStill`), then repoints this
-  /// photo's in-session identity at the new asset.
-  func convertLivePhotoToStill(photoID: String) {
-    guard
-      let index = photos.firstIndex(where: { $0.id == photoID }),
-      photos[index].isLivePhoto,
-      let asset = pickedAssets[photoID]
-    else { return }
-
-    isConvertingLivePhoto = true
+  /// Saves a still copy of every `.convertToStill` photo and repoints it at the copy
+  /// as a plain keep. Originals are queued for deletion; failures stay marked for retry.
+  private func convertStagedLivePhotos() async -> Bool {
     livePhotoConversionError = nil
+    let staged = pendingConversions.filter { pickedAssets[$0.id] != nil }
+    guard !staged.isEmpty else { return true }
+    isConvertingLivePhoto = true
+    defer { isConvertingLivePhoto = false }
 
-    Task { @MainActor in
+    for photo in staged {
+      guard let asset = pickedAssets[photo.id] else { continue }
       let originalSize = await library.storageSize(of: [asset])
-      let result = await library.convertLivePhotoToStill(asset)
-      isConvertingLivePhoto = false
-
-      switch result {
+      switch await library.createStillPhoto(from: asset) {
       case .success(let newIdentifier):
-        guard let currentIndex = self.photos.firstIndex(where: { $0.id == photoID }) else { return }
-        self.photos[currentIndex].assetIdentifier = newIdentifier
-        self.photos[currentIndex].isLivePhoto = false
-        let newAsset = PHAsset.fetchAssets(
-          withLocalIdentifiers: [newIdentifier], options: nil
-        ).firstObject
-        if let newAsset {
-          self.pickedAssets[photoID] = newAsset
-        }
-        self.persistState()
-        await self.recordLivePhotoConversion(originalSize: originalSize, newAsset: newAsset)
+        let newAsset = PHAsset.fetchAssets(withLocalIdentifiers: [newIdentifier], options: nil)
+          .firstObject
+        let bytesSaved = await spaceFreed(originalSize: originalSize, newAsset: newAsset)
+        convertedOriginals.append(ConvertedOriginal(asset: asset, bytesSaved: bytesSaved))
+        convertedLivePhotoCount += 1
+        guard let index = photos.firstIndex(where: { $0.id == photo.id }) else { continue }
+        photos[index].assetIdentifier = newIdentifier
+        photos[index].isLivePhoto = false
+        photos[index].decision = .keep
+        if let newAsset { pickedAssets[photo.id] = newAsset }
       case .failure(let error):
-        self.livePhotoConversionError = error.localizedDescription
+        livePhotoConversionError = error.localizedDescription
       }
     }
+    persistState()
+    return livePhotoConversionError == nil
   }
 
-  /// Counts the conversion and the space its dropped video freed. A missing size
-  /// still counts the conversion.
-  private func recordLivePhotoConversion(originalSize: Int64?, newAsset: PHAsset?) async {
-    var bytesSaved: Int64 = 0
-    if let originalSize, let newAsset, let newSize = await library.storageSize(of: [newAsset]) {
-      bytesSaved = max(originalSize - newSize, 0)
+  /// Space the dropped video frees. A missing size counts as zero.
+  private func spaceFreed(originalSize: Int64?, newAsset: PHAsset?) async -> Int64 {
+    guard let originalSize, let newAsset, let newSize = await library.storageSize(of: [newAsset])
+    else { return 0 }
+    return max(originalSize - newSize, 0)
+  }
+
+  private func recordConvertedOriginals() {
+    for original in convertedOriginals {
+      statsStore.recordLivePhotoConversion(bytesSaved: original.bytesSaved)
     }
-    statsStore.recordLivePhotoConversion(bytesSaved: bytesSaved)
+    convertedOriginals = []
   }
 
-  /// Restores any number of pending-delete photos to Keep
-  /// powers the Deletion Tray and the end-of-session multi-select grid.
+  /// Restores any number of marked photos to Keep; powers the Marked Photos
+  /// tray and the end-of-session grids.
   func restoreMany(ids: [String]) {
     guard !ids.isEmpty else { return }
     let idSet = Set(ids)
     var restoredAny = false
     for (i, photo) in photos.enumerated()
-    where idSet.contains(photo.id) && photo.decision == .pendingDelete {
+    where idSet.contains(photo.id) && photo.decision.isMarked {
       history.append(
         DecisionHistoryEntry(
-          photoIndex: i, previousDecision: .pendingDelete, newDecision: .keep, advancedIndex: false)
+          photoIndex: i, previousDecision: photo.decision, newDecision: .keep, advancedIndex: false)
       )
       photos[i].decision = .keep
       restoredAny = true
@@ -693,34 +724,34 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Confirm and Delete
 
-  /// Submits the currently pending-delete assets and flushes staged
-  /// album assignments — two independent `performChanges` transactions,
-  /// run one after the other (not concurrently) because a photo can be
-  /// staged for both in the same session: adding it to an album after
-  /// it's already been deleted is unreliable, so the album flush goes
-  /// first. Deletion always runs regardless of the album flush's
-  /// outcome; only the screen transition to `.completion` waits on both
-  /// succeeding.
+  /// Applies everything staged this session: stills, then albums, then one
+  /// deletion of the pending-delete photos and converted originals. Only the
+  /// move to `.completion` waits on every step succeeding.
+  ///
+  /// Albums follow conversion so they attach to the still, and precede deletion
+  /// because adding a deleted photo to an album is unreliable.
   func confirmDeletion() async {
     let toDelete = pendingItems
     let keptNow = keptCount
 
+    let conversionsOK = await convertStagedLivePhotos()
     let albumsOK = await flushAlbumAssignments()
 
-    if !toDelete.isEmpty {
+    if !toDelete.isEmpty || !convertedOriginals.isEmpty {
       isDeleting = true
       deletionError = nil
 
       let assets = toDelete.compactMap { pickedAssets[$0.id] }
       let bytes = await library.storageSize(of: assets) ?? 0
-      let result = await library.deleteAssets(assets)
+      let result = await library.deleteAssets(assets + convertedOriginals.map(\.asset))
 
       isDeleting = false
 
       switch result {
       case .success:
-        deletedCount = toDelete.count
-        deletedBytes = bytes
+        deletedCount += toDelete.count
+        deletedBytes += bytes
+        recordConvertedOriginals()
         let deletedIDs = Set(toDelete.map(\.id))
         photos.removeAll { deletedIDs.contains($0.id) }
         history.removeAll()  // reversible window closes here
@@ -733,6 +764,7 @@ final class SessionViewModel: ObservableObject {
     }
 
     guard albumsOK else { return }  // error + retry surfaced; stay put
+    guard conversionsOK else { return }  // failed photos stay marked for a retry
     guard deletionError == nil else { return }  // existing behavior: leave user on screen
 
     haptics.sessionComplete()
@@ -780,7 +812,7 @@ final class SessionViewModel: ObservableObject {
   func retryAlbumAssignments() {
     Task {
       guard await flushAlbumAssignments() else { return }
-      guard deletionError == nil else { return }
+      guard livePhotoConversionError == nil, deletionError == nil else { return }
       haptics.sessionComplete()
       screen = .completion
       clearPersistedState()

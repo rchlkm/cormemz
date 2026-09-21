@@ -61,7 +61,7 @@ struct ExpandedPhotoView: View {
               targetSize: UIScreen.main.bounds.size,
               inlineLivePhoto: $inlineLivePhoto,
               isShowingLivePhoto: $isShowingLivePhoto,
-              onConvertToStill: { vm.convertLivePhotoToStill(photoID: photo.id) }
+              onConvertToStill: convertToStill
             )
             Spacer()
           }
@@ -69,7 +69,12 @@ struct ExpandedPhotoView: View {
         .padding(.leading, 20)
         .padding(.bottom, 40)
       }
+
+      if vm.isMarkingForConversion {
+        ConvertToStillOverlay().transition(.opacity)
+      }
     }
+    .animation(.easeOut(duration: 0.15), value: vm.isMarkingForConversion)
     .statusBarHidden()
   }
 
@@ -145,6 +150,14 @@ struct ExpandedPhotoView: View {
       withAnimation(.spring(response: 0.3, dampingFraction: 0.75), apply)
     } else {
       apply()
+    }
+  }
+
+  /// Deciding moves the deck on, so full screen closes once the mark has shown.
+  private func convertToStill() {
+    Task {
+      await vm.markForConversion(index: vm.currentIndex)
+      close()
     }
   }
 

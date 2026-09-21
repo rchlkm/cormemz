@@ -40,7 +40,7 @@ struct ReviewView: View {
           onBack: { vm.exitToHome() },
           trailing: AnyView(
             HStack(spacing: 12) {
-              DeletionTrayButton(pendingCount: vm.pendingItems.count) { showTray = true }
+              MarkedPhotosTrayButton(markedCount: vm.markedPhotos.count) { showTray = true }
               Button("Done") { vm.finishEarly() }
                 .font(.system(size: 15, weight: .semibold))
             }
@@ -102,8 +102,8 @@ struct ReviewView: View {
         )
       }
       .sheet(isPresented: $showTray) {
-        DeletionTrayView(
-          items: vm.pendingItems,
+        MarkedPhotosTrayView(
+          items: vm.markedPhotos,
           onRestore: { id in vm.restoreMany(ids: [id]) }
         )
         .presentationDetents([.medium, .large])

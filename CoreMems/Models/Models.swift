@@ -5,6 +5,12 @@ enum ReviewDecision: String, Equatable {
   case undecided
   case keep
   case pendingDelete
+  /// Keeps the image as a still photo and deletes the Live Photo original on confirm.
+  case convertToStill
+
+  var isKept: Bool { self == .keep || self == .convertToStill }
+  /// Decisions that change the library when the session is confirmed.
+  var isMarked: Bool { self == .pendingDelete || self == .convertToStill }
 }
 
 /// How a session's photos are selected from the library.

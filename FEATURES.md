@@ -44,8 +44,8 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
 - Favorite a photo
 - File a photo into a Photos album, including a new one, with pinned albums shown first
-- Convert a Live Photo to a still photo
-- Open the deletion tray to see everything marked for deletion and restore items to Keep
+- Mark a Live Photo for conversion to a still photo
+- Open the marked-photos tray to see everything marked for deletion or conversion and restore items to Keep
 
 ### End-of-Session Review & Confirmation
 

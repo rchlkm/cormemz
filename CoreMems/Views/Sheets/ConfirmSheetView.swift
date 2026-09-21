@@ -4,8 +4,10 @@ import SwiftUI
 struct ConfirmSheetView: View {
   let count: Int
   let favoritesCount: Int
+  let conversionCount: Int
   let isDeleting: Bool
   let errorMessage: String?
+  let conversionErrorMessage: String?
   let albumErrorMessage: String?
   let onCancel: () -> Void
   let onConfirm: () -> Void
@@ -33,8 +35,25 @@ struct ConfirmSheetView: View {
         .foregroundStyle(.pink)
       }
 
+      if conversionCount > 0 {
+        Label(
+          "\(conversionCount) Live Photo\(conversionCount == 1 ? "" : "s") will also be converted to a still, with the original moved to Recently Deleted",
+          systemImage: "livephoto"
+        )
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+      }
+
       if let errorMessage {
         Text(errorMessage)
+          .font(.footnote)
+          .foregroundStyle(.red)
+          .multilineTextAlignment(.center)
+      }
+
+      if let conversionErrorMessage {
+        Text(conversionErrorMessage)
           .font(.footnote)
           .foregroundStyle(.red)
           .multilineTextAlignment(.center)

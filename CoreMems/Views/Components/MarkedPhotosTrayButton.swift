@@ -1,10 +1,10 @@
-// CoreMems/Views/Components/DeletionTrayButton.swift
+// CoreMems/Views/Components/MarkedPhotosTrayButton.swift
 import SwiftUI
 
-/// Small badge button showing how many photos are currently marked
-/// for deletion; opens the Deletion Tray when tapped.
-struct DeletionTrayButton: View {
-  let pendingCount: Int
+/// Small badge button showing how many photos are currently marked for
+/// deletion or conversion; opens the marked-photos tray when tapped.
+struct MarkedPhotosTrayButton: View {
+  let markedCount: Int
   let action: () -> Void
 
   var body: some View {
@@ -13,11 +13,11 @@ struct DeletionTrayButton: View {
     }
     .buttonStyle(
       IconButtonStyle(
-        size: .small, surface: .material(pendingCount == 0 ? Color.secondary : Color.blue))
+        size: .small, surface: .material(markedCount == 0 ? Color.secondary : Color.blue))
     )
     .overlay(alignment: .topTrailing) {
-      if pendingCount > 0 {
-        Text("\(pendingCount)")
+      if markedCount > 0 {
+        Text("\(markedCount)")
           .font(.system(size: 10, weight: .bold))
           .foregroundStyle(.white)
           .padding(4)

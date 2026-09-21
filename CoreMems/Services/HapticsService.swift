@@ -5,6 +5,7 @@ import UIKit
 protocol HapticsServicing {
   func keep()
   func markForDeletion()
+  func convertToStill()
   func undo()
   func trayRestore()
   //  func confirmDelete()
@@ -31,6 +32,7 @@ final class HapticsService: HapticsServicing {
   private enum SystemSound: SystemSoundID {
     case keep = 1057  // 1004
     case markForDeletion = 1051
+    case convertToStill = 1108  // photo shutter
     case undo = 1053  // error
     case trayRestore = 1054
     // case confirmDelete = 1050
@@ -59,6 +61,11 @@ final class HapticsService: HapticsServicing {
   func markForDeletion() {
     mediumImpact.impactOccurred()
     play(.markForDeletion)
+  }
+
+  func convertToStill() {
+    rigidImpact.impactOccurred()
+    play(.convertToStill)
   }
 
   func undo() {
@@ -94,6 +101,7 @@ final class HapticsService: HapticsServicing {
 final class MockHapticsService: HapticsServicing {
   private(set) var keepCallCount = 0
   private(set) var markForDeletionCallCount = 0
+  private(set) var convertToStillCallCount = 0
   private(set) var undoCallCount = 0
   private(set) var trayRestoreCallCount = 0
   // private(set) var confirmDeleteCallCount = 0
@@ -102,6 +110,7 @@ final class MockHapticsService: HapticsServicing {
 
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
+  func convertToStill() { convertToStillCallCount += 1 }
   func undo() { undoCallCount += 1 }
   func trayRestore() { trayRestoreCallCount += 1 }
   // func confirmDelete() { confirmDeleteCallCount += 1 }
@@ -128,6 +137,11 @@ final class MockHapticsService: HapticsServicing {
 
     Button("markForDeletion") {
       service.markForDeletion()
+    }
+    .buttonStyle(.borderedProminent)
+
+    Button("convertToStill") {
+      service.convertToStill()
     }
     .buttonStyle(.borderedProminent)
 

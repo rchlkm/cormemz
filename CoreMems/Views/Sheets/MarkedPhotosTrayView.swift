@@ -1,6 +1,8 @@
+// CoreMems/Views/Sheets/MarkedPhotosTrayView.swift
 import SwiftUI
 
-struct DeletionTrayView: View {
+/// Everything that changes when the session is confirmed, in review order.
+struct MarkedPhotosTrayView: View {
   let items: [SessionPhoto]
   let onRestore: (String) -> Void
 
@@ -14,18 +16,20 @@ struct DeletionTrayView: View {
             Image(systemName: "tray")
               .font(.largeTitle)
               .foregroundStyle(.tertiary)
-            Text("Nothing marked for deletion yet. Swipe down on a photo to add it here.")
-              .font(.subheadline)
-              .foregroundStyle(.secondary)
-              .multilineTextAlignment(.center)
-              .padding(.horizontal, 30)
+            Text(
+              "Nothing marked yet. Swipe down on a photo to mark it for deletion, or convert a Live Photo to a still."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 30)
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-          PhotoGrid(photos: items, onRestore: onRestore)
+          PhotoGrid(photos: items, showsDecisionTags: true, onRestore: onRestore)
         }
       }
-      .navigationTitle("Marked for deletion")
+      .navigationTitle("Marked photos")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {

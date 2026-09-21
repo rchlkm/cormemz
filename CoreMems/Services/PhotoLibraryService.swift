@@ -45,13 +45,10 @@ protocol PhotoLibraryServicing {
   /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
   /// signal to roll back any optimistic UI update.
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error>
-  /// Extracts a Live Photo's still-image resource, saves it as a new
-  /// standalone asset carrying over the original's creation date,
-  /// location, and favorite status, then deletes the original Live
-  /// Photo. The original is only deleted once the new still asset is
-  /// confirmed created, so a failure never leaves the user with neither.
+  /// Saves a Live Photo's still image as a new asset carrying over its date,
+  /// location, and favorite status; the original is left for the caller to delete.
   /// Returns the new asset's local identifier.
-  func convertLivePhotoToStill(_ asset: PHAsset) async -> Result<String, Error>
+  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error>
   /// Presents Apple's native limited-library picker so a Limited
   /// Photos Access user can grant access to more photos in-app.
   func presentLimitedLibraryPicker(from viewController: UIViewController)
@@ -149,7 +146,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }
   }
 
-  func convertLivePhotoToStill(_ asset: PHAsset) async -> Result<String, Error> {
+  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error> {
     guard
       let resource = PHAssetResource.assetResources(for: asset).first(where: { $0.type == .photo })
     else {
@@ -180,18 +177,6 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     guard let newIdentifier else {
       return .failure(PhotoLibraryError.creationFailed)
     }
-
-    do {
-      try await PHPhotoLibrary.shared().performChanges {
-        PHAssetChangeRequest.deleteAssets([asset] as NSArray)
-      }
-    } catch {
-      // The still photo already exists in the library even though the
-      // original Live Photo couldn't be removed — surfacing this lets
-      // the caller tell the user cleanup didn't fully finish.
-      return .failure(error)
-    }
-
     return .success(newIdentifier)
   }
 
@@ -370,7 +355,7 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> { .success(()) }
 
-  func convertLivePhotoToStill(_ asset: PHAsset) async -> Result<String, Error> {
+  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error> {
     .success(asset.localIdentifier)
   }
 

@@ -6,6 +6,7 @@ struct CompletionView: View {
   let keptCount: Int
   let deletedCount: Int
   let albumAssignedCount: Int
+  let convertedCount: Int
   let lifetimeStats: LifetimeSessionStats
   let onAgain: () -> Void
 
@@ -16,6 +17,9 @@ struct CompletionView: View {
     }
     if albumAssignedCount > 0 {
       clauses.append("added \(albumAssignedCount) to an album")
+    }
+    if convertedCount > 0 {
+      clauses.append("converted \(convertedCount) Live Photo\(convertedCount == 1 ? "" : "s") to stills")
     }
     return "You " + Self.naturalJoin(clauses) + "."
   }
@@ -97,6 +101,7 @@ struct CompletionScreen_Preview: PreviewProvider {
       keptCount: 7,
       deletedCount: 3,
       albumAssignedCount: 2,
+      convertedCount: 1,
       lifetimeStats: LifetimeSessionStats(
         totalReviewed: 150,
         totalKept: 100,

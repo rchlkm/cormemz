@@ -26,8 +26,8 @@ only at the end — without guilt-based framing.
 - **Favorites and albums**: heart a photo or file it into a Photos album as
   you go, with pinned albums for the ones you use most.
 - **Live Photos**: convert a Live Photo to a still.
-- **Deletion tray and final review**: see and restore everything marked for
-  deletion before confirming.
+- **Marked-photos tray and final review**: see and restore everything marked
+  for deletion or conversion before confirming.
 - **Skips what you've reviewed**, so each session picks up where the last
   one left off.
 - **Settings and lifetime stats**: check-in frequency, reviewed photos,

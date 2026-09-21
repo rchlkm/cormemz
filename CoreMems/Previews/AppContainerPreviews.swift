@@ -118,6 +118,7 @@ import SwiftUI
               keptCount: vm.keptCount,
               deletedCount: vm.deletedCount,
               albumAssignedCount: vm.albumAssignedCount,
+              convertedCount: vm.convertedLivePhotoCount,
               lifetimeStats: vm.lifetimeStats,
               onAgain: { vm.resetForAnotherSession() }
             )
