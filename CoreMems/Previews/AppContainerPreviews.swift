@@ -54,7 +54,6 @@ import SwiftUI
   /// isolation without onboarding or a populated device library.
   private struct RootViewContent: View {
     @ObservedObject var vm: SessionViewModel
-    @State private var showConfirm = false
     @State private var showSettings = false
 
     private var settingsView: some View {
@@ -112,7 +111,7 @@ import SwiftUI
           case .review:
             ReviewView(vm: vm)
           case .pendingReview:
-            PendingReviewView(vm: vm, showConfirm: $showConfirm)
+            PendingReviewView(vm: vm)
           case .completion:
             CompletionView(
               keptCount: vm.keptCount,

@@ -20,6 +20,28 @@ enum PhotoLibraryError: LocalizedError {
   }
 }
 
+/// Everything a session changes in the library. `albumAssets` maps a session photo ID
+/// to its `PHAsset` for the album changes.
+struct SessionLibraryChanges {
+  var deletions: [PHAsset] = []
+  /// Live Photos to replace with a still copy, by session photo ID.
+  var conversions: [String: PHAsset] = [:]
+  var albumAdditions: [String: Set<AlbumRef>] = [:]
+  var albumRemovals: [String: Set<String>] = [:]
+  var albumAssets: [String: PHAsset] = [:]
+
+  var isEmpty: Bool {
+    deletions.isEmpty && conversions.isEmpty && albumAdditions.isEmpty && albumRemovals.isEmpty
+  }
+}
+
+struct SessionLibraryResult {
+  /// Local identifier of each still copy, by session photo ID.
+  var stillIdentifiers: [String: String] = [:]
+  /// Local identifiers of albums created for former `.pendingNew` refs.
+  var createdAlbumIDs: Set<String> = []
+}
+
 /// PhotoKit wrapper
 protocol PhotoLibraryServicing {
   func requestAuthorization() async -> PHAuthorizationStatus
@@ -32,11 +54,6 @@ protocol PhotoLibraryServicing {
   ) async -> AssetBatchSource
   func totalEligibleAssetCount() -> Int
 
-  /// Submits confirmed assets for deletion via
-  /// 'PHAssetChangeRequest.deleteAssets', which moves them to
-  /// Recently Deleted per Apple's standard retention window.
-  /// Returns the identifiers that failed, if any (empty = full success).
-  func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error>
   /// Combined stored size in bytes of every resource (photo, paired video,
   /// edits) of `assets`; `nil` if the system doesn't report sizes. Read it
   /// before deleting, since a deleted asset's resources are gone.
@@ -45,10 +62,6 @@ protocol PhotoLibraryServicing {
   /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
   /// signal to roll back any optimistic UI update.
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error>
-  /// Saves a Live Photo's still image as a new asset carrying over its date,
-  /// location, and favorite status; the original is left for the caller to delete.
-  /// Returns the new asset's local identifier.
-  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error>
   /// Presents Apple's native limited-library picker so a Limited
   /// Photos Access user can grant access to more photos in-app.
   func presentLimitedLibraryPicker(from viewController: UIViewController)
@@ -59,22 +72,16 @@ protocol PhotoLibraryServicing {
   /// Identifiers of every user album containing the asset. A direct lookup
   /// for one asset, so it stays fast at any library size. Runs off the main thread.
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String>
-  /// Commits staged album membership changes in a single
-  /// `PHPhotoLibrary.performChanges` transaction, independent of
-  /// `deleteAssets`. `assets` maps a session-scoped photoID to its
-  /// backing `PHAsset`. On success, returns the real
-  /// `PHAssetCollection.localIdentifier`s of any brand-new albums that
-  /// were created (i.e. former `.pendingNew` refs), so the caller can
-  /// remember them as app-created.
-  func commitAlbumAssignments(
-    additions: [String: Set<AlbumRef>],
-    removals: [String: Set<String>],
-    assets: [String: PHAsset]
-  ) async -> Result<Set<String>, Error>
+  /// Applies everything a session changes in the library as one transaction: still
+  /// copies of converted Live Photos (the originals are deleted), album changes, and
+  /// deletions. Deleted photos move to Recently Deleted. The user sees one system
+  /// prompt, and either all of it happens or none of it does.
+  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+    -> Result<SessionLibraryResult, Error>
   /// Creates a real, empty Photos album with the given title — used by
   /// the Pinned Albums settings screen, where "New album" has no photo
   /// to attach yet (unlike the review picker's create flow, which always
-  /// creates via `commitAlbumAssignments` alongside an assignment).
+  /// creates via `commitSessionChanges` alongside an assignment).
   /// Returns the new album's `PHAssetCollection.localIdentifier`.
   func createAlbum(named name: String) async -> Result<String, Error>
 }
@@ -106,18 +113,6 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     return PHAsset.fetchAssets(with: options).count
   }
 
-  func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error> {
-    guard !assets.isEmpty else { return .success(()) }
-    do {
-      try await PHPhotoLibrary.shared().performChanges {
-        PHAssetChangeRequest.deleteAssets(assets as NSArray)
-      }
-      return .success(())
-    } catch {
-      return .failure(error)
-    }
-  }
-
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
   /// `fileSize` key, so the lookup is guarded against the key going away.
   func storageSize(of assets: [PHAsset]) async -> Int64? {
@@ -146,38 +141,137 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }
   }
 
-  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error> {
-    guard
-      let resource = PHAssetResource.assetResources(for: asset).first(where: { $0.type == .photo })
-    else {
-      return .failure(PhotoLibraryError.missingStillResource)
-    }
+  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+    -> Result<SessionLibraryResult, Error>
+  {
+    guard !changes.isEmpty else { return .success(SessionLibraryResult()) }
 
-    let stillData: Data
+    var stillData: [String: Data] = [:]
     do {
-      stillData = try await Self.data(for: resource)
-    } catch {
-      return .failure(error)
-    }
-
-    var newIdentifier: String?
-    do {
-      try await PHPhotoLibrary.shared().performChanges {
-        let creationRequest = PHAssetCreationRequest.forAsset()
-        creationRequest.addResource(with: .photo, data: stillData, options: nil)
-        creationRequest.creationDate = asset.creationDate
-        creationRequest.location = asset.location
-        creationRequest.isFavorite = asset.isFavorite
-        newIdentifier = creationRequest.placeholderForCreatedAsset?.localIdentifier
+      for (photoID, asset) in changes.conversions {
+        guard let resource = Self.stillResource(for: asset) else {
+          return .failure(PhotoLibraryError.missingStillResource)
+        }
+        stillData[photoID] = try await Self.data(for: resource)
       }
     } catch {
       return .failure(error)
     }
 
-    guard let newIdentifier else {
-      return .failure(PhotoLibraryError.creationFailed)
+    var inheritedAlbumIDs: [String: [String]] = [:]
+    for (photoID, asset) in changes.conversions {
+      let removed = changes.albumRemovals[photoID] ?? []
+      inheritedAlbumIDs[photoID] = Self.editableAlbumIDs(containing: asset)
+        .filter { !removed.contains($0) }
     }
-    return .success(newIdentifier)
+
+    var result = SessionLibraryResult()
+    do {
+      try await PHPhotoLibrary.shared().performChanges {
+        var stills: [String: PHObjectPlaceholder] = [:]
+        for (photoID, asset) in changes.conversions {
+          guard let data = stillData[photoID] else { continue }
+          let request = PHAssetCreationRequest.forAsset()
+          request.addResource(with: .photo, data: data, options: nil)
+          request.creationDate = asset.creationDate
+          request.location = asset.location
+          request.isFavorite = asset.isFavorite
+          if let placeholder = request.placeholderForCreatedAsset {
+            stills[photoID] = placeholder
+          }
+        }
+
+        var assetsByExistingAddID: [String: [PHObject]] = [:]
+        var assetsByTempID: [String: [PHObject]] = [:]
+        var nameByTempID: [String: String] = [:]
+        for (photoID, refs) in changes.albumAdditions {
+          guard let target = stills[photoID] ?? changes.albumAssets[photoID] else { continue }
+          for ref in refs {
+            switch ref.kind {
+            case .existing:
+              assetsByExistingAddID[ref.identifier, default: []].append(target)
+            case .pendingNew:
+              assetsByTempID[ref.identifier, default: []].append(target)
+              nameByTempID[ref.identifier] = ref.name
+            }
+          }
+        }
+        for (photoID, albumIDs) in inheritedAlbumIDs {
+          guard let still = stills[photoID] else { continue }
+          for id in albumIDs {
+            assetsByExistingAddID[id, default: []].append(still)
+          }
+        }
+
+        // A converted photo's removals are already left out of its inherited albums.
+        var assetsByExistingRemoveID: [String: [PHObject]] = [:]
+        for (photoID, ids) in changes.albumRemovals where changes.conversions[photoID] == nil {
+          guard let asset = changes.albumAssets[photoID] else { continue }
+          for id in ids {
+            assetsByExistingRemoveID[id, default: []].append(asset)
+          }
+        }
+
+        let existingIDs = Set(assetsByExistingAddID.keys).union(assetsByExistingRemoveID.keys)
+        let collections = PHAssetCollection.fetchAssetCollections(
+          withLocalIdentifiers: Array(existingIDs), options: nil)
+        var collectionsByID: [String: PHAssetCollection] = [:]
+        collections.enumerateObjects { collection, _, _ in
+          collectionsByID[collection.localIdentifier] = collection
+        }
+
+        for (tempID, albumAssets) in assetsByTempID {
+          guard let name = nameByTempID[tempID] else { continue }
+          let request = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
+            withTitle: name)
+          request.addAssets(albumAssets as NSArray)
+          result.createdAlbumIDs.insert(request.placeholderForCreatedAssetCollection.localIdentifier)
+        }
+        for (id, albumAssets) in assetsByExistingAddID {
+          guard let collection = collectionsByID[id],
+            let request = PHAssetCollectionChangeRequest(for: collection)
+          else { continue }
+          request.addAssets(albumAssets as NSArray)
+        }
+        for (id, albumAssets) in assetsByExistingRemoveID {
+          guard let collection = collectionsByID[id],
+            let request = PHAssetCollectionChangeRequest(for: collection)
+          else { continue }
+          request.removeAssets(albumAssets as NSArray)
+        }
+
+        // An original is only deleted alongside the still that replaces it.
+        let replaced = changes.conversions.filter { stills[$0.key] != nil }.map(\.value)
+        let deletions = changes.deletions + replaced
+        if !deletions.isEmpty {
+          PHAssetChangeRequest.deleteAssets(deletions as NSArray)
+        }
+        result.stillIdentifiers = stills.mapValues(\.localIdentifier)
+      }
+      return .success(result)
+    } catch {
+      return .failure(error)
+    }
+  }
+
+  /// The edited render when the Live Photo has adjustments, else its original still.
+  private static func stillResource(for asset: PHAsset) -> PHAssetResource? {
+    let resources = PHAssetResource.assetResources(for: asset)
+    return resources.first { $0.type == .fullSizePhoto } ?? resources.first { $0.type == .photo }
+  }
+
+  /// Identifiers of the user albums holding `asset` that accept new photos; the same
+  /// album set the picker shows.
+  private static func editableAlbumIDs(containing asset: PHAsset) -> [String] {
+    var ids: [String] = []
+    PHAssetCollection.fetchAssetCollectionsContaining(asset, with: .album, options: nil)
+      .enumerateObjects { collection, _, _ in
+        guard collection.assetCollectionSubtype == .albumRegular,
+          collection.canPerform(.addContent)
+        else { return }
+        ids.append(collection.localIdentifier)
+      }
+    return ids
   }
 
   /// Downloads a `PHAssetResource`'s raw bytes (pulling from iCloud if
@@ -246,73 +340,6 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }.value
   }
 
-  func commitAlbumAssignments(
-    additions: [String: Set<AlbumRef>],
-    removals: [String: Set<String>],
-    assets: [String: PHAsset]
-  ) async -> Result<Set<String>, Error> {
-    guard !additions.isEmpty || !removals.isEmpty else { return .success([]) }
-    var createdAlbumIDs: Set<String> = []
-    do {
-      try await PHPhotoLibrary.shared().performChanges {
-        var assetsByExistingAddID: [String: [PHAsset]] = [:]
-        var assetsByTempID: [String: [PHAsset]] = [:]
-        var nameByTempID: [String: String] = [:]
-        for (photoID, refs) in additions {
-          guard let asset = assets[photoID] else { continue }
-          for ref in refs {
-            switch ref.kind {
-            case .existing:
-              assetsByExistingAddID[ref.identifier, default: []].append(asset)
-            case .pendingNew:
-              assetsByTempID[ref.identifier, default: []].append(asset)
-              nameByTempID[ref.identifier] = ref.name
-            }
-          }
-        }
-
-        var assetsByExistingRemoveID: [String: [PHAsset]] = [:]
-        for (photoID, ids) in removals {
-          guard let asset = assets[photoID] else { continue }
-          for id in ids {
-            assetsByExistingRemoveID[id, default: []].append(asset)
-          }
-        }
-
-        let existingIDs = Set(assetsByExistingAddID.keys).union(assetsByExistingRemoveID.keys)
-        let collections = PHAssetCollection.fetchAssetCollections(
-          withLocalIdentifiers: Array(existingIDs), options: nil)
-        var collectionsByID: [String: PHAssetCollection] = [:]
-        collections.enumerateObjects { collection, _, _ in
-          collectionsByID[collection.localIdentifier] = collection
-        }
-
-        for (tempID, albumAssets) in assetsByTempID {
-          guard let name = nameByTempID[tempID] else { continue }
-          let request = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
-            withTitle: name)
-          request.addAssets(albumAssets as NSArray)
-          createdAlbumIDs.insert(request.placeholderForCreatedAssetCollection.localIdentifier)
-        }
-        for (id, albumAssets) in assetsByExistingAddID {
-          guard let collection = collectionsByID[id],
-            let request = PHAssetCollectionChangeRequest(for: collection)
-          else { continue }
-          request.addAssets(albumAssets as NSArray)
-        }
-        for (id, albumAssets) in assetsByExistingRemoveID {
-          guard let collection = collectionsByID[id],
-            let request = PHAssetCollectionChangeRequest(for: collection)
-          else { continue }
-          request.removeAssets(albumAssets as NSArray)
-        }
-      }
-      return .success(createdAlbumIDs)
-    } catch {
-      return .failure(error)
-    }
-  }
-
   func createAlbum(named name: String) async -> Result<String, Error> {
     do {
       var newAlbumID: String?
@@ -349,15 +376,9 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func totalEligibleAssetCount() -> Int { mockEligibleCount }
 
-  func deleteAssets(_ assets: [PHAsset]) async -> Result<Void, Error> { .success(()) }
-
   func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> { .success(()) }
-
-  func createStillPhoto(from asset: PHAsset) async -> Result<String, Error> {
-    .success(asset.localIdentifier)
-  }
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
 
@@ -367,11 +388,12 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
     []
   }
 
-  func commitAlbumAssignments(
-    additions: [String: Set<AlbumRef>],
-    removals: [String: Set<String>],
-    assets: [String: PHAsset]
-  ) async -> Result<Set<String>, Error> { .success([]) }
+  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+    -> Result<SessionLibraryResult, Error>
+  {
+    .success(
+      SessionLibraryResult(stillIdentifiers: changes.conversions.mapValues(\.localIdentifier)))
+  }
 
   func createAlbum(named name: String) async -> Result<String, Error> {
     .success(UUID().uuidString)

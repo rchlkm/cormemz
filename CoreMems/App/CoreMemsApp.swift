@@ -14,7 +14,6 @@ struct CoreMemsApp: App {
 struct RootView: View {
   @StateObject private var vm = SessionViewModel()
   @AppStorage("cm_hasOnboarded") private var hasOnboarded = false
-  @State private var showConfirm = false
   @State private var showSettings = false
   @Environment(\.scenePhase) private var scenePhase
 
@@ -91,7 +90,7 @@ struct RootView: View {
         case .review:
           ReviewView(vm: vm)
         case .pendingReview:
-          PendingReviewView(vm: vm, showConfirm: $showConfirm)
+          PendingReviewView(vm: vm)
         case .completion:
           CompletionView(
             keptCount: vm.keptCount,
@@ -116,29 +115,6 @@ struct RootView: View {
           Task { await vm.refreshLibraryAlbumsIfLoaded() }
         }
       }
-    }
-    .onChange(of: vm.screen) { _, newScreen in
-      // Covers the retry-from-the-sheet path, where `confirmDeletion`
-      // is re-entered via `retryAlbumAssignments` instead of the
-      // sheet's own `onConfirm` closure.
-      if newScreen == .completion {
-        showConfirm = false
-      }
-    }
-    .sheet(isPresented: $showConfirm) {
-      ConfirmSheetView(
-        count: vm.pendingItems.count,
-        favoritesCount: vm.pendingItems.filter(\.isFavorite).count,
-        conversionCount: vm.pendingConversions.count,
-        isDeleting: vm.isDeleting || vm.isFlushingAlbums || vm.isConvertingLivePhoto,
-        errorMessage: vm.deletionError,
-        conversionErrorMessage: vm.livePhotoConversionError,
-        albumErrorMessage: vm.albumAssignmentError,
-        onCancel: { showConfirm = false },
-        onConfirm: { Task { await vm.confirmDeletion() } },
-        onRetryAlbums: { vm.retryAlbumAssignments() }
-      )
-      .presentationDetents([.medium])
     }
   }
 }

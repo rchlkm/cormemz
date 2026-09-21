@@ -25,7 +25,7 @@ secrets.json
 .env.*
 *-credentials.json
 *-refresh-token.txt
-notes.txt
+notes.md
 
 # Committable example configuration
 !config.example.json

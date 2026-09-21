@@ -3,14 +3,12 @@ import SwiftUI
 
 struct PendingReviewView: View {
   @ObservedObject var vm: SessionViewModel
-  @Binding var showConfirm: Bool
 
   @State private var selected: Set<String> = []
 
   private var items: [SessionPhoto] { vm.pendingItems }
   private var conversions: [SessionPhoto] { vm.pendingConversions }
   private var hasItems: Bool { !items.isEmpty }
-  private var isBusy: Bool { vm.isFlushingAlbums || vm.isConvertingLivePhoto || vm.isDeleting }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -29,7 +27,8 @@ struct PendingReviewView: View {
               title: "\(items.count) photo\(items.count == 1 ? "" : "s") will move to Recently Deleted",
               subtitle:
                 "Nothing is deleted yet. They'll sit in Recently Deleted for Apple's usual 30 days, so you can still change your mind after this.",
-              photos: items)
+              photos: items,
+              favoritesCount: items.filter(\.isFavorite).count)
           }
           if !conversions.isEmpty {
             section(
@@ -44,22 +43,8 @@ struct PendingReviewView: View {
         .padding(.top, 4)
       }
 
-      if let albumAssignmentError = vm.albumAssignmentError {
-        VStack(spacing: 8) {
-          Text(albumAssignmentError)
-            .font(.footnote)
-            .foregroundStyle(.red)
-            .multilineTextAlignment(.center)
-          Button("Retry saving to albums") {
-            vm.retryAlbumAssignments()
-          }
-          .buttonStyle(InlineButtonStyle(tint: .accentColor))
-        }
-        .padding(.horizontal, 26)
-      }
-
-      if let conversionError = vm.livePhotoConversionError {
-        Text(conversionError)
+      if let deletionError = vm.deletionError {
+        Text(deletionError)
           .font(.footnote)
           .foregroundStyle(.red)
           .multilineTextAlignment(.center)
@@ -67,13 +52,9 @@ struct PendingReviewView: View {
       }
 
       Button {
-        if hasItems {
-          showConfirm = true
-        } else {
-          Task { await vm.confirmDeletion() }
-        }
+        Task { await vm.confirmDeletion() }
       } label: {
-        if isBusy {
+        if vm.isDeleting {
           ProgressView()
         } else {
           Text(
@@ -83,7 +64,7 @@ struct PendingReviewView: View {
         }
       }
       .buttonStyle(ActionButtonStyle(role: hasItems ? .destructive : .primary))
-      .disabled(isBusy)
+      .disabled(vm.isDeleting)
       .padding(26)
     }
   }
@@ -99,9 +80,21 @@ struct PendingReviewView: View {
     .padding(.horizontal, 26)
   }
 
-  private func section(title: String, subtitle: String, photos: [SessionPhoto]) -> some View {
+  private func section(
+    title: String, subtitle: String, photos: [SessionPhoto], favoritesCount: Int = 0
+  ) -> some View {
     VStack(alignment: .leading, spacing: 0) {
       header(title: title, subtitle: subtitle)
+      if favoritesCount > 0 {
+        Label(
+          "\(favoritesCount) \(favoritesCount == 1 ? "is" : "are") marked as a favorite",
+          systemImage: "heart.fill"
+        )
+        .font(.footnote)
+        .foregroundStyle(.pink)
+        .padding(.horizontal, 26)
+        .padding(.top, 8)
+      }
       PhotoGridCells(photos: photos) { id in
         vm.restoreMany(ids: [id])
       }
