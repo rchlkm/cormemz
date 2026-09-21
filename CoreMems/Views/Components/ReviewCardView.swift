@@ -43,6 +43,22 @@ struct ReviewCardView: View {
     }
   }
 
+  /// What a drag in progress would do on release, and how far along it is (0...1).
+  private var draggedOverlay: (overlay: DecisionOverlay, progress: Double)? {
+    let dx = dragOffset.width
+    let dy = dragOffset.height
+    if dx > 0 && (dx >= abs(dy) || dx > 90) {
+      return (DecisionOverlay(decision: .keep), min(1, dx / 90))
+    }
+    if dy > 0 && abs(dy) > abs(dx) {
+      return (DecisionOverlay(decision: .pendingDelete), min(1, dy / 90))
+    }
+    if vm.canUndo && dx < 0 && abs(dx) > abs(dy) {
+      return (.undo, min(1, -dx / 90))
+    }
+    return nil
+  }
+
   private var swipableCard: some View {
     Group {
       if isShowingLivePhoto, let inlineLivePhoto {
@@ -73,24 +89,28 @@ struct ReviewCardView: View {
           targetSize: livePhotoTargetSize,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto,
-          onConvertToStill: { Task { await vm.markForConversion(index: vm.currentIndex) } }
+          onConvertToStill: { vm.decide(index: vm.currentIndex, decision: .convertToStill) }
         )
       }
     }
     .overlay(alignment: .bottomTrailing) {
       infoBadge
     }
-    .overlay(keepDeleteStamps)
+    .overlay(detailsStamp)
     .overlay {
-      if vm.isMarkingForConversion {
-        ConvertToStillOverlay().transition(.opacity)
+      if let decision = vm.markingDecision {
+        DecisionOverlay(decision: decision).transition(.opacity)
+      } else if let dragged = draggedOverlay {
+        dragged.overlay
+          .opacity(dragged.progress)
+          .allowsHitTesting(false)
       }
     }
-    .animation(.easeOut(duration: 0.15), value: vm.isMarkingForConversion)
+    .animation(.easeOut(duration: 0.15), value: vm.markingDecision)
     .clipShape(RoundedRectangle(cornerRadius: 26))
     .contentShape(RoundedRectangle(cornerRadius: 26))
     .onTapGesture { expand() }
-    .gesture(dragGesture)
+    .simultaneousGesture(dragGesture)  // A plain gesture is blocked by the pinch above.
     .offset(dragOffset)
     .rotationEffect(.degrees(Double(dragOffset.width / 18)))
     .shadow(radius: 16, y: 8)
@@ -147,29 +167,6 @@ struct ReviewCardView: View {
       }
   }
 
-  // /// Tapping plays the Live Photo in place of the static image;
-  // /// tapping again while playing reverts to it.
-  // private var livePhotoBadge: some View {
-  //   Button {
-  //     if isShowingLivePhoto {
-  //       isShowingLivePhoto = false
-  //     } else {
-  //       let targetSize = CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
-  //       Task {
-  //         inlineLivePhoto = await LivePhotoLoader.shared.livePhoto(
-  //           for: photo.assetIdentifier, targetSize: targetSize)
-  //         isShowingLivePhoto = inlineLivePhoto != nil
-  //       }
-  //     }
-  //   } label: {
-  //     Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
-  //       .foregroundStyle(.white)
-  //       .padding(8)
-  //       .background(.black.opacity(0.55), in: Circle())
-  //   }
-  //   .padding(12)
-  // }
-
   private var infoBadge: some View {
     Button {
       vm.showMetadataSheet(for: photo.id)
@@ -199,18 +196,10 @@ struct ReviewCardView: View {
     .frame(height: 60)
   }
 
-  private var keepDeleteStamps: some View {
-    let keepOpacity = min(1, max(0, dragOffset.width / 90))
-    let delOpacity = min(1, max(0, dragOffset.height / 90))
+  private var detailsStamp: some View {
     let detailsOpacity = min(1, max(0, -dragOffset.height / 90))
     return VStack {
       HStack {
-        Text("KEEP")
-          .font(.caption.bold()).foregroundStyle(.white)
-          .padding(.horizontal, 12).padding(.vertical, 6)
-          .background(Color.green.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
-          .rotationEffect(.degrees(-6))
-          .opacity(keepOpacity)
         Spacer()
         Text("DETAILS")
           .font(.caption.bold()).foregroundStyle(.white)
@@ -220,15 +209,53 @@ struct ReviewCardView: View {
       }
       .padding(.top, 50)
       Spacer()
-      HStack {
-        Spacer()
-        Text("DELETE")
-          .font(.caption.bold()).foregroundStyle(.white)
-          .padding(.horizontal, 12).padding(.vertical, 6)
-          .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
-          .opacity(delOpacity)
-      }
     }
     .padding(14)
+  }
+}
+
+/// Dims the photo and names a decision or swipe action, with the same colored circle
+/// as the control bar's buttons; swallows taps.
+struct DecisionOverlay: View {
+  let icon: String
+  let title: String
+  let tint: Color
+
+  init(icon: String, title: String, tint: Color) {
+    self.icon = icon
+    self.title = title
+    self.tint = tint
+  }
+
+  init(decision: ReviewDecision) {
+    switch decision {
+    case .keep: self.init(icon: "checkmark", title: "Kept", tint: .green)
+    case .pendingDelete: self.init(icon: "trash", title: "Marked for deletion", tint: .red)
+    case .convertToStill:
+      self.init(icon: "livephoto.slash", title: "Marked for conversion", tint: .blue)
+    case .undecided: self.init(icon: "questionmark", title: "Undecided", tint: .secondary)
+    }
+  }
+
+  static var undo: DecisionOverlay {
+    DecisionOverlay(icon: "arrow.uturn.backward", title: "Undo", tint: .secondary)
+  }
+
+  var body: some View {
+    ZStack {
+      Color.black.opacity(0.6)
+      VStack(spacing: 12) {
+        Image(systemName: icon)
+          .font(.system(size: 24, weight: .semibold))
+          .foregroundStyle(tint)
+          .frame(width: 64, height: 64)
+          .background(Circle().fill(tint.opacity(0.25)))
+        Text(title)
+          .font(.headline)
+          .foregroundStyle(.white)
+      }
+    }
+    .contentShape(Rectangle())
+    .onTapGesture {}
   }
 }

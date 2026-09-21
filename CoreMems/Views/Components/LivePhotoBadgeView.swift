@@ -34,24 +34,6 @@ struct LivePhotoBadgeView: View {
   }
 }
 
-/// Dims the photo and names the mark while it's held; swallows taps.
-struct ConvertToStillOverlay: View {
-  var body: some View {
-    ZStack {
-      Color.black.opacity(0.6)
-      VStack(spacing: 8) {
-        Image(systemName: "livephoto.slash")
-          .font(.system(size: 34, weight: .semibold))
-        Text("Marked for conversion")
-          .font(.headline)
-      }
-      .foregroundStyle(.white)
-    }
-    .contentShape(Rectangle())
-    .onTapGesture {}
-  }
-}
-
 /// Loads a Live Photo and flips the shared playback state so the owning
 /// view swaps its still image for a `LivePhotoPlayerView`.
 enum LivePhotoPlayback {

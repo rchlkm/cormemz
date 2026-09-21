@@ -70,11 +70,11 @@ struct ExpandedPhotoView: View {
         .padding(.bottom, 40)
       }
 
-      if vm.isMarkingForConversion {
-        ConvertToStillOverlay().transition(.opacity)
+      if let decision = vm.markingDecision {
+        DecisionOverlay(decision: decision).transition(.opacity)
       }
     }
-    .animation(.easeOut(duration: 0.15), value: vm.isMarkingForConversion)
+    .animation(.easeOut(duration: 0.15), value: vm.markingDecision)
     .statusBarHidden()
   }
 
@@ -155,8 +155,11 @@ struct ExpandedPhotoView: View {
 
   /// Deciding moves the deck on, so full screen closes once the mark has shown.
   private func convertToStill() {
+    guard let recording = vm.decide(index: vm.currentIndex, decision: .convertToStill) else {
+      return
+    }
     Task {
-      await vm.markForConversion(index: vm.currentIndex)
+      await recording.value
       close()
     }
   }

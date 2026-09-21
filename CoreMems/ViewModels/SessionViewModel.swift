@@ -35,8 +35,8 @@ final class SessionViewModel: ObservableObject {
   @Published var deletionError: String?
   @Published var convertedLivePhotoCount: Int = 0
   
-  /// True while a conversion mark is held on screen; decisions and undo are ignored.
-  @Published private(set) var isMarkingForConversion: Bool = false
+  /// The decision being shown before it's recorded; decisions and undo are ignored meanwhile.
+  @Published private(set) var markingDecision: ReviewDecision?
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
@@ -93,8 +93,10 @@ final class SessionViewModel: ObservableObject {
   private var isLoadingBatch = false
   /// Batches of unreviewed photos kept loaded ahead of the current card.
   private static let lookaheadBatches = 2
-  /// How long a conversion mark stays on screen before the deck advances.
-  private static let conversionHold: Duration = .milliseconds(450)
+  /// How long each decision stays on screen before it's recorded; unlisted ones record at once.
+  private static let decisionHolds: [ReviewDecision: Duration] = [
+    .convertToStill: .milliseconds(450)
+  ]
   // @Published (despite being private) so toggling membership triggers
   // objectWillChange — the album picker's checkmarks read these
   // indirectly via `effectiveAlbums(for:)`.
@@ -336,13 +338,41 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Keep / Delete / Undo
 
-  /// Records a decision for the photo at `index`. If it's the
-  /// currently-active photo, advances the review index — matches the
-  /// swipe/tap gesture path. Restoring an earlier photo from the Tray
-  /// goes through `restoreMany` instead, which never advances index.
-  func decide(index: Int, decision: ReviewDecision) {
-    guard !isMarkingForConversion, photos.indices.contains(index) else { return }
-    guard decision != .convertToStill || photos[index].isLivePhoto else { return }
+  /// Records a decision for the photo at `index`, first showing it for its hold in
+  /// `decisionHolds`, if any. Recording advances the review index if it's the active
+  /// photo — matches the swipe/tap gesture path. Restoring an earlier photo from the
+  /// Tray goes through `restoreMany` instead, which never advances index.
+  /// Returns the task that finishes once recorded, or `nil` if the decision was ignored.
+  @discardableResult
+  func decide(index: Int, decision: ReviewDecision) -> Task<Void, Never>? {
+    guard markingDecision == nil, photos.indices.contains(index) else { return nil }
+    guard decision != .convertToStill || photos[index].isLivePhoto else { return nil }
+
+    switch decision {
+    case .keep:
+      haptics.keep()
+    case .pendingDelete:
+      haptics.markForDeletion()
+    case .convertToStill:
+      haptics.convertToStill()
+    case .undecided:
+      break
+    }
+
+    guard let hold = Self.decisionHolds[decision] else {
+      record(index: index, decision: decision)
+      return Task {}
+    }
+    markingDecision = decision
+    return Task {
+      try? await Task.sleep(for: hold)
+      markingDecision = nil
+      record(index: index, decision: decision)
+    }
+  }
+
+  private func record(index: Int, decision: ReviewDecision) {
+    guard photos.indices.contains(index) else { return }
     let previous = photos[index].decision
     let advanced = (index == currentIndex)
     history.append(
@@ -350,15 +380,6 @@ final class SessionViewModel: ObservableObject {
         photoIndex: index, previousDecision: previous, newDecision: decision,
         advancedIndex: advanced))
     photos[index].decision = decision
-
-    switch decision {
-    case .keep:
-      haptics.keep()
-    case .pendingDelete:
-      haptics.markForDeletion()
-    case .convertToStill, .undecided:
-      break  // The convert haptic plays in `markForConversion`.
-    }
 
     if advanced {
       currentIndex += 1
@@ -370,24 +391,12 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  /// Decides `.convertToStill` for the photo at `index` after a short hold,
-  /// so the caller can show the mark before the deck moves on.
-  func markForConversion(index: Int) async {
-    guard !isMarkingForConversion, photos.indices.contains(index), photos[index].isLivePhoto
-    else { return }
-    isMarkingForConversion = true
-    haptics.convertToStill()
-    try? await Task.sleep(for: Self.conversionHold)
-    isMarkingForConversion = false
-    decide(index: index, decision: .convertToStill)
-  }
-
   /// Quick single-step Undo (swipe left / Undo button). Invariant #4:
   /// must never restore a photo submitted after final confirmation —
   /// enforced simply by the fact that `history` is cleared once
   /// deletion is confirmed (see `confirmDeletion`).
   func quickUndo() {
-    guard !isMarkingForConversion, let last = history.popLast() else { return }
+    guard markingDecision == nil, let last = history.popLast() else { return }
     photos[last.photoIndex].decision = last.previousDecision
     if last.advancedIndex {
       currentIndex = last.photoIndex
