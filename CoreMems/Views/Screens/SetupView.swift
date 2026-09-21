@@ -6,7 +6,7 @@ struct SetupView: View {
   var isStarting: Bool = false
   let onOpenSettings: () -> Void
   let onStart: (SelectionMode, Date?) -> Void
-  let onBack: () -> Void
+  let onRefresh: () -> Void
 
   @State private var mode: SelectionMode = .shuffle
   @State private var selectedDate: Date?
@@ -21,7 +21,7 @@ struct SetupView: View {
     VStack(alignment: .leading, spacing: 0) {
       TopBar(
         title: "New session",
-        onBack: onBack,
+        leading: AnyView(refreshButton),
         trailing: AnyView(settingsButton)
       )
 
@@ -76,6 +76,15 @@ struct SetupView: View {
       .padding(.horizontal, 32)
       .padding(.bottom, 26)
     }
+  }
+
+  // MARK: - Refresh
+  private var refreshButton: some View {
+    Button(action: onRefresh) {
+      Image(systemName: "arrow.clockwise")
+    }
+    .buttonStyle(IconButtonStyle(size: .small, surface: .material(.primary)))
+    .accessibilityLabel("Refresh")
   }
 
   // MARK: - Settings entry point
@@ -175,11 +184,11 @@ extension SelectionMode {
 }
 
 #Preview("Light Mode") {
-  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onBack: {})
+  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onRefresh: {})
     .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
-  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onBack: {})
+  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onRefresh: {})
     .preferredColorScheme(.dark)
 }

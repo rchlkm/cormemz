@@ -7,10 +7,14 @@ struct AlbumPickerView: View {
 
   /// The whole library, nil until loaded. Listed on search or "Show all albums".
   var libraryAlbums: [AlbumOption]? = []
+  let pinnedIdentifiers: Set<String>
   let onToggle: (AlbumRef) -> Void
+  let onTogglePin: (String) -> Void
   let onCreate: (String) -> Void
 
   @State private var showAllAlbums = false
+  /// Membership when the sheet opened; rows keep their section while it is open, only the checkmark changes.
+  @State private var openingAssignedRefs: Set<AlbumRef>?
   @Environment(\.dismiss) private var dismiss
 
   private struct Results {
@@ -23,9 +27,10 @@ struct AlbumPickerView: View {
   /// Library albums outside `albums` are listed only when searching or after "Show all albums".
   private func computeResults(for search: AlbumSearchQuery) -> Results {
     var results = Results()
+    let sectionRefs = openingAssignedRefs ?? assignedRefs
 
     for album in albums where search.matches(album) {
-      if assignedRefs.contains(album.ref) {
+      if sectionRefs.contains(album.ref) {
         results.alreadyIn.append(album)
       } else if album.ref.kind == .pendingNew {
         results.new.append(album)
@@ -38,9 +43,9 @@ struct AlbumPickerView: View {
       let loadedIDs = Set(albums.map(\.ref.identifier))
       for album in libraryAlbums where !loadedIDs.contains(album.ref.identifier) {
         guard search.matches(album) else { continue }
-        if assignedRefs.contains(album.ref) {
+        if sectionRefs.contains(album.ref) {
           results.alreadyIn.append(album)
-        } else if search.isSearching || showAllAlbums {
+        } else if search.isSearching || showAllAlbums || assignedRefs.contains(album.ref) {
           results.existing.append(album)
         }
       }
@@ -89,6 +94,7 @@ struct AlbumPickerView: View {
           }
         }
       }
+      .onAppear { openingAssignedRefs = openingAssignedRefs ?? assignedRefs }
       .navigationTitle("Albums")
       .navigationBarTitleDisplayMode(.inline)
       .toolbarBackground(.visible, for: .navigationBar)
@@ -137,5 +143,13 @@ struct AlbumPickerView: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .swipeActions {
+      if album.ref.kind == .existing {
+        AlbumPinButton(isPinned: pinnedIdentifiers.contains(album.ref.identifier)) {
+          onTogglePin(album.ref.identifier)
+        }
+        .tint(.orange)
+      }
+    }
   }
 }

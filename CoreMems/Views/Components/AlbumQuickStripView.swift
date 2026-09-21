@@ -8,6 +8,14 @@ struct AlbumQuickStripView: View {
   let photoID: String
   let onMore: () -> Void
 
+  /// Chips held after the first tap on a photo, so tapped chips stay put and unchecked ones stay visible.
+  @State private var heldAlbums: [AlbumOption]?
+
+  private struct Chip {
+    let album: AlbumOption
+    let isChecked: Bool
+  }
+
   private var allAlbums: [AlbumOption] {
     vm.quickAccessAlbums + vm.pendingNewAlbums
   }
@@ -46,6 +54,17 @@ struct AlbumQuickStripView: View {
     return result
   }
 
+  private var chips: [Chip] {
+    let natural =
+      assignedAlbums.map { Chip(album: $0, isChecked: true) }
+      + (pinnedAlbums + recentAlbums).map { Chip(album: $0, isChecked: false) }
+    guard let heldAlbums else { return natural }
+    let heldRefs = Set(heldAlbums.map(\.ref))
+    let assigned = assignedRefs
+    return heldAlbums.map { Chip(album: $0, isChecked: assigned.contains($0.ref)) }
+      + natural.filter { !heldRefs.contains($0.album.ref) }
+  }
+
   var body: some View {
     HStack(spacing: 8) {
       moreChip
@@ -53,20 +72,15 @@ struct AlbumQuickStripView: View {
 
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
-          ForEach(assignedAlbums) { album in
-            chip(album, isChecked: true)
-          }
-          ForEach(pinnedAlbums) { album in
-            chip(album, isChecked: false)
-          }
-          ForEach(recentAlbums) { album in
-            chip(album, isChecked: false)
+          ForEach(chips, id: \.album.id) { chip in
+            chipButton(chip.album, isChecked: chip.isChecked)
           }
         }
         .padding(.trailing, 16)
       }
     }
     .padding(.vertical, 8)
+    .onChange(of: photoID) { heldAlbums = nil }
   }
 
   private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> String {
@@ -74,8 +88,9 @@ struct AlbumQuickStripView: View {
     return album.ref.kind == .pendingNew ? "sparkles" : "pin.fill"
   }
 
-  private func chip(_ album: AlbumOption, isChecked: Bool) -> some View {
+  private func chipButton(_ album: AlbumOption, isChecked: Bool) -> some View {
     Button {
+      holdChips()
       vm.toggleAlbumMembership(photoID: photoID, ref: album.ref)
     } label: {
       HStack(spacing: 5) {
@@ -85,10 +100,25 @@ struct AlbumQuickStripView: View {
       }
     }
     .buttonStyle(ChipButtonStyle(isSelected: isChecked))
+    .contextMenu {
+      if album.ref.kind == .existing {
+        AlbumPinButton(isPinned: vm.pinnedAlbumIdentifiers.contains(album.ref.identifier)) {
+          holdChips()
+          vm.togglePinnedAlbum(album.ref.identifier)
+        }
+      }
+    }
+  }
+
+  private func holdChips() {
+    if heldAlbums == nil { heldAlbums = chips.map(\.album) }
   }
 
   private var moreChip: some View {
-    Button(action: onMore) {
+    Button {
+      heldAlbums = nil
+      onMore()
+    } label: {
       HStack(spacing: 5) {
         Image(systemName: "ellipsis.circle")
         Text("More")

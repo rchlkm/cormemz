@@ -11,6 +11,7 @@ protocol HapticsServicing {
   //  func confirmDelete()
   func sessionComplete()
   func favorite()
+  func albumToggle()
 }
 
 /// Haptic + system-sound feedback for review decisions.
@@ -26,6 +27,7 @@ final class HapticsService: HapticsServicing {
   private let softImpact = UIImpactFeedbackGenerator(style: .soft)
   private let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
   private let rigidImpact = UIImpactFeedbackGenerator(style: .rigid)
+  private let selectionFeedback = UISelectionFeedbackGenerator()
 
   var isSoundEnabled = true
 
@@ -92,6 +94,10 @@ final class HapticsService: HapticsServicing {
     play(.favorite)
   }
 
+  func albumToggle() {
+    selectionFeedback.selectionChanged()
+  }
+
   private func play(_ sound: SystemSound) {
     guard isSoundEnabled else { return }
     AudioServicesPlaySystemSound(sound.rawValue)
@@ -107,6 +113,7 @@ final class MockHapticsService: HapticsServicing {
   // private(set) var confirmDeleteCallCount = 0
   private(set) var sessionCompleteCallCount = 0
   private(set) var favoriteCount = 0
+  private(set) var albumToggleCount = 0
 
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
@@ -116,6 +123,7 @@ final class MockHapticsService: HapticsServicing {
   // func confirmDelete() { confirmDeleteCallCount += 1 }
   func sessionComplete() { sessionCompleteCallCount += 1 }
   func favorite() { favoriteCount += 1 }
+  func albumToggle() { albumToggleCount += 1 }
 
 }
 
@@ -157,6 +165,11 @@ final class MockHapticsService: HapticsServicing {
 
     Button("favorite") {
       service.favorite()
+    }
+    .buttonStyle(.borderedProminent)
+
+    Button("albumToggle") {
+      service.albumToggle()
     }
     .buttonStyle(.borderedProminent)
   }

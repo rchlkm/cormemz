@@ -42,15 +42,52 @@ struct UndoTests {
     #expect(h.vm.currentIndex == 0)
   }
 
-  @Test func undoRevertsAConversionMark() async {
+  @Test func undoStepsBackOntoAConversionAndKeepsItMarked() async {
     let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
     await h.decide(0, .convertToStill)
 
     h.vm.quickUndo()
 
-    #expect(h.vm.photos[0].decision == .undecided)
-    #expect(h.vm.pendingConversions.isEmpty)
+    #expect(h.vm.photos[0].decision == .convertToStill)
+    #expect(h.vm.pendingConversions.count == 1)
     #expect(h.vm.currentIndex == 0)
+    #expect(h.vm.canUndo == false)
+  }
+
+  @Test func keepingAfterSteppingBackCancelsTheConversion() async {
+    let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
+    await h.decide(0, .convertToStill)
+    h.vm.quickUndo()
+
+    await h.decide(0, .keep)
+
+    #expect(h.vm.photos[0].decision == .keep)
+    #expect(h.vm.pendingConversions.isEmpty)
+    #expect(h.vm.currentIndex == 1)
+  }
+
+  @Test func undoingAChangedDecisionRestoresTheConversion() async {
+    let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
+    await h.decide(0, .convertToStill)
+    h.vm.quickUndo()
+    await h.decide(0, .keep)
+
+    h.vm.quickUndo()
+
+    #expect(h.vm.photos[0].decision == .convertToStill)
+    #expect(h.vm.currentIndex == 0)
+  }
+
+  @Test func convertingAgainAfterSteppingBackMovesOnUnchanged() async {
+    let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
+    await h.decide(0, .convertToStill)
+    h.vm.quickUndo()
+
+    await h.decide(0, .convertToStill)
+
+    #expect(h.vm.photos[0].decision == .convertToStill)
+    #expect(h.vm.pendingConversions.count == 1)
+    #expect(h.vm.currentIndex == 1)
   }
 
   @Test func undoingATrayRestoreKeepsTheReviewIndex() async {

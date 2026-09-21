@@ -95,6 +95,11 @@ struct ReviewCardView: View {
         .accessibilityIdentifier(AccessibilityID.liveBadge)
       }
     }
+    .overlay(alignment: .bottom) {
+      if photo.decision == .convertToStill {
+        conversionMarker
+      }
+    }
     .overlay(alignment: .bottomTrailing) {
       infoBadge
     }
@@ -184,6 +189,26 @@ struct ReviewCardView: View {
     }
     .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .padding(12)
+  }
+
+  /// Shown on a photo already marked for conversion; tapping moves on without changing it.
+  private var conversionMarker: some View {
+    Button {
+      vm.decide(index: vm.currentIndex, decision: .convertToStill)
+    } label: {
+      HStack(spacing: 6) {
+        Image(systemName: "livephoto.slash")
+        Text("Converts to still")
+        Image(systemName: "chevron.right")
+      }
+      .font(.caption.weight(.semibold))
+      .foregroundStyle(.white)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(Color.blue.opacity(0.85), in: Capsule())
+    }
+    .buttonStyle(.plain)
+    .padding(.bottom, 12)
   }
 
   private var topBar: some View {

@@ -102,8 +102,9 @@ import SwiftUI
               ) {
                 mode, startDate in
                 Task { await vm.startSession(mode: mode, startDate: startDate) }
-              } onBack: {
+              } onRefresh: {
                 vm.screen = .home
+                Task { await vm.refreshLibrary() }
               }
               .toolbar(.hidden, for: .navigationBar)
               .navigationDestination(isPresented: $showSettings) { settingsView }

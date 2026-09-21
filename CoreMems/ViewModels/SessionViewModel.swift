@@ -391,13 +391,18 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  /// Quick single-step Undo (swipe left / Undo button). Invariant #4:
+  /// Quick single-step Undo (swipe left / Undo button). 
   /// must never restore a photo submitted after final confirmation —
   /// enforced simply by the fact that `history` is cleared once
   /// deletion is confirmed (see `confirmDeletion`).
+  ///
+  /// Stepping back onto a conversion leaves it marked, so the still can be
+  /// filed into an album or the decision changed on purpose.
   func quickUndo() {
     guard markingDecision == nil, let last = history.popLast() else { return }
-    photos[last.photoIndex].decision = last.previousDecision
+    if !(last.advancedIndex && last.newDecision == .convertToStill) {
+      photos[last.photoIndex].decision = last.previousDecision
+    }
     if last.advancedIndex {
       currentIndex = last.photoIndex
       prefetchNextPhoto()
@@ -510,6 +515,12 @@ final class SessionViewModel: ObservableObject {
     libraryAlbums = await library.fetchAllUserAlbums()
   }
 
+  /// Re-reads access, the photo count and the album list.
+  func refreshLibrary() async {
+    refreshAuthorizationStatus()
+    await refreshLibraryAlbums()
+  }
+
   /// Refreshes only once a list is loaded. Foreground album changes (e.g. iCloud
   /// sync) aren't observed; a `PHPhotoLibraryChangeObserver` would call this.
   func refreshLibraryAlbumsIfLoaded() async {
@@ -589,6 +600,7 @@ final class SessionViewModel: ObservableObject {
   /// belonged to at session start (then back) collapses to a no-op
   /// against the real library instead of accumulating a log of taps.
   func toggleAlbumMembership(photoID: String, ref: AlbumRef) {
+    haptics.albumToggle()
     let wasInitialMember =
       ref.kind == .existing && (initialAlbumMembership[photoID]?.contains(ref.identifier) ?? false)
 
