@@ -54,6 +54,7 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 - Review everything marked for deletion before confirming
 - Deleted photos move to Recently Deleted, and favorites are flagged before you confirm
 - See a summary of what was kept and deleted
+- See how much of your library you've reviewed, here and in lifetime stats
 
 ### Lifetime Stats
 

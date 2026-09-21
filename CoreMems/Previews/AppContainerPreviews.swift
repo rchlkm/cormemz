@@ -61,6 +61,7 @@ import SwiftUI
         checkInInterval: $vm.checkInInterval,
         includesReviewedPhotos: $vm.includesReviewedPhotos,
         reviewedPhotoCount: vm.reviewedPhotoCount,
+        libraryPhotoCount: vm.eligiblePhotoCount,
         onResetReviewedPhotos: { vm.resetReviewedPhotos() },
         pinnedAlbums: vm.allAlbumsForPinning,
         pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
@@ -119,7 +120,8 @@ import SwiftUI
               deletedCount: vm.deletedCount,
               albumAssignedCount: vm.albumAssignedCount,
               convertedCount: vm.convertedLivePhotoCount,
-              lifetimeStats: vm.lifetimeStats,
+              reviewedPhotoCount: vm.reviewedPhotoCount,
+              libraryPhotoCount: vm.eligiblePhotoCount,
               onAgain: { vm.resetForAnotherSession() }
             )
           }

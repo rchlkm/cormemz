@@ -19,6 +19,15 @@ struct ConfirmTests {
     return h
   }
 
+  @Test func completionReadsTheLibrarySizeAfterTheCommit() async {
+    let h = await finishedSession(photoCount: 3, decisions: [(0, .pendingDelete), (1, .keep)])
+    h.library.assets.removeFirst()
+
+    await h.vm.confirmDeletion()
+
+    #expect(h.vm.eligiblePhotoCount == 2)
+  }
+
   @Test func keepingEverythingCompletesWithoutTouchingTheLibrary() async {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])

@@ -56,7 +56,7 @@ final class SessionViewModel: ObservableObject {
       UserDefaults.standard.set(checkInInterval, forKey: Self.checkInIntervalDefaultsKey)
     }
   }
-  static let checkInIntervalRange = 5...100
+  static let checkInIntervalRange = 5...50
 
   /// When true, sessions also include photos kept in earlier sessions.
   @Published var includesReviewedPhotos: Bool {
@@ -778,6 +778,7 @@ final class SessionViewModel: ObservableObject {
     haptics.sessionComplete()
     screen = .completion
     clearPersistedState()
+    eligiblePhotoCount = library.totalEligibleAssetCount()
     recordReviewedPhotos()
     recordSessionStats(kept: keptNow, deleted: deletedCount)
   }

@@ -205,7 +205,7 @@ struct ReviewCardView: View {
       .foregroundStyle(.white)
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
-      .background(Color.blue.opacity(0.85), in: Capsule())
+      .background(ReviewDecision.convertToStill.tint.opacity(0.85), in: Capsule())
     }
     .buttonStyle(.plain)
     .padding(.bottom, 12)
@@ -262,11 +262,12 @@ struct DecisionOverlay: View {
 
   init(decision: ReviewDecision) {
     switch decision {
-    case .keep: self.init(icon: "checkmark", title: "Kept", tint: .green)
-    case .pendingDelete: self.init(icon: "trash", title: "Marked for deletion", tint: .red)
+    case .keep: self.init(icon: "checkmark", title: "Kept", tint: decision.tint)
+    case .pendingDelete:
+      self.init(icon: "trash", title: "Marked for deletion", tint: decision.tint)
     case .convertToStill:
-      self.init(icon: "livephoto.slash", title: "Marked for conversion", tint: .blue)
-    case .undecided: self.init(icon: "questionmark", title: "Undecided", tint: .secondary)
+      self.init(icon: "livephoto.slash", title: "Marked for conversion", tint: decision.tint)
+    case .undecided: self.init(icon: "questionmark", title: "Undecided", tint: decision.tint)
     }
   }
 

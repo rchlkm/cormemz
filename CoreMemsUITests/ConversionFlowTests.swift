@@ -6,7 +6,7 @@ final class ConversionFlowTests: ReviewUITestCase {
   private static let firstLivePhotoPosition = 2
   private static let convertMenuItem = "Convert to Still Photo"
   private static let conversionSummary = "1 Live Photo will become a still photo"
-
+ 
   private func reachFirstLivePhoto() {
     XCTAssertFalse(element(AccessibilityID.liveBadge).exists)
     for reviewed in 1...Self.firstLivePhotoPosition {

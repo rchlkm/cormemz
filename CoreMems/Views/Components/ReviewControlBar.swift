@@ -17,10 +17,10 @@ struct ReviewControlBar: View {
         .accessibilityIdentifier(AccessibilityID.reviewUndo)
         .disabled(!canUndo)
       Button(action: onDelete) { Image(systemName: "trash") }
-        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(.red)))
+        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(ReviewDecision.pendingDelete.tint)))
         .accessibilityIdentifier(AccessibilityID.reviewDelete)
       Button(action: onKeep) { Image(systemName: "checkmark") }
-        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(.green)))
+        .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(ReviewDecision.keep.tint)))
         .accessibilityIdentifier(AccessibilityID.reviewKeep)
     }
     .padding(.vertical, 18)

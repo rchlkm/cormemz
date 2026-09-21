@@ -14,12 +14,12 @@
             buildForArchiving = "YES"
             buildForAnalyzing = "YES">
             <BuildableReference
-                        BuildableIdentifier = "primary"
-                        BlueprintIdentifier = "02E0420530526EE20050BBC0"
-                        BuildableName = "CoreMems.app"
-                        BlueprintName = "CoreMems"
-                        ReferencedContainer = "container:CoreMems.xcodeproj">
-                     </BuildableReference>
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "02E0420530526EE20050BBC0"
+               BuildableName = "CoreMems.app"
+               BlueprintName = "CoreMems"
+               ReferencedContainer = "container:CoreMems.xcodeproj">
+            </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
@@ -33,22 +33,22 @@
          <TestableReference
             skipped = "NO">
             <BuildableReference
-                        BuildableIdentifier = "primary"
-                        BlueprintIdentifier = "9F0A00012E5B0C7100A1B201"
-                        BuildableName = "CoreMemsTests.xctest"
-                        BlueprintName = "CoreMemsTests"
-                        ReferencedContainer = "container:CoreMems.xcodeproj">
-                     </BuildableReference>
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "9F0A00012E5B0C7100A1B201"
+               BuildableName = "CoreMemsTests.xctest"
+               BlueprintName = "CoreMemsTests"
+               ReferencedContainer = "container:CoreMems.xcodeproj">
+            </BuildableReference>
          </TestableReference>
          <TestableReference
             skipped = "NO">
             <BuildableReference
-                        BuildableIdentifier = "primary"
-                        BlueprintIdentifier = "9F0A00012E5B0C7100A1B301"
-                        BuildableName = "CoreMemsUITests.xctest"
-                        BlueprintName = "CoreMemsUITests"
-                        ReferencedContainer = "container:CoreMems.xcodeproj">
-                     </BuildableReference>
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "9F0A00012E5B0C7100A1B301"
+               BuildableName = "CoreMemsUITests.xctest"
+               BlueprintName = "CoreMemsUITests"
+               ReferencedContainer = "container:CoreMems.xcodeproj">
+            </BuildableReference>
          </TestableReference>
       </Testables>
    </TestAction>
@@ -65,12 +65,12 @@
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
-                        BuildableIdentifier = "primary"
-                        BlueprintIdentifier = "02E0420530526EE20050BBC0"
-                        BuildableName = "CoreMems.app"
-                        BlueprintName = "CoreMems"
-                        ReferencedContainer = "container:CoreMems.xcodeproj">
-                     </BuildableReference>
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02E0420530526EE20050BBC0"
+            BuildableName = "CoreMems.app"
+            BlueprintName = "CoreMems"
+            ReferencedContainer = "container:CoreMems.xcodeproj">
+         </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
@@ -82,12 +82,12 @@
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
-                        BuildableIdentifier = "primary"
-                        BlueprintIdentifier = "02E0420530526EE20050BBC0"
-                        BuildableName = "CoreMems.app"
-                        BlueprintName = "CoreMems"
-                        ReferencedContainer = "container:CoreMems.xcodeproj">
-                     </BuildableReference>
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "02E0420530526EE20050BBC0"
+            BuildableName = "CoreMems.app"
+            BlueprintName = "CoreMems"
+            ReferencedContainer = "container:CoreMems.xcodeproj">
+         </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction

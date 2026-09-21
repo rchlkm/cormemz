@@ -4,16 +4,11 @@ import SwiftUI
 /// Every lifetime stat in one place. Pushed from the top of Settings.
 struct LifetimeStatsView: View {
   let stats: LifetimeSessionStats
+  let reviewedPhotoCount: Int
+  let libraryPhotoCount: Int
   let onClear: () -> Void
 
   @State private var showClearConfirmation = false
-
-  private struct Tile: Identifiable {
-    let label: String
-    let value: String
-    let systemImage: String
-    var id: String { label }
-  }
 
   private struct RatioSegment: Identifiable {
     let label: String
@@ -28,23 +23,29 @@ struct LifetimeStatsView: View {
     var id: String { label }
   }
 
-  private var tiles: [Tile] {
+  private var tiles: [StatTileItem] {
     [
-      Tile(label: "Reviewed", value: stats.totalReviewed.formatted(), systemImage: "eye"),
-      Tile(label: "Kept", value: stats.totalKept.formatted(), systemImage: "heart"),
-      Tile(
-        label: "Live Photos converted", value: stats.livePhotosConverted.formatted(),
-        systemImage: "livephoto"),
-      Tile(
+      StatTileItem(
         label: "Sessions", value: stats.sessionsCompleted.formatted(),
-        systemImage: "checkmark.circle"),
+        systemImage: "clock.arrow.circlepath"),
+      StatTileItem(
+        label: "Kept", value: stats.keptUnchanged.formatted(), systemImage: "checkmark.circle",
+        tint: ReviewDecision.keep.tint),
+      StatTileItem(label: "Reviewed", value: stats.totalReviewed.formatted(), systemImage: "eye"),
+      StatTileItem(
+        label: "Live Photos converted", value: stats.livePhotosConverted.formatted(),
+        systemImage: "livephoto", tint: ReviewDecision.convertToStill.tint),
     ]
   }
 
   private var ratioSegments: [RatioSegment] {
     [
-      RatioSegment(label: "Kept", count: stats.totalKept, color: .green),
-      RatioSegment(label: "Deleted", count: stats.totalDeleted, color: .red),
+      RatioSegment(label: "Kept", count: stats.keptUnchanged, color: ReviewDecision.keep.tint),
+      RatioSegment(
+        label: "Converted", count: stats.livePhotosConverted,
+        color: ReviewDecision.convertToStill.tint),
+      RatioSegment(
+        label: "Deleted", count: stats.totalDeleted, color: ReviewDecision.pendingDelete.tint),
     ]
   }
 
@@ -61,11 +62,9 @@ struct LifetimeStatsView: View {
     ScrollView {
       VStack(spacing: 16) {
         hero
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12)
-        {
-          ForEach(tiles) { tileView($0) }
-        }
+        StatTileGrid(items: tiles)
         ratioCard
+        ReviewProgressCard(reviewed: reviewedPhotoCount, total: libraryPhotoCount)
         spaceCard
         footer
         clearButton
@@ -83,7 +82,6 @@ struct LifetimeStatsView: View {
       Text(stats.totalDeleted.formatted())
         .font(.system(size: 56, weight: .bold, design: .rounded))
         .monospacedDigit()
-        .foregroundStyle(Color.accentColor)
       Text("photos deleted")
         .font(.headline)
       Text("\(byteString(stats.bytesCleaned)) cleaned")
@@ -96,27 +94,9 @@ struct LifetimeStatsView: View {
     .accessibilityElement(children: .combine)
   }
 
-  private func tileView(_ tile: Tile) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Image(systemName: tile.systemImage)
-        .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(Color.accentColor)
-      Text(tile.value)
-        .font(.system(size: 28, weight: .bold, design: .rounded))
-        .monospacedDigit()
-      Text(tile.label)
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(16)
-    .cardBackground()
-    .accessibilityElement(children: .combine)
-  }
-
   private var ratioCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Kept vs deleted")
+      Text("Kept vs deleted vs converted")
         .font(.headline)
       ratioBar
       HStack(spacing: 16) {
@@ -220,13 +200,6 @@ struct LifetimeStatsView: View {
   }
 }
 
-extension View {
-  fileprivate func cardBackground() -> some View {
-    background(
-      Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-  }
-}
-
 #Preview {
   NavigationStack {
     LifetimeStatsView(
@@ -240,6 +213,8 @@ extension View {
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)
       ),
+      reviewedPhotoCount: 1_206,
+      libraryPhotoCount: 3_100,
       onClear: {}
     )
   }

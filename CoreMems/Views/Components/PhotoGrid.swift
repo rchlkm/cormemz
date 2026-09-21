@@ -66,8 +66,8 @@ private struct DecisionTag: View {
 
   private var style: (symbol: String, color: Color)? {
     switch decision {
-    case .pendingDelete: return ("trash", .red)
-    case .convertToStill: return ("livephoto.slash", .accentColor)
+    case .pendingDelete: return ("trash", decision.tint)
+    case .convertToStill: return ("livephoto.slash", decision.tint)
     case .keep, .undecided: return nil
     }
   }

@@ -6,6 +6,7 @@ struct SettingsView: View {
   @Binding var checkInInterval: Int
   @Binding var includesReviewedPhotos: Bool
   let reviewedPhotoCount: Int
+  let libraryPhotoCount: Int
   let onResetReviewedPhotos: () -> Void
   let pinnedAlbums: [AlbumOption]
   let pinnedAlbumIdentifiers: Set<String>
@@ -45,7 +46,9 @@ struct SettingsView: View {
   private var checkInSection: some View {
     Section {
       VStack(alignment: .leading, spacing: 8) {
-        Text("Every \(checkInInterval) photos")
+        Stepper(
+          "Every \(checkInInterval) photos", value: $checkInInterval,
+          in: SessionViewModel.checkInIntervalRange)
         Slider(
           value: Binding(
             get: { Double(checkInInterval) },
@@ -112,7 +115,9 @@ struct SettingsView: View {
   private var statsSection: some View {
     Section {
       NavigationLink {
-        LifetimeStatsView(stats: lifetimeStats, onClear: onClearLifetimeStats)
+        LifetimeStatsView(
+          stats: lifetimeStats, reviewedPhotoCount: reviewedPhotoCount,
+          libraryPhotoCount: libraryPhotoCount, onClear: onClearLifetimeStats)
       } label: {
         VStack(alignment: .leading, spacing: 2) {
           Text(lifetimeStats.totalDeleted.formatted())
@@ -141,6 +146,7 @@ struct SettingsView: View {
       checkInInterval: .constant(12),
       includesReviewedPhotos: .constant(false),
       reviewedPhotoCount: 128,
+      libraryPhotoCount: 3_100,
       onResetReviewedPhotos: {},
       pinnedAlbums: [],
       pinnedAlbumIdentifiers: [],
