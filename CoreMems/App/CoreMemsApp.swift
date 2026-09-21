@@ -4,6 +4,12 @@ import SwiftUI
 
 @main
 struct CoreMemsApp: App {
+  init() {
+    #if DEBUG
+      UITestConfiguration.resetPersistedState()
+    #endif
+  }
+
   var body: some Scene {
     WindowGroup {
       RootView()
@@ -12,10 +18,19 @@ struct CoreMemsApp: App {
 }
 
 struct RootView: View {
-  @StateObject private var vm = SessionViewModel()
-  @AppStorage("cm_hasOnboarded") private var hasOnboarded = false
+  static let hasOnboardedKey = "cm_hasOnboarded"
+
+  @StateObject private var vm = RootView.makeViewModel()
+  @AppStorage(RootView.hasOnboardedKey) private var hasOnboarded = false
   @State private var showSettings = false
   @Environment(\.scenePhase) private var scenePhase
+
+  private static func makeViewModel() -> SessionViewModel {
+    #if DEBUG
+      if UITestConfiguration.isActive { return UITestConfiguration.makeViewModel() }
+    #endif
+    return SessionViewModel()
+  }
 
   /// True until the user has granted access at least once. While
   /// true, show the full permission-request Home screen.
@@ -100,6 +115,7 @@ struct RootView: View {
             lifetimeStats: vm.lifetimeStats,
             onAgain: { vm.resetForAnotherSession() }
           )
+          .uiTestContainer(AccessibilityID.completion)
         }
       }
     }

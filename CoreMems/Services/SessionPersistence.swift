@@ -44,14 +44,18 @@ final class SessionPersistence: SessionPersisting {
     private(set) var debugWriteCount = 0
   #endif
 
-  init(debounceInterval: TimeInterval = 0.3) {
+  init(debounceInterval: TimeInterval = 0.3, fileURL: URL? = nil) {
     self.debounceInterval = debounceInterval
+    if let fileURL {
+      self.fileURL = fileURL
+      return
+    }
     let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
       .first!
     // The Application Support directory is not created automatically on iOS.
     // Without this, writes fail silently and the snapshot never persists.
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    fileURL = dir.appendingPathComponent("core-mems-active-session.json")
+    self.fileURL = dir.appendingPathComponent("core-mems-active-session.json")
   }
 
   /// Debounces rapid successive calls (e.g. quick swipes) into a single
@@ -85,3 +89,13 @@ final class SessionPersistence: SessionPersisting {
     }
   }
 }
+
+#if DEBUG
+  final class MockSessionPersistence: SessionPersisting {
+    private(set) var snapshot: PersistedSessionSnapshot?
+
+    func save(_ snapshot: PersistedSessionSnapshot) { self.snapshot = snapshot }
+    func load() -> PersistedSessionSnapshot? { snapshot }
+    func clear() { snapshot = nil }
+  }
+#endif

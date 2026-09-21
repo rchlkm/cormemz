@@ -44,6 +44,7 @@ struct PhotoGridCells: View {
             Image(systemName: "arrow.uturn.backward")
           }
           .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
+          .accessibilityIdentifier(AccessibilityID.trayRestore)
           .padding(6)
         }
         .overlay(alignment: .bottomLeading) {

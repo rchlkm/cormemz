@@ -76,6 +76,7 @@ struct ExpandedPhotoView: View {
     }
     .animation(.easeOut(duration: 0.15), value: vm.markingDecision)
     .statusBarHidden()
+    .uiTestContainer(AccessibilityID.expandedPhoto)
   }
 
   @ViewBuilder

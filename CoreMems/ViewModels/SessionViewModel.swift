@@ -88,7 +88,7 @@ final class SessionViewModel: ObservableObject {
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
-  private var assetSource: AssetBatchSource?
+  private var assetSource: (any AssetBatching)?
   private var sessionBatchSize = SessionViewModel.defaultCheckInInterval
   private var isLoadingBatch = false
   /// Batches of unreviewed photos kept loaded ahead of the current card.

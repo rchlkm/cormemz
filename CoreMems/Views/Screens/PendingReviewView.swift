@@ -64,6 +64,7 @@ struct PendingReviewView: View {
         }
       }
       .buttonStyle(ActionButtonStyle(role: hasItems ? .destructive : .primary))
+      .accessibilityIdentifier(AccessibilityID.pendingConfirm)
       .disabled(vm.isDeleting)
       .padding(26)
     }

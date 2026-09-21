@@ -51,7 +51,7 @@ protocol PhotoLibraryServicing {
   /// skipping the local identifiers in 'excluding'. `startDate` applies to `.date`.
   func makeAssetSource(
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
-  ) async -> AssetBatchSource
+  ) async -> any AssetBatching
   func totalEligibleAssetCount() -> Int
 
   /// Combined stored size in bytes of every resource (photo, paired video,
@@ -101,7 +101,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
 
   func makeAssetSource(
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
-  ) async -> AssetBatchSource {
+  ) async -> any AssetBatching {
     await Task.detached(priority: .userInitiated) {
       AssetBatchSource(mode: mode, startDate: startDate, excluding: excluding)
     }.value
@@ -368,7 +368,7 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func makeAssetSource(
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
-  ) async -> AssetBatchSource {
+  ) async -> any AssetBatching {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.
     AssetBatchSource()

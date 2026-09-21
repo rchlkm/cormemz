@@ -17,6 +17,7 @@ struct ReviewCardView: View {
   @Binding var expandedPhoto: SessionPhoto?
 
   @State private var dragOffset: CGSize = .zero
+  @State private var lastDragTranslation: CGSize = .zero
   @State private var zoomScale: CGFloat = 1.0
   @State private var showMetadata = false
   @State private var inlineLivePhoto: PHLivePhoto?
@@ -91,6 +92,7 @@ struct ReviewCardView: View {
           isShowingLivePhoto: $isShowingLivePhoto,
           onConvertToStill: { vm.decide(index: vm.currentIndex, decision: .convertToStill) }
         )
+        .accessibilityIdentifier(AccessibilityID.liveBadge)
       }
     }
     .overlay(alignment: .bottomTrailing) {
@@ -118,6 +120,9 @@ struct ReviewCardView: View {
     .sheet(isPresented: $showMetadata) {
       PhotoMetadataSheetView(vm: vm)
     }
+    .uiTestContainer(
+      AccessibilityID.reviewCard,
+      value: "\(Int(lastDragTranslation.width)),\(Int(lastDragTranslation.height))")
   }
 
   private func expand() {
@@ -149,7 +154,10 @@ struct ReviewCardView: View {
 
   private var dragGesture: some Gesture {
     DragGesture()
-      .onChanged { dragOffset = $0.translation }
+      .onChanged {
+        dragOffset = $0.translation
+        lastDragTranslation = $0.translation
+      }
       .onEnded { value in
         let dx = value.translation.width
         let dy = value.translation.height

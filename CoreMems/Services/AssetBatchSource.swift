@@ -1,9 +1,15 @@
 // CoreMems/Services/AssetBatchSource.swift
 import Photos
 
+/// A stream of assets handed out a batch at a time.
+protocol AssetBatching: Actor {
+  /// Returns up to `count` more assets; fewer than `count` means the source is exhausted.
+  func nextBatch(count: Int) -> [PHAsset]
+}
+
 /// Walks the library's eligible (image-only) assets in a session's order, handing them out a
 /// batch at a time so a session only materializes the photos it is about to show.
-actor AssetBatchSource {
+actor AssetBatchSource: AssetBatching {
   private let result: PHFetchResult<PHAsset>
   private let order: [Int]
   private let excluding: Set<String>
@@ -41,7 +47,6 @@ actor AssetBatchSource {
     excluding = []
   }
 
-  /// Returns up to `count` more assets; fewer than `count` means the source is exhausted.
   func nextBatch(count: Int) -> [PHAsset] {
     var batch: [PHAsset] = []
     while batch.count < count, cursor < order.count {

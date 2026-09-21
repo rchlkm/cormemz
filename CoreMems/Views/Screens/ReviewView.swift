@@ -41,8 +41,10 @@ struct ReviewView: View {
           trailing: AnyView(
             HStack(spacing: 12) {
               MarkedPhotosTrayButton(markedCount: vm.markedPhotos.count) { showTray = true }
+                .accessibilityIdentifier(AccessibilityID.reviewTray)
               Button("Done") { vm.finishEarly() }
                 .font(.system(size: 15, weight: .semibold))
+                .accessibilityIdentifier(AccessibilityID.reviewDone)
             }
           )
         )
@@ -51,6 +53,7 @@ struct ReviewView: View {
           Text("\(vm.currentIndex) reviewed")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
+            .accessibilityIdentifier(AccessibilityID.reviewProgress)
           if let sessionLabel = vm.sessionLabel {
             Text(sessionLabel)
               .font(.caption2)

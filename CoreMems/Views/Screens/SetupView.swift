@@ -71,6 +71,7 @@ struct SetupView: View {
         }
       }
       .buttonStyle(ActionButtonStyle(role: .primary))
+      .accessibilityIdentifier(AccessibilityID.setupStart)
       .disabled(!canStart || isStarting)
       .padding(.horizontal, 32)
       .padding(.bottom, 26)
