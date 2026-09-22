@@ -54,20 +54,21 @@ struct ExpandedPhotoView: View {
 
       if photo.isLivePhoto {
         VStack {
-          Spacer()
           HStack {
             LivePhotoBadgeView(
               assetIdentifier: photo.assetIdentifier,
               targetSize: UIScreen.main.bounds.size,
               inlineLivePhoto: $inlineLivePhoto,
               isShowingLivePhoto: $isShowingLivePhoto,
-              onConvertToStill: convertToStill
+              onConvertToStill: convertToStill,
+              style: .pill
             )
             Spacer()
           }
+          Spacer()
         }
         .padding(.leading, 20)
-        .padding(.bottom, 40)
+        .padding(.top, 50)
       }
 
       if let decision = vm.markingDecision {

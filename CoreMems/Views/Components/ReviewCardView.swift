@@ -60,7 +60,17 @@ struct ReviewCardView: View {
     return nil
   }
 
+  /// The swipe-up hint sits behind the photo, fixed in place, so dragging the
+  /// photo upward opens a gap at its bottom edge that reveals the hint
+  /// underneath — the hint itself never moves with the drag.
   private var swipableCard: some View {
+    ZStack {
+      swipeUpHint
+      cardForeground
+    }
+  }
+
+  private var cardForeground: some View {
     Group {
       if isShowingLivePhoto, let inlineLivePhoto {
         LivePhotoPlayerView(
@@ -103,7 +113,6 @@ struct ReviewCardView: View {
     .overlay(alignment: .bottomTrailing) {
       infoBadge
     }
-    .overlay(detailsStamp)
     .overlay {
       if let decision = vm.markingDecision {
         DecisionOverlay(decision: decision).transition(.opacity)
@@ -229,21 +238,32 @@ struct ReviewCardView: View {
     .frame(height: 60)
   }
 
-  private var detailsStamp: some View {
-    let detailsOpacity = min(1, max(0, -dragOffset.height / 90))
-    return VStack {
-      HStack {
+  private var swipeUpHint: some View {
+    let hintOpacity = min(1, max(0, -dragOffset.height / 90))
+    return ZStack {
+      RoundedRectangle(cornerRadius: 26)
+        .fill(Color.black.opacity(0.6))
+      VStack {
         Spacer()
-        Text("DETAILS")
-          .font(.caption.bold()).foregroundStyle(.white)
-          .padding(.horizontal, 12).padding(.vertical, 6)
-          .background(Color.blue.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
-          .opacity(detailsOpacity)
+        SwipeUpHintBadge()
+          .padding(.bottom, 32)
       }
-      .padding(.top, 50)
-      Spacer()
     }
-    .padding(14)
+    .frame(width: maxSize.width, height: maxSize.height)
+    .opacity(hintOpacity)
+  }
+}
+
+/// Hints that the swipe-up gesture (metadata) is about to trigger.
+private struct SwipeUpHintBadge: View {
+  var body: some View {
+    VStack(spacing: 4) {
+      Image(systemName: "chevron.up")
+        .font(.system(size: 16, weight: .bold))
+      Text("Swipe up")
+        .font(.headline)
+    }
+    .foregroundStyle(.white)
   }
 }
 

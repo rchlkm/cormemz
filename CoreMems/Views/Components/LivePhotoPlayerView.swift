@@ -23,9 +23,9 @@ struct LivePhotoPlayerView: UIViewRepresentable {
     context.coordinator.onPlaybackEnded = onPlaybackEnded
     guard uiView.livePhoto !== livePhoto else { return }
     uiView.livePhoto = livePhoto
-    if livePhoto != nil {
-      uiView.startPlayback(with: .full)
-    }
+    guard livePhoto != nil else { return }
+    // Deferred so the view is in the window hierarchy before playback starts.
+    DispatchQueue.main.async { uiView.startPlayback(with: .full) }
   }
 
   final class Coordinator: NSObject, PHLivePhotoViewDelegate {

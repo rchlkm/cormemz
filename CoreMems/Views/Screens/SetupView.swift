@@ -25,41 +25,17 @@ struct SetupView: View {
         trailing: AnyView(settingsButton)
       )
 
-      VStack(alignment: .leading, spacing: 20) {
-        modePicker
-
-        VStack(alignment: .leading, spacing: 8) {
-          Text(mode.heading)
-            .font(.system(size: 28, weight: .bold))
-          Text("You can always stop whenever — nothing's deleted until the end.")
-            .font(.system(size: 15))
-            .foregroundColor(.secondary)
+      ScrollView {
+        VStack(alignment: .leading, spacing: 24) {
+          typeFilterRow
+          modeList
+          if mode == .date {
+            datePicker
+          }
         }
-
-        if mode == .date {
-          datePicker
-        } else {
-          Text(mode.blurb)
-            .font(.system(size: 13.5))
-            .foregroundColor(.secondary)
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-              Color(uiColor: .secondarySystemGroupedBackground),
-              in: RoundedRectangle(cornerRadius: 16))
-        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
       }
-      .padding(.horizontal, 24)
-      .padding(.top, 24)
-
-      Text("The session adjusts quietly if fewer photos are available.")
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, 26)
-        .padding(.top, 14)
-
-      Spacer()
 
       Button {
         onStart(mode, mode == .date ? selectedDate : nil)
@@ -96,50 +72,106 @@ struct SetupView: View {
     .accessibilityLabel("Settings")
   }
 
-  // MARK: - Mode picker (3-card row)
-  private var modePicker: some View {
-    HStack(spacing: 8) {
+  // MARK: - Mode picker (scrollable option list)
+  private var modeList: some View {
+    VStack(spacing: 10) {
       ForEach(SelectionMode.allCases, id: \.self) { candidate in
-        modeCard(candidate)
+        modeRow(candidate)
       }
     }
   }
 
-  private func modeCard(_ candidate: SelectionMode) -> some View {
-    Button {
+  private func modeRow(_ candidate: SelectionMode) -> some View {
+    let isSelected = mode == candidate
+    return Button {
       mode = candidate
     } label: {
-      VStack(spacing: 4) {
-        Text(candidate.icon)
-          .font(.system(size: 18))
-        Text(candidate.label)
-          .font(.system(size: 12, weight: .bold))
+      HStack(spacing: 14) {
+        Image(systemName: candidate.icon)
+          .font(.system(size: 20, weight: .semibold))
+          .frame(width: 28)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(candidate.label)
+            .font(.system(size: 16, weight: .semibold))
+          Text(candidate.blurb)
+            .font(.system(size: 13))
+            .foregroundColor(secondaryTextColor(isSelected: isSelected))
+        }
+        Spacer(minLength: 0)
       }
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 11)
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .buttonStyle(CardButtonStyle(isSelected: mode == candidate))
+    .buttonStyle(CardButtonStyle(isSelected: isSelected))
+  }
+
+  // MARK: - Media type filter (only "All" is wired up so far)
+  private var typeFilterRow: some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: 8) {
+        ForEach(MediaTypeFilter.allCases, id: \.self) { filter in
+          Button(filter.label) {}
+            .buttonStyle(ChipButtonStyle(isSelected: filter == .all))
+            .disabled(filter != .all)
+        }
+      }
+    }
   }
 
   // MARK: - Date picker ("From a Date" mode)
+  /// Nothing is picked until the user taps to reveal the picker — it never shows
+  /// today pre-filled while `selectedDate` is still nil underneath.
   private var datePicker: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("STARTING ON")
-        .font(.system(size: 12, weight: .bold))
-        .foregroundColor(.secondary)
+    Group {
+      if let selectedDate {
+        VStack(alignment: .leading, spacing: 10) {
+          Text("STARTING ON")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(.secondary)
 
-      DatePicker(
-        "Starting on",
-        selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
-        in: ...Date(),
-        displayedComponents: .date
-      )
-      .labelsHidden()
-      .datePickerStyle(.compact)
+          DatePicker(
+            "Starting on",
+            selection: Binding(get: { selectedDate }, set: { self.selectedDate = $0 }),
+            in: ...Date(),
+            displayedComponents: .date
+          )
+          .labelsHidden()
+          .datePickerStyle(.compact)
+        }
+      } else {
+        Button {
+          self.selectedDate = Date()
+        } label: {
+          HStack(spacing: 14) {
+            Image(systemName: "calendar")
+              .font(.system(size: 20, weight: .semibold))
+              .frame(width: 28)
+            Text("Choose a date")
+              .font(.system(size: 16, weight: .semibold))
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+              .font(.system(size: 13, weight: .semibold))
+              .foregroundColor(.secondary)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(CardButtonStyle(isSelected: false))
+      }
+    }
+  }
+}
 
-      Text(SelectionMode.date.blurb)
-        .font(.system(size: 12.5))
-        .foregroundColor(.secondary)
+/// Media types a session can be limited to. Only `.all` filters anything today —
+/// the rest are shown disabled until asset-type filtering is implemented.
+private enum MediaTypeFilter: String, CaseIterable {
+  case all, photos, screenshots, videos, timelapses
+
+  var label: String {
+    switch self {
+    case .all: return "All"
+    case .photos: return "Photos"
+    case .screenshots: return "Screenshots"
+    case .videos: return "Videos"
+    case .timelapses: return "Timelapses"
     }
   }
 }
@@ -148,9 +180,9 @@ struct SetupView: View {
 extension SelectionMode {
   fileprivate var icon: String {
     switch self {
-    case .shuffle: return "🔀"
-    case .recent: return "🕒"
-    case .date: return "📅"
+    case .shuffle: return "shuffle"
+    case .recent: return "clock"
+    case .date: return "calendar"
     }
   }
 
@@ -162,23 +194,14 @@ extension SelectionMode {
     }
   }
 
-  fileprivate var heading: String {
-    switch self {
-    case .shuffle: return "Shuffle and review"
-    case .recent: return "Review your most recent photos"
-    case .date: return "Review from a specific date"
-    }
-  }
-
   fileprivate var blurb: String {
     switch self {
     case .shuffle:
-      return "Pulls random photos from your whole library, one at a time."
+      return "Random photos from your whole library, one at a time."
     case .recent:
-      return "Starts with today and works backward through your library."
+      return "Starts with today and works backward."
     case .date:
-      return
-        "Reviews everything from that day forward, oldest first — handy for picking up right where a trip started."
+      return "Everything from that day forward, oldest first."
     }
   }
 }

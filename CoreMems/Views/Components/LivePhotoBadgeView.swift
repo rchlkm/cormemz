@@ -2,6 +2,14 @@
 import PhotosUI
 import SwiftUI
 
+/// Where a `LivePhotoBadgeView` draws itself.
+enum LivePhotoBadgeStyle {
+  /// Plain circular glyph, for chrome drawn over the photo (`ReviewCardView`).
+  case icon
+  /// Labeled capsule matching Photos' full-screen "LIVE" badge (`ExpandedPhotoView`).
+  case pill
+}
+
 /// Live Photo playback toggle shared by every surface that shows the badge
 /// (`ReviewCardView`, `ExpandedPhotoView`). Tap plays in place; tap again reverts.
 ///
@@ -12,25 +20,52 @@ struct LivePhotoBadgeView: View {
   @Binding var inlineLivePhoto: PHLivePhoto?
   @Binding var isShowingLivePhoto: Bool
   let onConvertToStill: () -> Void
+  var style: LivePhotoBadgeStyle = .icon
+
+  private var glyph: String { isShowingLivePhoto ? "livephoto.slash" : "livephoto" }
 
   var body: some View {
-    Button {
-      if isShowingLivePhoto {
-        isShowingLivePhoto = false
-      } else {
-        LivePhotoPlayback.start(
-          assetIdentifier: assetIdentifier, targetSize: targetSize,
-          inlineLivePhoto: $inlineLivePhoto, isShowingLivePhoto: $isShowingLivePhoto)
+    Group {
+      switch style {
+      case .icon:
+        Button(action: toggle) { Image(systemName: glyph) }
+          .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
+      case .pill:
+        Button(action: toggle) {
+          Label("LIVE", systemImage: glyph).font(.footnote.weight(.semibold))
+        }
+        .buttonStyle(LivePhotoPillButtonStyle())
       }
-    } label: {
-      Image(systemName: isShowingLivePhoto ? "livephoto.slash" : "livephoto")
     }
-    .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .contextMenu {
       Button(action: onConvertToStill) {
         Label("Convert to Still Photo", systemImage: "photo")
       }
     }
+  }
+
+  private func toggle() {
+    if isShowingLivePhoto {
+      isShowingLivePhoto = false
+    } else {
+      LivePhotoPlayback.start(
+        assetIdentifier: assetIdentifier, targetSize: targetSize,
+        inlineLivePhoto: $inlineLivePhoto, isShowingLivePhoto: $isShowingLivePhoto)
+    }
+  }
+}
+
+/// Dark capsule matching Photos' full-screen "LIVE" badge.
+private struct LivePhotoPillButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .foregroundStyle(.white)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 7)
+      .background(Capsule().fill(.black.opacity(0.55)))
+      .opacity(ButtonMetrics.opacity(isPressed: configuration.isPressed, isEnabled: isEnabled))
   }
 }
 
