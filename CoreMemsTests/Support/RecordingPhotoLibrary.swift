@@ -22,6 +22,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var storageSizes: [String: Int64] = [:]
   /// When set, every commit returns this instead of succeeding.
   var commitFailure: Error?
+  /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
+  var stubbedRandomDate: Date?
   /// Session photo IDs whose still copy the commit fails to produce.
   var photoIDsWithoutStill: Set<String> = []
 
@@ -42,6 +44,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   }
 
   func totalEligibleAssetCount() -> Int { assets.count }
+
+  func randomAssetDate() async -> Date? { stubbedRandomDate ?? assets.first?.creationDate }
 
   func storageSize(of assets: [PHAsset]) async -> Int64? {
     events.append(.storageSize(Set(assets.map(\.localIdentifier))))

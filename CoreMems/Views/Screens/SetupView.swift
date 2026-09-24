@@ -4,6 +4,7 @@ import SwiftUI
 struct SetupView: View {
   let maxAvailable: Int
   var isStarting: Bool = false
+  var onPickRandomDate: () async -> Date? = { nil }
   let onOpenSettings: () -> Void
   let onStart: (SelectionMode, Date?) -> Void
   let onRefresh: () -> Void
@@ -15,6 +16,11 @@ struct SetupView: View {
 
   private var startButtonTitle: String {
     mode == .date && selectedDate == nil ? "Pick a date to start" : "Start"
+  }
+
+  /// Fills in a fresh random date each time "From a Date" is chosen; the user can change it.
+  private func prefillRandomDate() async {
+    if let date = await onPickRandomDate() { selectedDate = date }
   }
 
   var body: some View {
@@ -35,6 +41,7 @@ struct SetupView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
+        .task(id: mode) { if mode == .date { await prefillRandomDate() } }
       }
 
       Button {
@@ -96,6 +103,7 @@ struct SetupView: View {
           Text(candidate.blurb)
             .font(.system(size: 13))
             .foregroundColor(secondaryTextColor(isSelected: isSelected))
+            .lineLimit(2, reservesSpace: true)
         }
         Spacer(minLength: 0)
       }
@@ -118,8 +126,7 @@ struct SetupView: View {
   }
 
   // MARK: - Date picker ("From a Date" mode)
-  /// Nothing is picked until the user taps to reveal the picker — it never shows
-  /// today pre-filled while `selectedDate` is still nil underneath.
+  /// Appears once the random date has loaded.
   private var datePicker: some View {
     Group {
       if let selectedDate {
@@ -137,24 +144,6 @@ struct SetupView: View {
           .labelsHidden()
           .datePickerStyle(.compact)
         }
-      } else {
-        Button {
-          self.selectedDate = Date()
-        } label: {
-          HStack(spacing: 14) {
-            Image(systemName: "calendar")
-              .font(.system(size: 20, weight: .semibold))
-              .frame(width: 28)
-            Text("Choose a date")
-              .font(.system(size: 16, weight: .semibold))
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 13, weight: .semibold))
-              .foregroundColor(.secondary)
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(CardButtonStyle(isSelected: false))
       }
     }
   }
@@ -201,7 +190,7 @@ extension SelectionMode {
     case .recent:
       return "Starts with today and works backward."
     case .date:
-      return "Everything from that day forward, oldest first."
+      return "Everything from that day forward, oldest first. Starts on a random day unless you pick one."
     }
   }
 }

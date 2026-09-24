@@ -99,6 +99,7 @@ import SwiftUI
               SetupView(
                 maxAvailable: vm.maxAvailable,
                 isStarting: vm.isStartingSession,
+                onPickRandomDate: { await vm.randomAssetDate() },
                 onOpenSettings: { showSettings = true }
               ) {
                 mode, startDate in

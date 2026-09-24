@@ -53,6 +53,8 @@ protocol PhotoLibraryServicing {
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
   ) async -> any AssetBatching
   func totalEligibleAssetCount() -> Int
+  /// A random eligible asset's creation date; `nil` if the library has no eligible assets.
+  func randomAssetDate() async -> Date?
 
   /// Combined stored size in bytes of every resource (photo, paired video,
   /// edits) of `assets`; `nil` if the system doesn't report sizes. Read it
@@ -111,6 +113,16 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     let options = PHFetchOptions()
     options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
     return PHAsset.fetchAssets(with: options).count
+  }
+
+  func randomAssetDate() async -> Date? {
+    await Task.detached(priority: .userInitiated) { () -> Date? in
+      let options = PHFetchOptions()
+      options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+      let result = PHAsset.fetchAssets(with: options)
+      guard result.count > 0 else { return nil }
+      return result.object(at: Int.random(in: 0..<result.count)).creationDate
+    }.value
   }
 
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
@@ -375,6 +387,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   }
 
   func totalEligibleAssetCount() -> Int { mockEligibleCount }
+
+  func randomAssetDate() async -> Date? { Date() }
 
   func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 

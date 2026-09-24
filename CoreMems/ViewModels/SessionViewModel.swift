@@ -674,6 +674,9 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  /// A random eligible photo's date, for starting a `.date` session without picking one.
+  func randomAssetDate() async -> Date? { await library.randomAssetDate() }
+
   // MARK: Photo details
 
   /// Kicks off an async fetch for the pull-up details sheet — real
