@@ -26,7 +26,7 @@ unless a feature is called out as photo- or video-specific.
 
 - Set check-in frequency
 - Include or reset reviewed photos
-- Choose pinned albums
+- Choose pinned albums, and sort them by your own drag order or by most recently used
 - View lifetime stats
 
 ### Review Interaction
@@ -44,7 +44,7 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
 - Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion (and restore it from the same button), mark Live Photos for conversion, favorite them, or file them into albums; the filmstrip replaces the bottom buttons, and swipe decisions and undo pause while browsing
 - Favorite a photo
-- File a photo into a Photos album, including a new one, with pinned albums shown first
+- File a photo into a Photos album, including a new one, with pinned albums in their own section shown first; reorder them or switch their sort right there
 - Pin or unpin an album without leaving the review
 - Mark a Live Photo for conversion to a still photo
 - Undo back onto a photo marked for conversion keeps it marked, so you can file the still into an album or change your mind

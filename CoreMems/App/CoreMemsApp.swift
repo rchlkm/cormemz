@@ -45,14 +45,8 @@ struct RootView: View {
       reviewedPhotoCount: vm.reviewedPhotoCount,
       libraryPhotoCount: vm.eligiblePhotoCount,
       onResetReviewedPhotos: { vm.resetReviewedPhotos() },
-      pinnedAlbums: vm.allAlbumsForPinning,
-      pinnedAlbumIdentifiers: vm.pinnedAlbumIdentifiers,
-      isLoadingPinnedAlbums: vm.isLoadingAlbumsForPinning,
-      isCreatingPinnedAlbum: vm.isCreatingPinnedAlbum,
-      pinnedAlbumCreationError: vm.pinnedAlbumCreationError,
-      onLoadPinnedAlbums: { vm.loadAlbumsForPinning() },
-      onTogglePinnedAlbum: { vm.togglePinnedAlbum($0) },
-      onCreateAndPinAlbum: { vm.createAndPinAlbum(name: $0) },
+      pinnedAlbums: vm.pinnedAlbums,
+      pinnedAlbumOrder: vm.orderedPinnedAlbumIDs,
       lifetimeStats: vm.lifetimeStats,
       onClearLifetimeStats: { vm.clearLifetimeStats() }
     )

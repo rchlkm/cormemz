@@ -1,43 +1,38 @@
 // CoreMems/Views/Sheets/PinnedAlbumsSettingsView.swift
 import SwiftUI
 
-/// Lets the user pin the Photos albums that show first in the album picker and strip.
+/// Lets the user pin the Photos albums that show first in the album picker and strip,
+/// and order them by hand or by recent use.
 /// Pushed onto the Settings navigation stack.
 /// The search field also creates and pins a new album (see `AlbumSearchList`).
 struct PinnedAlbumsSettingsView: View {
-  let albums: [AlbumOption]
-  let pinnedIdentifiers: Set<String>
-  let isLoading: Bool
-  var isCreating: Bool = false
-  var creationError: String? = nil
-  let onTogglePin: (String) -> Void
-  let onCreateAndPin: (String) -> Void
+  @ObservedObject var pinnedAlbums: PinnedAlbumsViewModel
+  /// The pinned album IDs in display order.
+  let pinnedIdentifiers: [String]
 
-  /// Splits `albums` into pinned and other, keeping its order.
+  /// Pinned albums in pin order, and the rest in `albums` order.
   private func split(for search: AlbumSearchQuery) -> (pinned: [AlbumOption], others: [AlbumOption])
   {
-    var pinned: [AlbumOption] = []
-    var others: [AlbumOption] = []
-    for album in albums where search.matches(album) {
-      if pinnedIdentifiers.contains(album.ref.identifier) {
-        pinned.append(album)
-      } else {
-        others.append(album)
-      }
+    let albums = pinnedAlbums.albums
+    let albumsByID = Dictionary(
+      albums.map { ($0.ref.identifier, $0) }, uniquingKeysWith: { first, _ in first })
+    let pinned = pinnedIdentifiers.compactMap { albumsByID[$0] }.filter(search.matches)
+    let others = albums.filter {
+      !pinnedIdentifiers.contains($0.ref.identifier) && search.matches($0)
     }
     return (pinned, others)
   }
 
   var body: some View {
     AlbumSearchList(
-      albums: albums,
-      isLoading: isLoading && albums.isEmpty,
-      isCreating: isCreating,
-      onCreate: onCreateAndPin
+      albums: pinnedAlbums.albums,
+      isLoading: pinnedAlbums.isLoading && pinnedAlbums.albums.isEmpty,
+      isCreating: pinnedAlbums.isCreating,
+      onCreate: { pinnedAlbums.createAndPin(name: $0) }
     ) { search in
       let (pinned, others) = split(for: search)
 
-      if let creationError {
+      if let creationError = pinnedAlbums.creationError {
         Section {
           Text(creationError)
             .font(.caption)
@@ -56,8 +51,13 @@ struct PinnedAlbumsSettingsView: View {
       }
 
       if !pinned.isEmpty {
-        Section("Pinned") {
+        Section {
           ForEach(pinned) { albumRow($0) }
+            .reorderable(
+              pinnedAlbums.sort == .myOrder && !search.isSearching,
+              ids: pinned.map(\.ref.identifier), onReorder: { pinnedAlbums.reorder($0) })
+        } header: {
+          PinnedSectionHeader(sort: $pinnedAlbums.sort)
         }
       }
 
@@ -76,7 +76,7 @@ struct PinnedAlbumsSettingsView: View {
   private func albumRow(_ album: AlbumOption) -> some View {
     let isPinned = pinnedIdentifiers.contains(album.ref.identifier)
     return Button {
-      onTogglePin(album.ref.identifier)
+      pinnedAlbums.toggle(album.ref.identifier)
     } label: {
       HStack(spacing: 12) {
         Image(systemName: isPinned ? "pin.fill" : "pin")
@@ -106,14 +106,13 @@ struct PinnedAlbumsSettingsView: View {
 #Preview {
   NavigationStack {
     PinnedAlbumsSettingsView(
-      albums: [
-        AlbumOption(ref: .existing(localIdentifier: "1"), name: "Trip 2024", assetCount: 128),
-        AlbumOption(ref: .existing(localIdentifier: "2"), name: "Family", assetCount: 842),
-      ],
-      pinnedIdentifiers: ["1"],
-      isLoading: false,
-      onTogglePin: { _ in },
-      onCreateAndPin: { _ in }
+      pinnedAlbums: .mock(
+        albums: [
+          AlbumOption(ref: .existing(localIdentifier: "1"), name: "Trip 2024", assetCount: 128),
+          AlbumOption(ref: .existing(localIdentifier: "2"), name: "Family", assetCount: 842),
+        ],
+        pinned: ["1"]),
+      pinnedIdentifiers: ["1"]
     )
   }
 }

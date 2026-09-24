@@ -7,9 +7,8 @@ struct AlbumPickerView: View {
 
   /// The whole library, nil until loaded. Listed on search or "Show all albums".
   var libraryAlbums: [AlbumOption]? = []
-  let pinnedIdentifiers: Set<String>
+  @ObservedObject var pinnedAlbums: PinnedAlbumsViewModel
   let onToggle: (AlbumRef) -> Void
-  let onTogglePin: (String) -> Void
   let onCreate: (String) -> Void
 
   @State private var showAllAlbums = false
@@ -20,7 +19,9 @@ struct AlbumPickerView: View {
   private struct Results {
     var alreadyIn: [AlbumOption] = []
     var new: [AlbumOption] = []
-    var existing: [AlbumOption] = []
+    var pinned: [AlbumOption] = []
+    var recent: [AlbumOption] = []
+    var all: [AlbumOption] = []
   }
 
   /// One pass over `albums`, then `libraryAlbums`, so per-keystroke search stays cheap.
@@ -28,14 +29,17 @@ struct AlbumPickerView: View {
   private func computeResults(for search: AlbumSearchQuery) -> Results {
     var results = Results()
     let sectionRefs = openingAssignedRefs ?? assignedRefs
+    let pinnedIDs = Set(pinnedAlbums.identifiers)
 
     for album in albums where search.matches(album) {
       if sectionRefs.contains(album.ref) {
         results.alreadyIn.append(album)
       } else if album.ref.kind == .pendingNew {
         results.new.append(album)
+      } else if pinnedIDs.contains(album.ref.identifier) {
+        results.pinned.append(album)
       } else {
-        results.existing.append(album)
+        results.recent.append(album)
       }
     }
 
@@ -46,7 +50,7 @@ struct AlbumPickerView: View {
         if sectionRefs.contains(album.ref) {
           results.alreadyIn.append(album)
         } else if search.isSearching || showAllAlbums || assignedRefs.contains(album.ref) {
-          results.existing.append(album)
+          results.all.append(album)
         }
       }
     }
@@ -76,11 +80,30 @@ struct AlbumPickerView: View {
           }
         }
 
-        if !results.existing.isEmpty {
-          Section("Your Albums") {
-            ForEach(results.existing) { albumRow($0) }
+        if !results.pinned.isEmpty {
+          Section {
+            ForEach(results.pinned) { albumRow($0) }
+              .reorderable(
+                pinnedAlbums.sort == .myOrder && !search.isSearching,
+                ids: results.pinned.map(\.ref.identifier), onReorder: { pinnedAlbums.reorder($0) })
+          } header: {
+            PinnedSectionHeader(sort: $pinnedAlbums.sort)
           }
-        } else if !search.isSearching && results.alreadyIn.isEmpty && results.new.isEmpty {
+        }
+
+        if !results.recent.isEmpty {
+          Section("Recent") {
+            ForEach(results.recent) { albumRow($0) }
+          }
+        }
+
+        if !results.all.isEmpty {
+          Section("All Albums") {
+            ForEach(results.all) { albumRow($0) }
+          }
+        } else if !search.isSearching && results.alreadyIn.isEmpty && results.new.isEmpty
+          && results.pinned.isEmpty && results.recent.isEmpty
+        {
           Section { AlbumSearchHint() }
         }
 
@@ -145,8 +168,8 @@ struct AlbumPickerView: View {
     .buttonStyle(.plain)
     .swipeActions {
       if album.ref.kind == .existing {
-        AlbumPinButton(isPinned: pinnedIdentifiers.contains(album.ref.identifier)) {
-          onTogglePin(album.ref.identifier)
+        AlbumPinButton(isPinned: pinnedAlbums.identifiers.contains(album.ref.identifier)) {
+          pinnedAlbums.toggle(album.ref.identifier)
         }
         .tint(.orange)
       }

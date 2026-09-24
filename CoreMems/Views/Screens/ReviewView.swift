@@ -140,9 +140,8 @@ struct ReviewView: View {
             albums: vm.quickAccessAlbums + vm.pendingNewAlbums,
             assignedRefs: vm.effectiveAlbums(for: focused.id),
             libraryAlbums: vm.libraryAlbums,
-            pinnedIdentifiers: vm.pinnedAlbumIdentifiers,
+            pinnedAlbums: vm.pinnedAlbums,
             onToggle: { ref in vm.toggleAlbumMembership(photoID: focused.id, ref: ref) },
-            onTogglePin: { vm.togglePinnedAlbum($0) },
             onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: focused.id) }
           )
           .presentationDetents([.height(Self.compactAlbumSheetHeight), .medium])

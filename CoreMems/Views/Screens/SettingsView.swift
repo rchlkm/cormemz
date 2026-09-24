@@ -8,14 +8,9 @@ struct SettingsView: View {
   let reviewedPhotoCount: Int
   let libraryPhotoCount: Int
   let onResetReviewedPhotos: () -> Void
-  let pinnedAlbums: [AlbumOption]
-  let pinnedAlbumIdentifiers: Set<String>
-  let isLoadingPinnedAlbums: Bool
-  var isCreatingPinnedAlbum: Bool = false
-  var pinnedAlbumCreationError: String? = nil
-  let onLoadPinnedAlbums: () -> Void
-  let onTogglePinnedAlbum: (String) -> Void
-  let onCreateAndPinAlbum: (String) -> Void
+  let pinnedAlbums: PinnedAlbumsViewModel
+  /// The pinned album IDs in display order.
+  let pinnedAlbumOrder: [String]
   let lifetimeStats: LifetimeSessionStats
   let onClearLifetimeStats: () -> Void
 
@@ -94,16 +89,8 @@ struct SettingsView: View {
   private var pinnedAlbumsSection: some View {
     Section {
       NavigationLink {
-        PinnedAlbumsSettingsView(
-          albums: pinnedAlbums,
-          pinnedIdentifiers: pinnedAlbumIdentifiers,
-          isLoading: isLoadingPinnedAlbums,
-          isCreating: isCreatingPinnedAlbum,
-          creationError: pinnedAlbumCreationError,
-          onTogglePin: onTogglePinnedAlbum,
-          onCreateAndPin: onCreateAndPinAlbum
-        )
-        .task { onLoadPinnedAlbums() }
+        PinnedAlbumsSettingsView(pinnedAlbums: pinnedAlbums, pinnedIdentifiers: pinnedAlbumOrder)
+          .task { pinnedAlbums.load() }
       } label: {
         Label("Choose albums", systemImage: "pin.fill")
       }
@@ -148,12 +135,8 @@ struct SettingsView: View {
       reviewedPhotoCount: 128,
       libraryPhotoCount: 3_100,
       onResetReviewedPhotos: {},
-      pinnedAlbums: [],
-      pinnedAlbumIdentifiers: [],
-      isLoadingPinnedAlbums: false,
-      onLoadPinnedAlbums: {},
-      onTogglePinnedAlbum: { _ in },
-      onCreateAndPinAlbum: { _ in },
+      pinnedAlbums: .mock(),
+      pinnedAlbumOrder: [],
       lifetimeStats: LifetimeSessionStats(
         totalReviewed: 150,
         totalKept: 100,

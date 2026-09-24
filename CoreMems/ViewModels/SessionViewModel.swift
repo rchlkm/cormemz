@@ -25,7 +25,14 @@ final class SessionViewModel: ObservableObject {
   @Published var isStartingSession: Bool = false
   /// Every user album (names and counts only), loaded once per app launch and
   /// refreshed on foreground return and after album creation. `nil` until loaded.
-  @Published var libraryAlbums: [AlbumOption]?
+  @Published var libraryAlbums: [AlbumOption]? {
+    didSet {
+      libraryAlbumsByID = Dictionary(
+        (libraryAlbums ?? []).map { ($0.ref.identifier, $0) },
+        uniquingKeysWith: { first, _ in first })
+    }
+  }
+  private var libraryAlbumsByID: [String: AlbumOption] = [:]
   /// Most recently used album IDs, newest first, capped at `recentAlbumIDsLimit`.
   /// Persisted, except session-local `.pendingNew` IDs.
   @Published var recentAlbumIDs: [String] = []
@@ -39,14 +46,6 @@ final class SessionViewModel: ObservableObject {
   @Published private(set) var markingDecision: ReviewDecision?
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
-
-  /// Pinned Albums settings state. `pinnedAlbumIdentifiers` also drives the
-  /// quick-access strip.
-  @Published var allAlbumsForPinning: [AlbumOption] = []
-  @Published var pinnedAlbumIdentifiers: Set<String> = []
-  @Published var isLoadingAlbumsForPinning: Bool = false
-  @Published var isCreatingPinnedAlbum: Bool = false
-  @Published var pinnedAlbumCreationError: String?
 
   /// How many photos pass between check-in overlays during review.
   /// Persisted directly via `UserDefaults` — too small a setting to
@@ -93,6 +92,8 @@ final class SessionViewModel: ObservableObject {
   @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
   private let library: PhotoLibraryServicing
+  let pinnedAlbums: PinnedAlbumsViewModel
+  private var pinnedAlbumsObservation: AnyCancellable?
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   @Published private var peekedPhotos: [String: SessionPhoto] = [:]  // asset id -> neighbor not in the deck
   private var deletedBytes: Int64 = 0
@@ -116,7 +117,6 @@ final class SessionViewModel: ObservableObject {
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
   private let statsStore: LifetimeStatsServicing
-  private let pinnedAlbumsStore: PinnedAlbumsStoring
   private let reviewedPhotosStore: ReviewedPhotosStoring
 
   static let cardDateFormatter: DateFormatter = {
@@ -143,7 +143,7 @@ final class SessionViewModel: ObservableObject {
     self.haptics = haptics
     self.metadataService = metadataService
     self.statsStore = statsStore
-    self.pinnedAlbumsStore = pinnedAlbumsStore
+    pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
     self.reviewedPhotosStore = reviewedPhotosStore
     let storedInterval =
       UserDefaults.standard.object(forKey: Self.checkInIntervalDefaultsKey) as? Int
@@ -155,7 +155,12 @@ final class SessionViewModel: ObservableObject {
       forKey: Self.includesReviewedDefaultsKey)
     self.reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
     self.recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
-    self.pinnedAlbumIdentifiers = pinnedAlbumsStore.pinnedAlbumIdentifiers()
+    pinnedAlbums.onAlbumCreated = { [weak self] in await self?.refreshLibraryAlbumsIfLoaded() }
+    // Only the state `quickAccessAlbums` reads re-renders this object's observers.
+    pinnedAlbumsObservation = Publishers.Merge(
+      pinnedAlbums.$identifiers.removeDuplicates().dropFirst().map { _ in },
+      pinnedAlbums.$sort.removeDuplicates().dropFirst().map { _ in }
+    ).sink { [weak self] in self?.objectWillChange.send() }
     restoreIfInterrupted()
   }
 
@@ -552,10 +557,15 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Album assignment
 
-  /// Pinned plus recently used albums, resolved from `libraryAlbums` (empty until it loads).
+  /// Pinned album IDs in the chosen sort order.
+  var orderedPinnedAlbumIDs: [String] { pinnedAlbums.orderedIdentifiers(recents: recentAlbumIDs) }
+
+  /// Pinned albums in their sort order, then unpinned recents newest first, resolved from
+  /// `libraryAlbums` (empty until it loads).
   var quickAccessAlbums: [AlbumOption] {
-    let ids = pinnedAlbumIdentifiers.union(recentAlbumIDs)
-    return (libraryAlbums ?? []).filter { ids.contains($0.ref.identifier) }
+    let pinned = orderedPinnedAlbumIDs
+    let ids = pinned + recentAlbumIDs.filter { !pinned.contains($0) }
+    return ids.compactMap { libraryAlbumsByID[$0] }
   }
 
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
@@ -588,61 +598,6 @@ final class SessionViewModel: ObservableObject {
   func refreshLibraryAlbumsIfLoaded() async {
     guard libraryAlbums != nil else { return }
     await refreshLibraryAlbums()
-  }
-
-  // MARK: Pinned albums settings
-
-  /// Every real album, for the Pinned Albums settings screen to browse
-  /// and toggle — unlike the picker's default load, this always fetches
-  /// the whole library, since it's a deliberate, infrequent settings
-  /// visit rather than something that has to be instant every time a
-  /// photo card opens.
-  func loadAlbumsForPinning() {
-    guard !isLoadingAlbumsForPinning else { return }
-    isLoadingAlbumsForPinning = true
-    pinnedAlbumIdentifiers = pinnedAlbumsStore.pinnedAlbumIdentifiers()
-    Task { @MainActor in
-      allAlbumsForPinning = await library.fetchAllUserAlbums()
-      isLoadingAlbumsForPinning = false
-    }
-  }
-
-  func togglePinnedAlbum(_ identifier: String) {
-    if pinnedAlbumIdentifiers.contains(identifier) {
-      pinnedAlbumIdentifiers.remove(identifier)
-      pinnedAlbumsStore.unpin(identifier)
-    } else {
-      pinnedAlbumIdentifiers.insert(identifier)
-      pinnedAlbumsStore.pin([identifier])
-    }
-  }
-
-  /// Creates a real, empty Photos album from the Pinned Albums settings
-  /// screen and immediately pins it — unlike the review picker's
-  /// "New album" (which stays a `.pendingNew` placeholder until the
-  /// session flushes it alongside a photo assignment), there's no photo
-  /// to wait on here, so the album is created for real right away.
-  func createAndPinAlbum(name: String) {
-    guard !isCreatingPinnedAlbum else { return }
-    isCreatingPinnedAlbum = true
-    pinnedAlbumCreationError = nil
-    Task { @MainActor in
-      let result = await library.createAlbum(named: name)
-      isCreatingPinnedAlbum = false
-      switch result {
-      case .success(let newAlbumID):
-        pinnedAlbumsStore.pin([newAlbumID])
-        pinnedAlbumIdentifiers.insert(newAlbumID)
-        allAlbumsForPinning.append(
-          AlbumOption(ref: .existing(localIdentifier: newAlbumID), name: name, assetCount: 0))
-        allAlbumsForPinning.sort {
-          $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-        await refreshLibraryAlbumsIfLoaded()
-      case .failure(let error):
-        pinnedAlbumCreationError = error.localizedDescription
-      }
-    }
   }
 
   /// The album picker's checkmark source — the real library's starting
@@ -876,7 +831,7 @@ final class SessionViewModel: ObservableObject {
       case .success(let outcome):
         await applyConversions(
           conversions, stillIdentifiers: outcome.stillIdentifiers, originalSizes: originalSizes)
-        pinnedAlbumsStore.pin(outcome.createdAlbumIDs)
+        pinnedAlbums.pin(outcome.createdAlbumIDs.sorted())
         if !outcome.createdAlbumIDs.isEmpty {
           Task { await refreshLibraryAlbumsIfLoaded() }
         }

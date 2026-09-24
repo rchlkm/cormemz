@@ -34,7 +34,7 @@ struct AlbumQuickStripView: View {
   private var pinnedAlbums: [AlbumOption] {
     let assigned = assignedRefs
     return allAlbums.filter {
-      vm.pinnedAlbumIdentifiers.contains($0.ref.identifier) && !assigned.contains($0.ref)
+      vm.pinnedAlbums.identifiers.contains($0.ref.identifier) && !assigned.contains($0.ref)
     }
   }
 
@@ -44,7 +44,7 @@ struct AlbumQuickStripView: View {
     let assigned = assignedRefs
     var result: [AlbumOption] = []
     for identifier in vm.recentAlbumIDs {
-      guard !vm.pinnedAlbumIdentifiers.contains(identifier) else { continue }
+      guard !vm.pinnedAlbums.identifiers.contains(identifier) else { continue }
       guard let album = all.first(where: { $0.ref.identifier == identifier }) else {
         continue
       }
@@ -85,7 +85,9 @@ struct AlbumQuickStripView: View {
 
   private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> String {
     if isChecked { return "checkmark.circle.fill" }
-    return album.ref.kind == .pendingNew ? "sparkles" : "pin.fill"
+    if album.ref.kind == .pendingNew { return "sparkles" }
+    let isPinned = vm.pinnedAlbums.identifiers.contains(album.ref.identifier)
+    return isPinned ? "pin.fill" : "clock.arrow.circlepath"
   }
 
   private func chipButton(_ album: AlbumOption, isChecked: Bool) -> some View {
@@ -102,9 +104,9 @@ struct AlbumQuickStripView: View {
     .buttonStyle(ChipButtonStyle(isSelected: isChecked))
     .contextMenu {
       if album.ref.kind == .existing {
-        AlbumPinButton(isPinned: vm.pinnedAlbumIdentifiers.contains(album.ref.identifier)) {
+        AlbumPinButton(isPinned: vm.pinnedAlbums.identifiers.contains(album.ref.identifier)) {
           holdChips()
-          vm.togglePinnedAlbum(album.ref.identifier)
+          vm.pinnedAlbums.toggle(album.ref.identifier)
         }
       }
     }
