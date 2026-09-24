@@ -55,11 +55,11 @@ protocol PhotoLibraryServicing {
   func totalEligibleAssetCount() -> Int
   /// A random eligible asset's creation date; `nil` if the library has no eligible assets.
   func randomAssetDate() async -> Date?
-  /// Up to `radius` eligible (image) assets immediately before and after the asset
-  /// with `assetIdentifier`, in the library's own creation-date order, plus that
-  /// asset itself — true library neighbors, independent of any session's fetch
-  /// order. Empty if the asset can't be found.
-  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset]
+  /// Up to `before` eligible (image) assets immediately older and `after` immediately
+  /// newer than the asset with `assetIdentifier`, in the library's own creation-date
+  /// order, plus that asset itself — true library neighbors, independent of any
+  /// session's fetch order. Empty if the asset can't be found.
+  func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset]
 
   /// Combined stored size in bytes of every resource (photo, paired video,
   /// edits) of `assets`; `nil` if the system doesn't report sizes. Read it
@@ -98,7 +98,7 @@ protocol PhotoLibraryServicing {
 private actor ChronologicalImages {
   private var cached: PHFetchResult<PHAsset>?
 
-  func neighbors(of assetIdentifier: String, radius: Int) -> [PHAsset] {
+  func neighbors(of assetIdentifier: String, before: Int, after: Int) -> [PHAsset] {
     guard
       let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetIdentifier], options: nil)
         .firstObject
@@ -107,8 +107,8 @@ private actor ChronologicalImages {
     cached = result
     let index = result.index(of: asset)
     guard index != NSNotFound else { return [] }
-    let lower = max(0, index - radius)
-    let upper = min(result.count - 1, index + radius)
+    let lower = max(0, index - before)
+    let upper = min(result.count - 1, index + after)
     guard lower <= upper else { return [] }
     return (lower...upper).map { result.object(at: $0) }
   }
@@ -162,8 +162,8 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     }.value
   }
 
-  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] {
-    await chronologicalImages.neighbors(of: assetIdentifier, radius: radius)
+  func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset] {
+    await chronologicalImages.neighbors(of: assetIdentifier, before: before, after: after)
   }
 
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
@@ -431,7 +431,7 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func randomAssetDate() async -> Date? { Date() }
 
-  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] { [] }
+  func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset] { [] }
 
   func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 

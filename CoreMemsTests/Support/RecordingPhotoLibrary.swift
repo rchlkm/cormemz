@@ -49,12 +49,12 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
 
   /// Treats `assets`, in the order given, as the library's own order — independent
   /// of whatever order a session fetched them in via `makeAssetSource`.
-  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] {
+  func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset] {
     guard let index = assets.firstIndex(where: { $0.localIdentifier == assetIdentifier }) else {
       return []
     }
-    let lower = max(0, index - radius)
-    let upper = min(assets.count - 1, index + radius)
+    let lower = max(0, index - before)
+    let upper = min(assets.count - 1, index + after)
     guard lower <= upper else { return [] }
     return Array(assets[lower...upper])
   }

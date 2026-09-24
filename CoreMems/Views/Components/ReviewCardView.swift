@@ -22,13 +22,6 @@ struct ReviewCardView: View {
   @State private var showMetadata = false
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
-  
-  /// Neighbors whose full-size preview has finished loading; scrubbing waits for all of them.
-  @State private var loadedPreviewIDs: Set<String> = []
-
-  private static let peekThumbnailHeight: CGFloat = 64
-  private static let peekSpacing: CGFloat = 8
-  private static let peekInset: CGFloat = 12
 
   /// Pinch scale past which the card hands off to full screen instead
   /// of bouncing back.
@@ -39,12 +32,7 @@ struct ReviewCardView: View {
   /// The photo the card's chrome and actions refer to: the peeked-at neighbor, else the card's photo.
   private var subject: SessionPhoto { vm.focusedPhoto ?? photo }
 
-  /// Scrubbing waits until the neighbors are known and each one's image has loaded.
-  private var isPeekLoading: Bool {
-    vm.isLoadingPeek || !vm.peekNeighbors.allSatisfy { loadedPreviewIDs.contains($0.id) }
-  }
-
-  private var isShowingScrubbedNeighbor: Bool {
+  private var isShowingNeighborPreview: Bool {
     subject.id != photo.id && !isShowingLivePhoto
   }
 
@@ -126,7 +114,7 @@ struct ReviewCardView: View {
     }
     .overlay(alignment: .bottom) {
       if vm.isPeeking {
-        peekDecisionTag
+        PeekDecisionTag(decision: subject.decision)
       } else if photo.decision == .convertToStill {
         conversionMarker
       }
@@ -135,13 +123,20 @@ struct ReviewCardView: View {
       infoBadge
     }
     .overlay {
-      if vm.isPeeking {
-        scrubbedPreviews
+      if let peek = vm.peek {
+        PeekPreviewView(
+          neighbors: vm.peekNeighbors, focusedID: peek.focusedID, maxSize: maxSize,
+          isVisible: isShowingNeighborPreview)
       }
     }
     .overlay(alignment: .bottom) {
-      if vm.isPeeking {
-        neighborPeekStrip
+      if let peek = vm.peek {
+        PeekFilmstripView(
+          neighbors: vm.peekNeighbors, anchorID: peek.anchorID, focusedID: peek.focusedID,
+          loadingSide: peek.loadingSide, isLoadingInitialNeighbors: peek.isLoading,
+          onFocus: { vm.focusPeek(on: $0) }
+        )
+        .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
     .overlay {
@@ -251,113 +246,6 @@ struct ReviewCardView: View {
     }
     .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .accessibilityIdentifier(AccessibilityID.reviewPeekToggle)
-  }
-
-  /// Strip of the photo library's true neighbors (by creation date) around the card's
-  /// photo, including it. Touching or dragging across it points the review controls
-  /// at that neighbor.
-  private var neighborPeekStrip: some View {
-    GeometryReader { proxy in
-      let neighbors = vm.peekNeighbors
-      let isLoading = isPeekLoading
-      let count = max(neighbors.count, 1)
-      let width = proxy.size.width - 2 * Self.peekInset
-      let cellWidth = (width - Self.peekSpacing * CGFloat(count - 1)) / CGFloat(count)
-      HStack(spacing: Self.peekSpacing) {
-        ForEach(neighbors) { neighbor in
-          peekThumbnail(neighbor, width: cellWidth)
-        }
-      }
-      .frame(width: width)
-      .contentShape(Rectangle())
-      .gesture(scrubGesture(neighbors: neighbors, cellPitch: cellWidth + Self.peekSpacing))
-      .allowsHitTesting(!isLoading)
-      .opacity(isLoading ? 0.5 : 1)
-      .overlay {
-        if isLoading {
-          ProgressView().tint(.white)
-        }
-      }
-      .padding(.horizontal, Self.peekInset)
-    }
-    .frame(height: Self.peekThumbnailHeight + 20)
-    .background(.black.opacity(0.55))
-    .transition(.move(edge: .bottom).combined(with: .opacity))
-  }
-
-  private func scrubGesture(neighbors: [SessionPhoto], cellPitch: CGFloat) -> some Gesture {
-    func neighbor(atX x: CGFloat) -> SessionPhoto? {
-      guard !neighbors.isEmpty else { return nil }
-      return neighbors[min(max(Int(x / cellPitch), 0), neighbors.count - 1)]
-    }
-    return DragGesture(minimumDistance: 0)
-      .onChanged { value in
-        if let hit = neighbor(atX: value.location.x) { vm.focusPeek(on: hit.id) }
-      }
-  }
-
-  private func peekThumbnail(_ neighbor: SessionPhoto, width: CGFloat) -> some View {
-    let isSessionPhoto = neighbor.id == photo.id
-    let isShown = neighbor.id == subject.id
-    return AdaptiveAssetImage(photo: neighbor, targetSize: CGSize(width: 200, height: 200))
-      .frame(width: width, height: Self.peekThumbnailHeight)
-      .clipped()
-      .clipShape(RoundedRectangle(cornerRadius: 10))
-      .overlay(
-        RoundedRectangle(cornerRadius: 10)
-          .stroke(isSessionPhoto ? Color.accentColor : .white, lineWidth: isSessionPhoto || isShown ? 3 : 0)
-      )
-      .overlay(alignment: .bottom) {
-        if isSessionPhoto {
-          Text("In session")
-            .font(.system(size: 9, weight: .bold))
-            .minimumScaleFactor(0.7)
-            .lineLimit(1)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Color.accentColor, in: Capsule())
-            .padding(.bottom, 4)
-        }
-      }
-      .overlay(alignment: .topTrailing) {
-        if neighbor.decision != .undecided {
-          DecisionBadge(decision: neighbor.decision).padding(4)
-        }
-      }
-      .opacity(isShown ? 1 : 0.6)
-  }
-
-  /// Every neighbor stays mounted so its image is already loaded when scrubbed to;
-  /// switching only changes opacity, never remounts a view.
-  private var scrubbedPreviews: some View {
-    ZStack {
-      Color.black
-      ForEach(vm.peekNeighbors) { neighbor in
-        AdaptiveAssetImage(
-          photo: neighbor, fitWithin: maxSize,
-          onFinishedLoading: { loadedPreviewIDs.insert(neighbor.id) }
-        )
-        .opacity(neighbor.id == subject.id ? 1 : 0)
-      }
-    }
-    .opacity(isShowingScrubbedNeighbor ? 1 : 0)
-    .allowsHitTesting(false)
-  }
-
-  /// Names the focused photo's decision above the strip, so a marked neighbor reads as marked.
-  @ViewBuilder
-  private var peekDecisionTag: some View {
-    if subject.decision != .undecided {
-      let content = DecisionOverlay.content(for: subject.decision)
-      Label(content.title, systemImage: content.icon)
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(content.tint.opacity(0.85), in: Capsule())
-        .padding(.bottom, Self.peekThumbnailHeight + 32)
-    }
   }
 
   /// Shown on a photo already marked for conversion; tapping moves on without changing it.
@@ -475,18 +363,5 @@ struct DecisionOverlay: View {
     }
     .contentShape(Rectangle())
     .onTapGesture {}
-  }
-}
-
-/// Small round icon marking a photo's decision on a thumbnail.
-private struct DecisionBadge: View {
-  let decision: ReviewDecision
-
-  var body: some View {
-    Image(systemName: DecisionOverlay.content(for: decision).icon)
-      .font(.system(size: 10, weight: .bold))
-      .foregroundStyle(.white)
-      .frame(width: 20, height: 20)
-      .background(decision.tint, in: Circle())
   }
 }
