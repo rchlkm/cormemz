@@ -13,6 +13,7 @@ struct ReviewView: View {
   @Namespace private var heroNamespace
 
   private static let compactAlbumSheetHeight: CGFloat = 340
+  private static let filmstripBottomPadding: CGFloat = 12
 
   /// What the card shows; stays on the peek's starting photo while peeking.
   private var current: SessionPhoto? { vm.cardPhoto }
@@ -34,9 +35,13 @@ struct ReviewView: View {
     }
   }
 
-  private func decideFocused(_ decision: ReviewDecision) {
-    guard let focused else { return }
-    vm.decide(photoID: focused.id, decision: decision)
+  /// Marks the photo for deletion, or restores it to Keep if it already is marked.
+  private func toggleDeleteOnFocused(_ photoID: String) {
+    if vm.photo(withID: photoID)?.decision == .pendingDelete {
+      vm.restoreMany(ids: [photoID])
+    } else {
+      vm.decide(photoID: photoID, decision: .pendingDelete)
+    }
   }
 
   var body: some View {
@@ -104,13 +109,23 @@ struct ReviewView: View {
           }
         }
 
-        ReviewControlBar(
-          canUndo: vm.canUndo,
-          showsKeep: vm.canKeepFocusedPhoto,
-          onUndo: { vm.quickUndo() },
-          onDelete: { decideFocused(.pendingDelete) },
-          onKeep: { decideFocused(.keep) }
-        )
+        if let peek = vm.peek {
+          PeekFilmstripView(
+            neighbors: vm.peekNeighbors, anchorID: peek.anchorID, focusedID: peek.focusedID,
+            loadingSide: peek.loadingSide, isLoadingInitialNeighbors: peek.isLoading,
+            onFocus: { vm.focusPeek(on: $0) },
+            isFocusedMarkedForDeletion: focused?.decision == .pendingDelete,
+            onToggleDelete: { toggleDeleteOnFocused(peek.focusedID) }
+          )
+          .padding(.bottom, Self.filmstripBottomPadding)
+        } else {
+          ReviewControlBar(
+            canUndo: vm.canUndo,
+            onUndo: { vm.quickUndo() },
+            onDelete: { vm.decide(index: vm.currentIndex, decision: .pendingDelete) },
+            onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
+          )
+        }
       }
       .sheet(isPresented: $showTray) {
         MarkedPhotosTrayView(

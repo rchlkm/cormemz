@@ -23,6 +23,9 @@ struct ReviewCardView: View {
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
 
+  private static let topBarHeight: CGFloat = 60
+  private static let decisionTagGap: CGFloat = 8
+
   /// Pinch scale past which the card hands off to full screen instead
   /// of bouncing back.
   private let fullScreenZoomThreshold: CGFloat = 1.6
@@ -99,7 +102,20 @@ struct ReviewCardView: View {
     )
     .scaleEffect(zoomScale)
     .gesture(pinchToZoom)
+    .overlay {
+      if let peek = vm.peek {
+        PeekPreviewView(
+          neighbors: vm.peekNeighbors, focusedID: peek.focusedID, maxSize: maxSize,
+          isVisible: isShowingNeighborPreview)
+      }
+    }
     .overlay(alignment: .top) { topBar }
+    .overlay(alignment: .top) {
+      if vm.isPeeking {
+        PeekDecisionTag(decision: subject.decision)
+          .padding(.top, Self.topBarHeight + Self.decisionTagGap)
+      }
+    }
     .overlay(alignment: .bottomLeading) {
       if subject.isLivePhoto {
         LivePhotoBadgeView(
@@ -113,31 +129,12 @@ struct ReviewCardView: View {
       }
     }
     .overlay(alignment: .bottom) {
-      if vm.isPeeking {
-        PeekDecisionTag(decision: subject.decision)
-      } else if photo.decision == .convertToStill {
+      if !vm.isPeeking && photo.decision == .convertToStill {
         conversionMarker
       }
     }
     .overlay(alignment: .bottomTrailing) {
       infoBadge
-    }
-    .overlay {
-      if let peek = vm.peek {
-        PeekPreviewView(
-          neighbors: vm.peekNeighbors, focusedID: peek.focusedID, maxSize: maxSize,
-          isVisible: isShowingNeighborPreview)
-      }
-    }
-    .overlay(alignment: .bottom) {
-      if let peek = vm.peek {
-        PeekFilmstripView(
-          neighbors: vm.peekNeighbors, anchorID: peek.anchorID, focusedID: peek.focusedID,
-          loadingSide: peek.loadingSide, isLoadingInitialNeighbors: peek.isLoading,
-          onFocus: { vm.focusPeek(on: $0) }
-        )
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-      }
     }
     .overlay {
       if let decision = vm.markingDecision {
@@ -225,7 +222,7 @@ struct ReviewCardView: View {
 
   private var infoBadge: some View {
     Button {
-      vm.showMetadataSheet(for: photo.id)
+      vm.showMetadataSheet(for: subject.id)
       showMetadata = true
     } label: {
       Image(systemName: "info.circle.fill")
@@ -271,7 +268,7 @@ struct ReviewCardView: View {
   private var topBar: some View {
     ZStack {
       LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
-        .frame(height: 60)
+        .frame(height: Self.topBarHeight)
 
       HStack {
         if !subject.dateLabel.isEmpty {
@@ -284,7 +281,7 @@ struct ReviewCardView: View {
       }
       .padding(.horizontal, 14)
     }
-    .frame(height: 60)
+    .frame(height: Self.topBarHeight)
   }
 
   private var swipeUpHint: some View {

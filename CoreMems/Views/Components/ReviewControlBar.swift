@@ -6,7 +6,6 @@ import SwiftUI
 /// actually does to session state.
 struct ReviewControlBar: View {
   let canUndo: Bool
-  var showsKeep = true
   let onUndo: () -> Void
   let onDelete: () -> Void
   let onKeep: () -> Void
@@ -23,8 +22,6 @@ struct ReviewControlBar: View {
       Button(action: onKeep) { Image(systemName: "checkmark") }
         .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(ReviewDecision.keep.tint)))
         .accessibilityIdentifier(AccessibilityID.reviewKeep)
-        .disabled(!showsKeep)
-        .opacity(showsKeep ? 1 : 0)
     }
     .padding(.vertical, 18)
     .padding(.bottom, 12)

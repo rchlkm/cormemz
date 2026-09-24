@@ -42,7 +42,7 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
 **Along the way**
 
-- Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion or conversion, favorite them, or file them into albums; swipe decisions and undo pause while browsing
+- Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion (and restore it from the same button), mark Live Photos for conversion, favorite them, or file them into albums; the filmstrip replaces the bottom buttons, and swipe decisions and undo pause while browsing
 - Favorite a photo
 - File a photo into a Photos album, including a new one, with pinned albums shown first
 - Pin or unpin an album without leaving the review

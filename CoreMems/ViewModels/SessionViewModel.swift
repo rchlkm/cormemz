@@ -81,7 +81,6 @@ final class SessionViewModel: ObservableObject {
   /// A peeked photo other than the one peeking started from. Keeping it isn't offered:
   /// it would only mark the photo as reviewed.
   func isPeekedNeighbor(_ photoID: String) -> Bool { peek.map { $0.anchorID != photoID } ?? false }
-  var canKeepFocusedPhoto: Bool { focusedPhoto.map { !isPeekedNeighbor($0.id) } ?? true }
 
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false

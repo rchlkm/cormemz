@@ -33,22 +33,19 @@ struct PeekPreviewView: View {
   }
 }
 
-/// Names a photo's decision above the filmstrip, so a marked neighbor reads as marked.
+/// Names a photo's decision, so a marked neighbor reads as marked.
 struct PeekDecisionTag: View {
   let decision: ReviewDecision
-
-  private static let gapAboveFilmstrip: CGFloat = 12
 
   var body: some View {
     if decision != .undecided {
       let content = DecisionOverlay.content(for: decision)
       Label(content.title, systemImage: content.icon)
-        .font(.caption.weight(.semibold))
+        .font(.subheadline.weight(.semibold))
         .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(content.tint.opacity(0.85), in: Capsule())
-        .padding(.bottom, PeekFilmstripView.height + Self.gapAboveFilmstrip)
     }
   }
 }

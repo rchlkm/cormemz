@@ -81,6 +81,18 @@ struct PeekSessionTests {
     #expect(h.vm.cardPhoto?.decision == .keep)
   }
 
+  @Test func aNeighborMarkedForDeletionCanBeRestored() async {
+    let h = await peeking()
+    await h.vm.decide(photoID: SessionHarness.photoID(2), decision: .pendingDelete)?.value
+    #expect(h.vm.markedPhotos.count == 1)
+
+    h.vm.restoreMany(ids: [SessionHarness.photoID(2)])
+
+    #expect(h.vm.markedPhotos.isEmpty)
+    #expect(h.vm.photo(withID: SessionHarness.photoID(2))?.decision == .keep)
+    #expect(h.vm.cardPhoto?.id == SessionHarness.photoID(0))
+  }
+
   @Test func aNeighborCannotBeKept() async {
     let h = await peeking()
 
