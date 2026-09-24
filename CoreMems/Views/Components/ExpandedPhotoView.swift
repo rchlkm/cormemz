@@ -157,7 +157,7 @@ struct ExpandedPhotoView: View {
 
   /// Deciding moves the deck on, so full screen closes once the mark has shown.
   private func convertToStill() {
-    guard let recording = vm.decide(index: vm.currentIndex, decision: .convertToStill) else {
+    guard let recording = vm.decide(photoID: photo.id, decision: .convertToStill) else {
       return
     }
     Task {

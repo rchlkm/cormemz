@@ -14,9 +14,11 @@ struct ReviewView: View {
 
   private static let compactAlbumSheetHeight: CGFloat = 340
 
-  private var current: SessionPhoto? {
-    vm.photos.indices.contains(vm.currentIndex) ? vm.photos[vm.currentIndex] : nil
-  }
+  /// What the card shows; stays on the peek's starting photo while peeking.
+  private var current: SessionPhoto? { vm.cardPhoto }
+
+  /// What the rail, album strip, and control bar act on.
+  private var focused: SessionPhoto? { vm.focusedPhoto }
 
   private func actionRail(for photo: SessionPhoto) -> some View {
     GeometryReader { geo in
@@ -30,6 +32,11 @@ struct ReviewView: View {
       )
       .frame(width: geo.size.width, height: geo.size.height, alignment: .trailing)
     }
+  }
+
+  private func decideFocused(_ decision: ReviewDecision) {
+    guard let focused else { return }
+    vm.decide(photoID: focused.id, decision: decision)
   }
 
   var body: some View {
@@ -81,9 +88,9 @@ struct ReviewView: View {
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-          if let current, isAlbumStripExpanded {
+          if let focused, isAlbumStripExpanded {
             AlbumQuickStripView(
-              vm: vm, photoID: current.id,
+              vm: vm, photoID: focused.id,
               onMore: { showAlbumPicker = true }
             )
           }
@@ -92,16 +99,17 @@ struct ReviewView: View {
         // Overlaid on the card-plus-strip container, so the rail stays put
         // as the strip shows and hides and the card resizes.
         .overlay {
-          if let current, expandedPhoto?.id != current.id {
-            actionRail(for: current)
+          if let focused, expandedPhoto == nil {
+            actionRail(for: focused)
           }
         }
 
         ReviewControlBar(
           canUndo: vm.canUndo,
+          showsKeep: vm.canKeepFocusedPhoto,
           onUndo: { vm.quickUndo() },
-          onDelete: { vm.decide(index: vm.currentIndex, decision: .pendingDelete) },
-          onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
+          onDelete: { decideFocused(.pendingDelete) },
+          onKeep: { decideFocused(.keep) }
         )
       }
       .sheet(isPresented: $showTray) {
@@ -112,15 +120,15 @@ struct ReviewView: View {
         .presentationDetents([.medium, .large])
       }
       .sheet(isPresented: $showAlbumPicker) {
-        if let current {
+        if let focused {
           AlbumPickerView(
             albums: vm.quickAccessAlbums + vm.pendingNewAlbums,
-            assignedRefs: vm.effectiveAlbums(for: current.id),
+            assignedRefs: vm.effectiveAlbums(for: focused.id),
             libraryAlbums: vm.libraryAlbums,
             pinnedIdentifiers: vm.pinnedAlbumIdentifiers,
-            onToggle: { ref in vm.toggleAlbumMembership(photoID: current.id, ref: ref) },
+            onToggle: { ref in vm.toggleAlbumMembership(photoID: focused.id, ref: ref) },
             onTogglePin: { vm.togglePinnedAlbum($0) },
-            onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: current.id) }
+            onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: focused.id) }
           )
           .presentationDetents([.height(Self.compactAlbumSheetHeight), .medium])
           .presentationDragIndicator(.visible)
@@ -150,8 +158,8 @@ struct ReviewView: View {
     .task {
       await vm.preloadLibraryAlbums()
     }
-    .task(id: current?.id) {
-      if let id = current?.id { await vm.loadAlbumMembership(for: id) }
+    .task(id: focused?.id) {
+      if let id = focused?.id { await vm.loadAlbumMembership(for: id) }
     }
     .onChange(of: vm.currentIndex) { _, newIndex in
       guard

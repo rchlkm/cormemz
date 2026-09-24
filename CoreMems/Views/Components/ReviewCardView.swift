@@ -22,12 +22,31 @@ struct ReviewCardView: View {
   @State private var showMetadata = false
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
+  
+  /// Neighbors whose full-size preview has finished loading; scrubbing waits for all of them.
+  @State private var loadedPreviewIDs: Set<String> = []
+
+  private static let peekThumbnailHeight: CGFloat = 64
+  private static let peekSpacing: CGFloat = 8
+  private static let peekInset: CGFloat = 12
 
   /// Pinch scale past which the card hands off to full screen instead
   /// of bouncing back.
   private let fullScreenZoomThreshold: CGFloat = 1.6
 
-  private var isExpanded: Bool { expandedPhoto?.id == photo.id }
+  private var isExpanded: Bool { expandedPhoto != nil }
+
+  /// The photo the card's chrome and actions refer to: the peeked-at neighbor, else the card's photo.
+  private var subject: SessionPhoto { vm.focusedPhoto ?? photo }
+
+  /// Scrubbing waits until the neighbors are known and each one's image has loaded.
+  private var isPeekLoading: Bool {
+    vm.isLoadingPeek || !vm.peekNeighbors.allSatisfy { loadedPreviewIDs.contains($0.id) }
+  }
+
+  private var isShowingScrubbedNeighbor: Bool {
+    subject.id != photo.id && !isShowingLivePhoto
+  }
 
   private var livePhotoTargetSize: CGSize {
     CGSize(width: maxSize.width * 2, height: maxSize.height * 2)
@@ -84,8 +103,8 @@ struct ReviewCardView: View {
       }
     }
     .livePhotoLongPress(
-      isEnabled: photo.isLivePhoto,
-      assetIdentifier: photo.assetIdentifier,
+      isEnabled: subject.isLivePhoto,
+      assetIdentifier: subject.assetIdentifier,
       targetSize: livePhotoTargetSize,
       inlineLivePhoto: $inlineLivePhoto,
       isShowingLivePhoto: $isShowingLivePhoto
@@ -94,24 +113,36 @@ struct ReviewCardView: View {
     .gesture(pinchToZoom)
     .overlay(alignment: .top) { topBar }
     .overlay(alignment: .bottomLeading) {
-      if photo.isLivePhoto {
+      if subject.isLivePhoto {
         LivePhotoBadgeView(
-          assetIdentifier: photo.assetIdentifier,
+          assetIdentifier: subject.assetIdentifier,
           targetSize: livePhotoTargetSize,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto,
-          onConvertToStill: { vm.decide(index: vm.currentIndex, decision: .convertToStill) }
+          onConvertToStill: { vm.decide(photoID: subject.id, decision: .convertToStill) }
         )
         .accessibilityIdentifier(AccessibilityID.liveBadge)
       }
     }
     .overlay(alignment: .bottom) {
-      if photo.decision == .convertToStill {
+      if vm.isPeeking {
+        peekDecisionTag
+      } else if photo.decision == .convertToStill {
         conversionMarker
       }
     }
     .overlay(alignment: .bottomTrailing) {
       infoBadge
+    }
+    .overlay {
+      if vm.isPeeking {
+        scrubbedPreviews
+      }
+    }
+    .overlay(alignment: .bottom) {
+      if vm.isPeeking {
+        neighborPeekStrip
+      }
     }
     .overlay {
       if let decision = vm.markingDecision {
@@ -134,6 +165,10 @@ struct ReviewCardView: View {
     .sheet(isPresented: $showMetadata) {
       PhotoMetadataSheetView(vm: vm)
     }
+    .onChange(of: subject.id) {
+      inlineLivePhoto = nil
+      isShowingLivePhoto = false
+    }
     .uiTestContainer(
       AccessibilityID.reviewCard,
       value: "\(Int(lastDragTranslation.width)),\(Int(lastDragTranslation.height))")
@@ -141,7 +176,7 @@ struct ReviewCardView: View {
 
   private func expand() {
     withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
-      expandedPhoto = photo
+      expandedPhoto = subject
     }
   }
 
@@ -169,12 +204,17 @@ struct ReviewCardView: View {
   private var dragGesture: some Gesture {
     DragGesture()
       .onChanged {
+        guard !vm.isPeeking else { return }
         dragOffset = $0.translation
         lastDragTranslation = $0.translation
       }
       .onEnded { value in
         let dx = value.translation.width
         let dy = value.translation.height
+        guard !vm.isPeeking else {
+          if dy > 90 && abs(dy) > abs(dx) { togglePeek() }
+          return
+        }
         if dx > 90 {
           vm.decide(index: vm.currentIndex, decision: .keep)
         } else if dy > 90 && abs(dy) > abs(dx) {
@@ -182,8 +222,7 @@ struct ReviewCardView: View {
         } else if dx < -90 && abs(dx) > abs(dy) && vm.canUndo {
           vm.quickUndo()
         } else if dy < -90 && abs(dy) > abs(dx) {
-          vm.showMetadataSheet(for: photo.id)
-          showMetadata = true
+          togglePeek()
         }
         dragOffset = .zero
       }
@@ -198,6 +237,127 @@ struct ReviewCardView: View {
     }
     .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .padding(12)
+  }
+
+  private func togglePeek() {
+    withAnimation(.snappy(duration: 0.2)) { vm.togglePeek() }
+  }
+
+  private var peekToggleButton: some View {
+    Button {
+      togglePeek()
+    } label: {
+      Image(systemName: vm.isPeeking ? "xmark" : "square.stack")
+    }
+    .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
+    .accessibilityIdentifier(AccessibilityID.reviewPeekToggle)
+  }
+
+  /// Strip of the photo library's true neighbors (by creation date) around the card's
+  /// photo, including it. Touching or dragging across it points the review controls
+  /// at that neighbor.
+  private var neighborPeekStrip: some View {
+    GeometryReader { proxy in
+      let neighbors = vm.peekNeighbors
+      let isLoading = isPeekLoading
+      let count = max(neighbors.count, 1)
+      let width = proxy.size.width - 2 * Self.peekInset
+      let cellWidth = (width - Self.peekSpacing * CGFloat(count - 1)) / CGFloat(count)
+      HStack(spacing: Self.peekSpacing) {
+        ForEach(neighbors) { neighbor in
+          peekThumbnail(neighbor, width: cellWidth)
+        }
+      }
+      .frame(width: width)
+      .contentShape(Rectangle())
+      .gesture(scrubGesture(neighbors: neighbors, cellPitch: cellWidth + Self.peekSpacing))
+      .allowsHitTesting(!isLoading)
+      .opacity(isLoading ? 0.5 : 1)
+      .overlay {
+        if isLoading {
+          ProgressView().tint(.white)
+        }
+      }
+      .padding(.horizontal, Self.peekInset)
+    }
+    .frame(height: Self.peekThumbnailHeight + 20)
+    .background(.black.opacity(0.55))
+    .transition(.move(edge: .bottom).combined(with: .opacity))
+  }
+
+  private func scrubGesture(neighbors: [SessionPhoto], cellPitch: CGFloat) -> some Gesture {
+    func neighbor(atX x: CGFloat) -> SessionPhoto? {
+      guard !neighbors.isEmpty else { return nil }
+      return neighbors[min(max(Int(x / cellPitch), 0), neighbors.count - 1)]
+    }
+    return DragGesture(minimumDistance: 0)
+      .onChanged { value in
+        if let hit = neighbor(atX: value.location.x) { vm.focusPeek(on: hit.id) }
+      }
+  }
+
+  private func peekThumbnail(_ neighbor: SessionPhoto, width: CGFloat) -> some View {
+    let isSessionPhoto = neighbor.id == photo.id
+    let isShown = neighbor.id == subject.id
+    return AdaptiveAssetImage(photo: neighbor, targetSize: CGSize(width: 200, height: 200))
+      .frame(width: width, height: Self.peekThumbnailHeight)
+      .clipped()
+      .clipShape(RoundedRectangle(cornerRadius: 10))
+      .overlay(
+        RoundedRectangle(cornerRadius: 10)
+          .stroke(isSessionPhoto ? Color.accentColor : .white, lineWidth: isSessionPhoto || isShown ? 3 : 0)
+      )
+      .overlay(alignment: .bottom) {
+        if isSessionPhoto {
+          Text("In session")
+            .font(.system(size: 9, weight: .bold))
+            .minimumScaleFactor(0.7)
+            .lineLimit(1)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.accentColor, in: Capsule())
+            .padding(.bottom, 4)
+        }
+      }
+      .overlay(alignment: .topTrailing) {
+        if neighbor.decision != .undecided {
+          DecisionBadge(decision: neighbor.decision).padding(4)
+        }
+      }
+      .opacity(isShown ? 1 : 0.6)
+  }
+
+  /// Every neighbor stays mounted so its image is already loaded when scrubbed to;
+  /// switching only changes opacity, never remounts a view.
+  private var scrubbedPreviews: some View {
+    ZStack {
+      Color.black
+      ForEach(vm.peekNeighbors) { neighbor in
+        AdaptiveAssetImage(
+          photo: neighbor, fitWithin: maxSize,
+          onFinishedLoading: { loadedPreviewIDs.insert(neighbor.id) }
+        )
+        .opacity(neighbor.id == subject.id ? 1 : 0)
+      }
+    }
+    .opacity(isShowingScrubbedNeighbor ? 1 : 0)
+    .allowsHitTesting(false)
+  }
+
+  /// Names the focused photo's decision above the strip, so a marked neighbor reads as marked.
+  @ViewBuilder
+  private var peekDecisionTag: some View {
+    if subject.decision != .undecided {
+      let content = DecisionOverlay.content(for: subject.decision)
+      Label(content.title, systemImage: content.icon)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(content.tint.opacity(0.85), in: Capsule())
+        .padding(.bottom, Self.peekThumbnailHeight + 32)
+    }
   }
 
   /// Shown on a photo already marked for conversion; tapping moves on without changing it.
@@ -226,12 +386,13 @@ struct ReviewCardView: View {
         .frame(height: 60)
 
       HStack {
-        if !photo.dateLabel.isEmpty {
-          Text(photo.dateLabel)
+        if !subject.dateLabel.isEmpty {
+          Text(subject.dateLabel)
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
         }
         Spacer()
+        peekToggleButton
       }
       .padding(.horizontal, 14)
     }
@@ -254,13 +415,13 @@ struct ReviewCardView: View {
   }
 }
 
-/// Hints that the swipe-up gesture (metadata) is about to trigger.
+/// Hints that the swipe-up gesture is about to trigger.
 private struct SwipeUpHintBadge: View {
   var body: some View {
     VStack(spacing: 4) {
       Image(systemName: "chevron.up")
         .font(.system(size: 16, weight: .bold))
-      Text("Swipe up")
+      Text("Nearby photos")
         .font(.headline)
     }
     .foregroundStyle(.white)
@@ -281,13 +442,16 @@ struct DecisionOverlay: View {
   }
 
   init(decision: ReviewDecision) {
+    let content = Self.content(for: decision)
+    self.init(icon: content.icon, title: content.title, tint: content.tint)
+  }
+
+  static func content(for decision: ReviewDecision) -> (icon: String, title: String, tint: Color) {
     switch decision {
-    case .keep: self.init(icon: "checkmark", title: "Kept", tint: decision.tint)
-    case .pendingDelete:
-      self.init(icon: "trash", title: "Marked for deletion", tint: decision.tint)
-    case .convertToStill:
-      self.init(icon: "livephoto.slash", title: "Marked for conversion", tint: decision.tint)
-    case .undecided: self.init(icon: "questionmark", title: "Undecided", tint: decision.tint)
+    case .keep: return ("checkmark", "Kept", decision.tint)
+    case .pendingDelete: return ("trash", "Marked for deletion", decision.tint)
+    case .convertToStill: return ("livephoto.slash", "Marked for conversion", decision.tint)
+    case .undecided: return ("questionmark", "Undecided", decision.tint)
     }
   }
 
@@ -311,5 +475,18 @@ struct DecisionOverlay: View {
     }
     .contentShape(Rectangle())
     .onTapGesture {}
+  }
+}
+
+/// Small round icon marking a photo's decision on a thumbnail.
+private struct DecisionBadge: View {
+  let decision: ReviewDecision
+
+  var body: some View {
+    Image(systemName: DecisionOverlay.content(for: decision).icon)
+      .font(.system(size: 10, weight: .bold))
+      .foregroundStyle(.white)
+      .frame(width: 20, height: 20)
+      .background(decision.tint, in: Circle())
   }
 }

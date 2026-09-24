@@ -17,6 +17,8 @@ struct AdaptiveAssetImage: View {
   var targetSize: CGSize = CGSize(width: 600, height: 800)
   var contentMode: ContentMode = .fill
   var fitWithin: CGSize? = nil
+  /// Called once the image has finished loading, whether or not it succeeded.
+  var onFinishedLoading: (() -> Void)? = nil
 
   @State private var phImage: UIImage?
   @State private var loadFailed = false
@@ -46,7 +48,10 @@ struct AdaptiveAssetImage: View {
     }
     .modifier(SizingModifier(fitWithin: fitWithin, targetSize: targetSize))
     .task(id: photo.assetIdentifier) {
-      guard photo.previewURL == nil else { return }
+      guard photo.previewURL == nil else {
+        onFinishedLoading?()
+        return
+      }
       phImage = nil
       loadFailed = false
       let scale = UIScreen.main.scale
@@ -61,6 +66,7 @@ struct AdaptiveAssetImage: View {
       } else {
         loadFailed = true
       }
+      onFinishedLoading?()
     }
   }
 

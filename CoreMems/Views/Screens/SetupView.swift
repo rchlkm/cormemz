@@ -190,7 +190,7 @@ extension SelectionMode {
     case .recent:
       return "Starts with today and works backward."
     case .date:
-      return "Everything from that day forward, oldest first. Starts on a random day unless you pick one."
+      return "Starts on that day and works backward. Picks a random day unless you choose one."
     }
   }
 }

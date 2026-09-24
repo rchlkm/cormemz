@@ -12,6 +12,7 @@ enum AccessibilityID {
   static let reviewDelete = "review.delete"
   static let reviewKeep = "review.keep"
   static let liveBadge = "review.liveBadge"
+  static let reviewPeekToggle = "review.peekToggle"
   static let expandedPhoto = "expanded.photo"
   static let trayRestore = "tray.restore"
   static let gridPhoto = "grid.photo"

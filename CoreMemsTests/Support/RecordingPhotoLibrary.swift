@@ -47,6 +47,18 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
 
   func randomAssetDate() async -> Date? { stubbedRandomDate ?? assets.first?.creationDate }
 
+  /// Treats `assets`, in the order given, as the library's own order — independent
+  /// of whatever order a session fetched them in via `makeAssetSource`.
+  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] {
+    guard let index = assets.firstIndex(where: { $0.localIdentifier == assetIdentifier }) else {
+      return []
+    }
+    let lower = max(0, index - radius)
+    let upper = min(assets.count - 1, index + radius)
+    guard lower <= upper else { return [] }
+    return Array(assets[lower...upper])
+  }
+
   func storageSize(of assets: [PHAsset]) async -> Int64? {
     events.append(.storageSize(Set(assets.map(\.localIdentifier))))
     return assets.reduce(0) { $0 + (storageSizes[$1.localIdentifier] ?? 0) }

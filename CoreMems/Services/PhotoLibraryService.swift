@@ -55,6 +55,11 @@ protocol PhotoLibraryServicing {
   func totalEligibleAssetCount() -> Int
   /// A random eligible asset's creation date; `nil` if the library has no eligible assets.
   func randomAssetDate() async -> Date?
+  /// Up to `radius` eligible (image) assets immediately before and after the asset
+  /// with `assetIdentifier`, in the library's own creation-date order, plus that
+  /// asset itself — true library neighbors, independent of any session's fetch
+  /// order. Empty if the asset can't be found.
+  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset]
 
   /// Combined stored size in bytes of every resource (photo, paired video,
   /// edits) of `assets`; `nil` if the system doesn't report sizes. Read it
@@ -88,10 +93,41 @@ protocol PhotoLibraryServicing {
   func createAlbum(named name: String) async -> Result<String, Error>
 }
 
+/// The library's image assets in creation-date order. The sorted fetch is made once and
+/// reused until `invalidate()`, since it covers the whole library.
+private actor ChronologicalImages {
+  private var cached: PHFetchResult<PHAsset>?
+
+  func neighbors(of assetIdentifier: String, radius: Int) -> [PHAsset] {
+    guard
+      let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetIdentifier], options: nil)
+        .firstObject
+    else { return [] }
+    let result = cached ?? Self.fetch()
+    cached = result
+    let index = result.index(of: asset)
+    guard index != NSNotFound else { return [] }
+    let lower = max(0, index - radius)
+    let upper = min(result.count - 1, index + radius)
+    guard lower <= upper else { return [] }
+    return (lower...upper).map { result.object(at: $0) }
+  }
+
+  func invalidate() { cached = nil }
+
+  private static func fetch() -> PHFetchResult<PHAsset> {
+    let options = PHFetchOptions()
+    options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+    options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+    return PHAsset.fetchAssets(with: options)
+  }
+}
+
 /// Library changes aren't observed. Live album updates would register a
 /// `PHPhotoLibraryChangeObserver` here and call
 /// `SessionViewModel.refreshLibraryAlbumsIfLoaded`.
 final class PhotoLibraryService: PhotoLibraryServicing {
+  private let chronologicalImages = ChronologicalImages()
 
   func requestAuthorization() async -> PHAuthorizationStatus {
     await PHPhotoLibrary.requestAuthorization(for: .readWrite)
@@ -104,7 +140,8 @@ final class PhotoLibraryService: PhotoLibraryServicing {
   func makeAssetSource(
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
   ) async -> any AssetBatching {
-    await Task.detached(priority: .userInitiated) {
+    await chronologicalImages.invalidate()
+    return await Task.detached(priority: .userInitiated) {
       AssetBatchSource(mode: mode, startDate: startDate, excluding: excluding)
     }.value
   }
@@ -123,6 +160,10 @@ final class PhotoLibraryService: PhotoLibraryServicing {
       guard result.count > 0 else { return nil }
       return result.object(at: Int.random(in: 0..<result.count)).creationDate
     }.value
+  }
+
+  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] {
+    await chronologicalImages.neighbors(of: assetIdentifier, radius: radius)
   }
 
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
@@ -389,6 +430,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func totalEligibleAssetCount() -> Int { mockEligibleCount }
 
   func randomAssetDate() async -> Date? { Date() }
+
+  func neighborAssets(of assetIdentifier: String, radius: Int) async -> [PHAsset] { [] }
 
   func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 

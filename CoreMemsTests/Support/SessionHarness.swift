@@ -45,7 +45,7 @@ struct SessionHarness {
   /// `batchSize` overrides the check-in interval, which sets how many photos load per batch.
   static func started(
     photoCount: Int, liveIndexes: Set<Int> = [], sizes: [Int: Int64] = [:],
-    batchSize: Int? = nil
+    batchSize: Int? = nil, mode: SelectionMode = .recent
   ) async -> SessionHarness {
     let library = RecordingPhotoLibrary()
     library.assets = (0..<photoCount).map {
@@ -55,7 +55,7 @@ struct SessionHarness {
     let harness = SessionHarness(library: library)
     let originalInterval = harness.vm.checkInInterval
     if let batchSize { harness.vm.checkInInterval = batchSize }
-    await harness.vm.startSession(mode: .recent, startDate: nil)
+    await harness.vm.startSession(mode: mode, startDate: nil)
     harness.vm.checkInInterval = originalInterval
     return harness
   }

@@ -27,9 +27,9 @@ actor AssetBatchSource: AssetBatching {
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
     case .date:
       options.predicate = NSPredicate(
-        format: "mediaType == %d AND creationDate >= %@",
-        image, (startDate ?? .distantPast) as NSDate)
-      options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        format: "mediaType == %d AND creationDate < %@",
+        image, Self.dateCeiling(for: startDate) as NSDate)
+      options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
     }
 
     let result = PHAsset.fetchAssets(with: options)
@@ -38,6 +38,15 @@ actor AssetBatchSource: AssetBatching {
     self.result = result
     self.order = positions
     self.excluding = excluding
+  }
+
+  /// Exclusive upper bound that includes all of the chosen day, whatever time of day the
+  /// date carries.
+  static func dateCeiling(for startDate: Date?) -> Date {
+    guard let startDate else { return .distantFuture }
+    let calendar = Calendar.current
+    return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: startDate))
+      ?? .distantFuture
   }
 
   /// A source with no assets.

@@ -74,6 +74,19 @@ final class SessionViewModel: ObservableObject {
   /// a subtitle under the review progress line. `nil` for `.shuffle`.
   @Published var sessionLabel: String?
 
+  /// Peek state: the session photo peeking started from, the library neighbors around it,
+  /// and whichever of them the review controls currently act on.
+  @Published private(set) var isPeeking = false
+  @Published private(set) var isLoadingPeek = false
+  @Published private(set) var peekAnchorID: String?
+  @Published private(set) var peekFocusedID: String?
+  @Published private(set) var peekNeighborIDs: [String] = []
+
+  /// A peeked photo other than the one peeking started from. Keeping it isn't offered:
+  /// it would only mark the photo as reviewed.
+  func isPeekedNeighbor(_ photoID: String) -> Bool { isPeeking && photoID != peekAnchorID }
+  var canKeepFocusedPhoto: Bool { focusedPhoto.map { !isPeekedNeighbor($0.id) } ?? true }
+
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
@@ -86,6 +99,9 @@ final class SessionViewModel: ObservableObject {
 
   private let library: PhotoLibraryServicing
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  @Published private var peekedPhotos: [String: SessionPhoto] = [:]  // asset id -> neighbor not in the deck
+  /// How many photos on each side of the session photo the peek strip shows.
+  private static let peekRadius = 2
   private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: (any AssetBatching)?
@@ -157,7 +173,13 @@ final class SessionViewModel: ObservableObject {
   /// Deletions and conversions together, in the order they were reviewed.
   var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
-  var canUndo: Bool { !history.isEmpty }
+  var canUndo: Bool { !history.isEmpty && !isPeeking }
+  var currentPhoto: SessionPhoto? { photos.indices.contains(currentIndex) ? photos[currentIndex] : nil }
+  /// The photo the review card shows: the one peeking started from, else the active photo.
+  var cardPhoto: SessionPhoto? { peekAnchorID.flatMap(photo(withID:)) ?? currentPhoto }
+  /// The photo the review controls act on: the peeked-at neighbor, else the active photo.
+  var focusedPhoto: SessionPhoto? { peekFocusedID.flatMap(photo(withID:)) ?? currentPhoto }
+  var peekNeighbors: [SessionPhoto] { peekNeighborIDs.compactMap(photo(withID:)) }
   var isSessionShrunk: Bool { false }  // set true after startSession if capped
 
   /// Dev-panel override OR real `.limited` status — either should show
@@ -266,7 +288,7 @@ final class SessionViewModel: ObservableObject {
     case .recent:
       sessionLabel = "Most recent first"
     case .date:
-      sessionLabel = startDate.map { "Since \(Self.cardDateFormatter.string(from: $0))" }
+      sessionLabel = startDate.map { "From \(Self.cardDateFormatter.string(from: $0))" }
     }
 
     currentIndex = 0
@@ -312,7 +334,9 @@ final class SessionViewModel: ObservableObject {
       let assets = await source.nextBatch(count: batchSize)
       guard source === assetSource else { return }
       isLoadingBatch = false
-      photos.append(contentsOf: sessionPhotos(from: assets, startingAt: photos.count))
+      let decided = Set(photos.map(\.assetIdentifier))
+      let fresh = assets.filter { !decided.contains($0.localIdentifier) }
+      photos.append(contentsOf: sessionPhotos(from: fresh, startingAt: photos.count))
       if assets.count < batchSize { assetSource = nil }
       prefetchNextPhoto()
       showPendingReviewIfDeckEmpty()
@@ -324,6 +348,7 @@ final class SessionViewModel: ObservableObject {
   /// An empty deck only means the session is over once no more photos can arrive.
   private func showPendingReviewIfDeckEmpty() {
     guard currentIndex >= photos.count, assetSource == nil, screen == .review else { return }
+    endPeek()
     screen = .pendingReview
   }
 
@@ -332,6 +357,7 @@ final class SessionViewModel: ObservableObject {
   /// top bar's Done button both go through here.
   func finishEarly() {
     guard screen == .review else { return }
+    endPeek()
     screen = .pendingReview
     persistState()
   }
@@ -369,6 +395,42 @@ final class SessionViewModel: ObservableObject {
       markingDecision = nil
       record(index: index, decision: decision)
     }
+  }
+
+  /// Decides on the photo with this id — the active photo, a photo ahead in the deck, or a
+  /// peeked neighbor. Anything but the active photo joins the reviewed part of the deck
+  /// without moving the active photo. Peeked neighbors can't be kept.
+  @discardableResult
+  func decide(photoID: String, decision: ReviewDecision) -> Task<Void, Never>? {
+    guard markingDecision == nil,
+      decision != .keep || !isPeekedNeighbor(photoID), let photo = photo(withID: photoID),
+      decision != .convertToStill || photo.isLivePhoto,
+      let index = adoptIntoReviewed(photoID)
+    else { return nil }
+    return decide(index: index, decision: decision)
+  }
+
+  /// Moves a photo that isn't the active card — an unloaded neighbor or one ahead in the
+  /// deck — in front of it, counting it as reviewed. Returns the photo's deck index.
+  private func adoptIntoReviewed(_ photoID: String) -> Int? {
+    let adopted: SessionPhoto
+    if let index = photos.firstIndex(where: { $0.id == photoID }) {
+      guard index > currentIndex else { return index }
+      adopted = photos.remove(at: index)
+    } else if let entry = peekedPhotos.first(where: { $0.value.id == photoID }) {
+      peekedPhotos[entry.key] = nil
+      adopted = entry.value
+    } else {
+      return nil
+    }
+    photos.insert(adopted, at: currentIndex)
+    currentIndex += 1
+    return currentIndex - 1
+  }
+
+  /// A deck photo or a peeked neighbor.
+  func photo(withID photoID: String) -> SessionPhoto? {
+    photos.first { $0.id == photoID } ?? peekedPhotos.values.first { $0.id == photoID }
   }
 
   private func record(index: Int, decision: ReviewDecision) {
@@ -415,21 +477,28 @@ final class SessionViewModel: ObservableObject {
   /// in-session `SessionPhoto` and the underlying `PHAsset` (mock/preview
   /// photos, which have no backing `PHAsset`, update locally only).
   func toggleFavorite(photoID: String) {
-    guard let index = photos.firstIndex(where: { $0.id == photoID }) else { return }
-    let newValue = !photos[index].isFavorite
-    photos[index].isFavorite = newValue
+    guard let photo = photo(withID: photoID) else { return }
+    let newValue = !photo.isFavorite
+    setFavoriteLocally(photoID, newValue)
     haptics.favorite()
     persistState()
 
     guard let asset = pickedAssets[photoID] else { return }
     Task { @MainActor in
       let result = await library.setFavorite(asset, isFavorite: newValue)
-      if case .failure = result,
-        let currentIndex = self.photos.firstIndex(where: { $0.id == photoID })
-      {
-        self.photos[currentIndex].isFavorite = !newValue
+      if case .failure = result {
+        self.setFavoriteLocally(photoID, !newValue)
         self.persistState()
       }
+    }
+  }
+
+  /// Favoriting doesn't review a photo, so a peeked neighbor stays where it is.
+  private func setFavoriteLocally(_ photoID: String, _ isFavorite: Bool) {
+    if let index = photos.firstIndex(where: { $0.id == photoID }) {
+      photos[index].isFavorite = isFavorite
+    } else if let key = peekedPhotos.first(where: { $0.value.id == photoID })?.key {
+      peekedPhotos[key]?.isFavorite = isFavorite
     }
   }
 
@@ -499,7 +568,7 @@ final class SessionViewModel: ObservableObject {
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
   func loadAlbumMembership(for photoID: String) async {
     guard initialAlbumMembership[photoID] == nil,
-      let assetID = photos.first(where: { $0.id == photoID })?.assetIdentifier
+      let assetID = photo(withID: photoID)?.assetIdentifier
     else { return }
     initialAlbumMembership[photoID] = await library.fetchAlbumIdentifiers(
       containingAssetIdentifier: assetID)
@@ -677,6 +746,61 @@ final class SessionViewModel: ObservableObject {
   /// A random eligible photo's date, for starting a `.date` session without picking one.
   func randomAssetDate() async -> Date? { await library.randomAssetDate() }
 
+  // MARK: Peek
+
+  /// Starts browsing the library neighbors of the active photo, once they load. The review
+  /// controls act on the focused neighbor until `endPeek()`.
+  func beginPeek() {
+    guard !isPeeking, let anchor = currentPhoto else { return }
+    isPeeking = true
+    isLoadingPeek = true
+    peekAnchorID = anchor.id
+    peekFocusedID = anchor.id
+    Task {
+      let neighbors = await neighborPhotos(of: anchor.id, radius: Self.peekRadius)
+      guard peekAnchorID == anchor.id else { return }
+      peekNeighborIDs = neighbors.map(\.id)
+      isLoadingPeek = false
+    }
+  }
+
+  /// Leaves peeking; the active photo is the review card's photo again.
+  func endPeek() {
+    isPeeking = false
+    isLoadingPeek = false
+    peekAnchorID = nil
+    peekFocusedID = nil
+    peekNeighborIDs = []
+  }
+
+  func togglePeek() {
+    if isPeeking { endPeek() } else { beginPeek() }
+  }
+
+  /// Points the review controls at a peeked neighbor.
+  func focusPeek(on photoID: String) {
+    guard isPeeking, peekNeighborIDs.contains(photoID) else { return }
+    peekFocusedID = photoID
+  }
+
+  /// Up to `radius` photos on each side of `photoID`'s asset, by the library's own
+  /// creation-date order — independent of the session's fetch order. Includes the photo
+  /// itself. Neighbors outside the deck stay off it until decided. Empty if the photo
+  /// has no real `PHAsset` (mock/preview data).
+  func neighborPhotos(of photoID: String, radius: Int) async -> [SessionPhoto] {
+    guard let asset = pickedAssets[photoID] else { return [] }
+    let neighbors = await library.neighborAssets(of: asset.localIdentifier, radius: radius)
+    let deck = Dictionary(photos.map { ($0.assetIdentifier, $0) }, uniquingKeysWith: { first, _ in first })
+    return neighbors.map { neighbor in
+      let id = neighbor.localIdentifier
+      if let inDeck = deck[id] { return inDeck }
+      if let peeked = peekedPhotos[id] { return peeked }
+      let peeked = sessionPhotos(from: [neighbor], startingAt: 0)[0]
+      peekedPhotos[id] = peeked
+      return peeked
+    }
+  }
+
   // MARK: Photo details
 
   /// Kicks off an async fetch for the pull-up details sheet — real
@@ -816,6 +940,7 @@ final class SessionViewModel: ObservableObject {
   }
 
   func exitToHome() {
+    endPeek()
     recordReviewedPhotos()
     clearPersistedState()
     screen = .home

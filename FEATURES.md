@@ -15,7 +15,7 @@ unless a feature is called out as photo- or video-specific.
 
 1. **Shuffle** — random from the whole library
 2. **Most Recent** — newest first, working backward
-3. **From a Date** — oldest-first from a chosen start date, e.g. a trip
+3. **From a Date** — starts on a chosen day and works backward in time, e.g. a trip
 
 **How sessions run**
 
@@ -38,10 +38,11 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 - Swipe right → Keep
 - Swipe down → Mark for deletion
 - Swipe left → Quick undo (reverses only the most recent decision)
-- Swipe up → Details (photo metadata)
+- Swipe up → Nearby photos (the photos taken just before and after this one); swipe down to close
 
 **Along the way**
 
+- Browse nearby photos in a strip, scrubbing through them and zooming in to full screen; mark any of them for deletion or conversion, favorite them, or file them into albums; swipe decisions and undo pause while browsing
 - Favorite a photo
 - File a photo into a Photos album, including a new one, with pinned albums shown first
 - Pin or unpin an album without leaving the review
