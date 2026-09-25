@@ -17,7 +17,7 @@ struct SettingsView: View {
   @State private var showResetConfirmation = false
 
   private var checkInRange: ClosedRange<Double> {
-    let bounds = SessionViewModel.checkInIntervalRange
+    let bounds = SessionSettings.checkInIntervalRange
     return Double(bounds.lowerBound)...Double(bounds.upperBound)
   }
 
@@ -43,7 +43,7 @@ struct SettingsView: View {
       VStack(alignment: .leading, spacing: 8) {
         Stepper(
           "Every \(checkInInterval) photos", value: $checkInInterval,
-          in: SessionViewModel.checkInIntervalRange)
+          in: SessionSettings.checkInIntervalRange)
         Slider(
           value: Binding(
             get: { Double(checkInInterval) },
@@ -53,9 +53,9 @@ struct SettingsView: View {
           step: 1
         )
         HStack {
-          Text("\(SessionViewModel.checkInIntervalRange.lowerBound)")
+          Text("\(SessionSettings.checkInIntervalRange.lowerBound)")
           Spacer()
-          Text("\(SessionViewModel.checkInIntervalRange.upperBound)")
+          Text("\(SessionSettings.checkInIntervalRange.upperBound)")
         }
         .font(.caption2)
         .foregroundStyle(.tertiary)

@@ -2,7 +2,6 @@
 import Combine
 import Foundation
 import Photos
-import UIKit
 
 enum AppScreen: Equatable {
   case home
@@ -21,7 +20,6 @@ final class SessionViewModel: ObservableObject {
   @Published var photos: [SessionPhoto] = []
   @Published var currentIndex: Int = 0
   @Published var history: [DecisionHistoryEntry] = []
-  @Published var pendingNewAlbums: [AlbumOption] = []  // created-this-session, not yet flushed
   @Published var isStartingSession: Bool = false
   /// Every user album (names and counts only), loaded once per app launch and
   /// refreshed on foreground return and after album creation. `nil` until loaded.
@@ -33,9 +31,6 @@ final class SessionViewModel: ObservableObject {
     }
   }
   private var libraryAlbumsByID: [String: AlbumOption] = [:]
-  /// Most recently used album IDs, newest first, capped at `recentAlbumIDsLimit`.
-  /// Persisted, except session-local `.pendingNew` IDs.
-  @Published var recentAlbumIDs: [String] = []
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
@@ -47,39 +42,23 @@ final class SessionViewModel: ObservableObject {
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
-  /// How many photos pass between check-in overlays during review.
-  /// Persisted directly via `UserDefaults` — too small a setting to
-  /// warrant its own file-backed service.
-  @Published var checkInInterval: Int {
-    didSet {
-      UserDefaults.standard.set(checkInInterval, forKey: Self.checkInIntervalDefaultsKey)
-    }
+  @Published private var settings = SessionSettings()
+  var checkInInterval: Int {
+    get { settings.checkInInterval }
+    set { settings.checkInInterval = newValue }
   }
-  static let checkInIntervalRange = 5...50
-
-  /// When true, sessions also include photos kept in earlier sessions.
-  @Published var includesReviewedPhotos: Bool {
-    didSet {
-      UserDefaults.standard.set(includesReviewedPhotos, forKey: Self.includesReviewedDefaultsKey)
-    }
+  var includesReviewedPhotos: Bool {
+    get { settings.includesReviewedPhotos }
+    set { settings.includesReviewedPhotos = newValue }
   }
   @Published private(set) var reviewedPhotoCount: Int = 0
-  private static let checkInIntervalDefaultsKey = "cm_checkInInterval"
-  private static let includesReviewedDefaultsKey = "cm_includesReviewedPhotos"
-  private static let recentAlbumIDsDefaultsKey = "cm_recentAlbumIDs"
-  private static let defaultCheckInInterval = 12
 
   /// Describes how the active session's photos were selected, shown as
   /// a subtitle under the review progress line. `nil` for `.shuffle`.
   @Published var sessionLabel: String?
 
   /// The library neighbors being browsed around the session photo; `nil` when not peeking.
-  @Published private(set) var peek: PeekState?
-  var isPeeking: Bool { peek != nil }
-
-  /// A peeked photo other than the one peeking started from. Keeping it isn't offered:
-  /// it would only mark the photo as reviewed.
-  func isPeekedNeighbor(_ photoID: String) -> Bool { peek.map { $0.anchorID != photoID } ?? false }
+  @Published var peek: PeekState?
 
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
@@ -91,15 +70,16 @@ final class SessionViewModel: ObservableObject {
 
   @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
-  private let library: PhotoLibraryServicing
+  let library: PhotoLibraryServicing
+  private let commitService: SessionCommitService
   let pinnedAlbums: PinnedAlbumsViewModel
   private var pinnedAlbumsObservation: AnyCancellable?
-  private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
-  @Published private var peekedPhotos: [String: SessionPhoto] = [:]  // asset id -> neighbor not in the deck
+  var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  @Published var peekedPhotos: [String: SessionPhoto] = [:]  // asset id -> neighbor not in the deck
   private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: (any AssetBatching)?
-  private var sessionBatchSize = SessionViewModel.defaultCheckInInterval
+  private var sessionBatchSize = SessionSettings.defaultCheckInInterval
   private var isLoadingBatch = false
   /// Batches of unreviewed photos kept loaded ahead of the current card.
   private static let lookaheadBatches = 2
@@ -107,12 +87,8 @@ final class SessionViewModel: ObservableObject {
   private static let decisionHolds: [ReviewDecision: Duration] = [
     .convertToStill: .milliseconds(450)
   ]
-  // @Published (despite being private) so toggling membership triggers
-  // objectWillChange — the album picker's checkmarks read these
-  // indirectly via `effectiveAlbums(for:)`.
-  @Published private var initialAlbumMembership: [String: Set<String>] = [:]
-  @Published private var stagedAdditions: [String: Set<AlbumRef>] = [:]
-  @Published private var stagedRemovals: [String: Set<String>] = [:]
+  @Published private var albumStaging = AlbumStaging()
+  @Published private var recentAlbums = RecentAlbums()
   private let persistence: SessionPersisting
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
@@ -143,18 +119,10 @@ final class SessionViewModel: ObservableObject {
     self.haptics = haptics
     self.metadataService = metadataService
     self.statsStore = statsStore
+    commitService = SessionCommitService(library: library)
     pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
     self.reviewedPhotosStore = reviewedPhotosStore
-    let storedInterval =
-      UserDefaults.standard.object(forKey: Self.checkInIntervalDefaultsKey) as? Int
-    self.checkInInterval =
-      storedInterval.map {
-        min(max($0, Self.checkInIntervalRange.lowerBound), Self.checkInIntervalRange.upperBound)
-      } ?? Self.defaultCheckInInterval
-    self.includesReviewedPhotos = UserDefaults.standard.bool(
-      forKey: Self.includesReviewedDefaultsKey)
     self.reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
-    self.recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
     pinnedAlbums.onAlbumCreated = { [weak self] in await self?.refreshLibraryAlbumsIfLoaded() }
     // Only the state `quickAccessAlbums` reads re-renders this object's observers.
     pinnedAlbumsObservation = Publishers.Merge(
@@ -173,68 +141,6 @@ final class SessionViewModel: ObservableObject {
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
   var canUndo: Bool { !history.isEmpty && !isPeeking }
   var currentPhoto: SessionPhoto? { photos.indices.contains(currentIndex) ? photos[currentIndex] : nil }
-  /// The photo the review card shows: the one peeking started from, else the active photo.
-  var cardPhoto: SessionPhoto? { peek.flatMap { photo(withID: $0.anchorID) } ?? currentPhoto }
-  /// The photo the review controls act on: the peeked-at neighbor, else the active photo.
-  var focusedPhoto: SessionPhoto? { peek.flatMap { photo(withID: $0.focusedID) } ?? currentPhoto }
-  var peekNeighbors: [SessionPhoto] { (peek?.neighborIDs ?? []).compactMap(photo(withID:)) }
-  var isSessionShrunk: Bool { false }  // set true after startSession if capped
-
-  /// Dev-panel override OR real `.limited` status — either should show
-  /// the "you've shared a limited set of photos" banner.
-  var isLimitedAccess: Bool { limitedAccess || authorizationStatus == .limited }
-
-  /// Denied-access state.
-  var isAccessDenied: Bool { authorizationStatus == .denied || authorizationStatus == .restricted }
-
-  /// MARK: Authorization
-
-  /// Checks current status and, if the user has never been asked,
-  /// triggers the system prompt. Call this before any flow that needs
-  /// real photos — `startSession` does this automatically.
-  @discardableResult
-  func checkAuthorization() async -> PHAuthorizationStatus {
-    var status = library.currentAuthorizationStatus()
-    if status == .notDetermined {
-      status = await library.requestAuthorization()
-    }
-    authorizationStatus = status
-    return status
-  }
-
-  /// Re-reads status without prompting — call when the app returns to
-  /// the foreground (e.g. after the user grants access in Settings or
-  /// changes their Limited selection) so the UI updates on its own.
-  func refreshAuthorizationStatus() {
-    authorizationStatus = library.currentAuthorizationStatus()
-    eligiblePhotoCount = library.totalEligibleAssetCount()
-  }
-
-  /// Single entry point for every "Manage access" affordance in the UI
-  /// (Home's limited-access banner, the denied-access recovery screen).
-  /// Routes to the right system surface based on current status.
-  func manageAccess(presentingFrom viewController: UIViewController?) {
-    switch authorizationStatus {
-    case .limited:
-      guard let viewController else { return }
-      library.presentLimitedLibraryPicker(from: viewController)
-    case .denied, .restricted:
-      openSettings()
-    case .notDetermined:
-      Task { await checkAuthorization() }
-    case .authorized:
-      break
-    @unknown default:
-      break
-    }
-  }
-
-  private func openSettings() {
-    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-    Task { @MainActor in
-      UIApplication.shared.open(url)
-    }
-  }
 
   // MARK: Session lifecycle
 
@@ -294,18 +200,15 @@ final class SessionViewModel: ObservableObject {
     deletedCount = 0
     deletedBytes = 0
     convertedLivePhotoCount = 0
-    pendingNewAlbums = []
     albumAssignedCount = 0
-    initialAlbumMembership = [:]
-    recentAlbumIDs = Self.loadPersistedRecentAlbumIDs()
-    stagedAdditions = [:]
-    stagedRemovals = [:]
+    albumStaging = AlbumStaging()
+    recentAlbums = RecentAlbums()
     screen = .review
     prefetchNextPhoto()
     persistState()
   }
 
-  private func sessionPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
+  func sessionPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
     assets.enumerated().map { idx, asset in
       let id = "\(asset.localIdentifier)-\(offset + idx)"
       pickedAssets[id] = asset
@@ -502,31 +405,18 @@ final class SessionViewModel: ObservableObject {
 
   /// Repoints each converted photo at its still copy as a plain keep and records the
   /// space freed by dropping the video.
-  private func applyConversions(
-    _ conversions: [SessionPhoto], stillIdentifiers: [String: String],
-    originalSizes: [String: Int64]
-  ) async {
+  private func applyConversions(_ conversions: [SessionPhoto], from commit: SessionCommitResult) {
     for photo in conversions {
-      guard let newIdentifier = stillIdentifiers[photo.id],
+      guard let still = commit.stills[photo.id],
         let index = photos.firstIndex(where: { $0.id == photo.id })
       else { continue }
-      let newAsset = PHAsset.fetchAssets(withLocalIdentifiers: [newIdentifier], options: nil)
-        .firstObject
-      photos[index].assetIdentifier = newIdentifier
+      photos[index].assetIdentifier = still.identifier
       photos[index].isLivePhoto = false
       photos[index].decision = .keep
-      if let newAsset { pickedAssets[photo.id] = newAsset }
-      let bytesSaved = await spaceFreed(originalSize: originalSizes[photo.id], newAsset: newAsset)
-      statsStore.recordLivePhotoConversion(bytesSaved: bytesSaved)
+      if let asset = still.asset { pickedAssets[photo.id] = asset }
+      statsStore.recordLivePhotoConversion(bytesSaved: still.bytesSaved)
       convertedLivePhotoCount += 1
     }
-  }
-
-  /// Space the dropped video frees. A missing size counts as zero.
-  private func spaceFreed(originalSize: Int64?, newAsset: PHAsset?) async -> Int64 {
-    guard let originalSize, let newAsset, let newSize = await library.storageSize(of: [newAsset])
-    else { return 0 }
-    return max(originalSize - newSize, 0)
   }
 
   /// Restores any number of marked photos to Keep; powers the Marked Photos
@@ -550,12 +440,13 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  func toggleFavorite(id: String) {
-    guard let i = photos.firstIndex(where: { $0.id == id }) else { return }
-    photos[i].isFavorite.toggle()
-  }
-
   // MARK: Album assignment
+
+  /// Albums created this session, not yet flushed.
+  var pendingNewAlbums: [AlbumOption] { albumStaging.pendingNewAlbums }
+
+  /// Most recently used album IDs, newest first.
+  var recentAlbumIDs: [String] { recentAlbums.ids }
 
   /// Pinned album IDs in the chosen sort order.
   var orderedPinnedAlbumIDs: [String] { pinnedAlbums.orderedIdentifiers(recents: recentAlbumIDs) }
@@ -570,11 +461,11 @@ final class SessionViewModel: ObservableObject {
 
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
   func loadAlbumMembership(for photoID: String) async {
-    guard initialAlbumMembership[photoID] == nil,
+    guard !albumStaging.hasInitialMembership(for: photoID),
       let assetID = photo(withID: photoID)?.assetIdentifier
     else { return }
-    initialAlbumMembership[photoID] = await library.fetchAlbumIdentifiers(
-      containingAssetIdentifier: assetID)
+    albumStaging.setInitialMembership(
+      await library.fetchAlbumIdentifiers(containingAssetIdentifier: assetID), for: photoID)
   }
 
   /// Loads the library's album list once per app launch.
@@ -603,160 +494,27 @@ final class SessionViewModel: ObservableObject {
   /// The album picker's checkmark source — the real library's starting
   /// membership merged with this session's staged additions/removals.
   func effectiveAlbums(for photoID: String) -> Set<AlbumRef> {
-    var result = Set((initialAlbumMembership[photoID] ?? []).map(AlbumRef.existing))
-    if let removed = stagedRemovals[photoID] {
-      result.subtract(removed.map(AlbumRef.existing))
-    }
-    if let added = stagedAdditions[photoID] {
-      result.formUnion(added)
-    }
-    return result
+    albumStaging.effectiveAlbums(for: photoID)
   }
 
-  /// Toggles `ref` for `photoID`. Toggling an album the photo already
-  /// belonged to at session start (then back) collapses to a no-op
-  /// against the real library instead of accumulating a log of taps.
+  /// Toggles `ref` for `photoID`, recording it as recent when turned on.
   func toggleAlbumMembership(photoID: String, ref: AlbumRef) {
     haptics.albumToggle()
-    let wasInitialMember =
-      ref.kind == .existing && (initialAlbumMembership[photoID]?.contains(ref.identifier) ?? false)
-
-    if effectiveAlbums(for: photoID).contains(ref) {
-      // Also drops an add staged before membership loaded.
-      stagedAdditions[photoID]?.remove(ref)
-      if stagedAdditions[photoID]?.isEmpty == true {
-        stagedAdditions.removeValue(forKey: photoID)
-      }
-      if wasInitialMember {
-        stagedRemovals[photoID, default: []].insert(ref.identifier)
-      }
-    } else {
-      // Turning on.
-      if wasInitialMember {
-        stagedRemovals[photoID]?.remove(ref.identifier)
-        if stagedRemovals[photoID]?.isEmpty == true {
-          stagedRemovals.removeValue(forKey: photoID)
-        }
-      } else {
-        stagedAdditions[photoID, default: []].insert(ref)
-      }
-      recordRecentAlbum(ref.identifier)
+    if albumStaging.toggle(photoID: photoID, ref: ref) {
+      recentAlbums.record(ref.identifier)
+      recentAlbums.persist(excluding: Set(pendingNewAlbums.map(\.ref.identifier)))
     }
-    refreshPendingAlbumCounts()
     persistState()
   }
 
-  /// Only called when an album is turned on; turning one off leaves the list alone.
-  private static let recentAlbumIDsLimit = 15
-  private func recordRecentAlbum(_ identifier: String) {
-    recentAlbumIDs.removeAll { $0 == identifier }
-    recentAlbumIDs.insert(identifier, at: 0)
-    if recentAlbumIDs.count > Self.recentAlbumIDsLimit {
-      recentAlbumIDs.removeLast(recentAlbumIDs.count - Self.recentAlbumIDsLimit)
-    }
-    persistRecentAlbumIDs()
-  }
-
-  /// `.pendingNew` IDs are session-local temp UUIDs, so they're not persisted.
-  private func persistRecentAlbumIDs() {
-    let pendingIDs = Set(pendingNewAlbums.map(\.ref.identifier))
-    let persistable = recentAlbumIDs.filter { !pendingIDs.contains($0) }
-    UserDefaults.standard.set(persistable, forKey: Self.recentAlbumIDsDefaultsKey)
-  }
-
-  private static func loadPersistedRecentAlbumIDs() -> [String] {
-    let stored = UserDefaults.standard.stringArray(forKey: recentAlbumIDsDefaultsKey) ?? []
-    return Array(stored.prefix(recentAlbumIDsLimit))
-  }
-
-  /// Creates a not-yet-real album, staying pickable for other photos
-  /// too (matching how the old shared folder list worked), optionally
-  /// staging it onto one photo right away.
+  /// Creates a not-yet-real album, optionally staging it onto one photo right away.
   func createPendingAlbum(name: String, assignToPhotoID: String?) {
-    let ref = AlbumRef.pendingNew(tempID: UUID().uuidString, name: name)
-    pendingNewAlbums.append(AlbumOption(ref: ref, name: name))
-    if let photoID = assignToPhotoID {
-      stagedAdditions[photoID, default: []].insert(ref)
-    }
-    refreshPendingAlbumCounts()
+    albumStaging.createPendingAlbum(name: name, assignTo: assignToPhotoID)
     persistState()
-  }
-
-  /// Keeps each pending album's displayed count in sync with how many
-  /// photos are currently staged into it this session.
-  private func refreshPendingAlbumCounts() {
-    for i in pendingNewAlbums.indices {
-      let ref = pendingNewAlbums[i].ref
-      pendingNewAlbums[i].assetCount = stagedAdditions.values.filter { $0.contains(ref) }.count
-    }
   }
 
   /// A random eligible photo's date, for starting a `.date` session without picking one.
   func randomAssetDate() async -> Date? { await library.randomAssetDate() }
-
-  // MARK: Peek
-
-  /// Starts browsing the library neighbors of the active photo, once they load. The review
-  /// controls act on the focused neighbor until `endPeek()`.
-  func beginPeek() {
-    guard peek == nil, let anchor = currentPhoto else { return }
-    peek = PeekState(anchorID: anchor.id)
-    loadPeekNeighbors()
-  }
-
-  /// Leaves peeking; the active photo is the review card's photo again.
-  func endPeek() {
-    peek = nil
-  }
-
-  func togglePeek() {
-    if isPeeking { endPeek() } else { beginPeek() }
-  }
-
-  /// Points the review controls at a peeked neighbor. Reaching the photo at either end of
-  /// the strip loads more on that side.
-  func focusPeek(on photoID: String) {
-    guard let state = peek, state.neighborIDs.contains(photoID) else { return }
-    peek?.focusedID = photoID
-    for side in state.edgeSides(of: photoID) { loadMorePeek(side) }
-  }
-
-  /// Adds photos to one side of the strip, keeping the focused photo.
-  func loadMorePeek(_ side: PeekSide) {
-    guard var state = peek, state.canLoad(side), !state.isLoading else { return }
-    state.widen(side)
-    peek = state
-    loadPeekNeighbors()
-  }
-
-  private func loadPeekNeighbors() {
-    guard let state = peek else { return }
-    let (older, newer) = (state.olderCount, state.newerCount)
-    Task {
-      let neighbors = await neighborPhotos(of: state.anchorID, before: older, after: newer)
-      guard peek?.anchorID == state.anchorID, peek?.isCurrentWindow(older: older, newer: newer) == true
-      else { return }
-      peek?.finishLoading(neighborIDs: neighbors.map(\.id))
-    }
-  }
-
-  /// Up to `before` older and `after` newer photos around `photoID`'s asset, by the library's own
-  /// creation-date order — independent of the session's fetch order. Includes the photo
-  /// itself. Neighbors outside the deck stay off it until decided. Empty if the photo
-  /// has no real `PHAsset` (mock/preview data).
-  func neighborPhotos(of photoID: String, before: Int, after: Int) async -> [SessionPhoto] {
-    guard let asset = pickedAssets[photoID] else { return [] }
-    let neighbors = await library.neighborAssets(of: asset.localIdentifier, before: before, after: after)
-    let deck = Dictionary(photos.map { ($0.assetIdentifier, $0) }, uniquingKeysWith: { first, _ in first })
-    return neighbors.map { neighbor in
-      let id = neighbor.localIdentifier
-      if let inDeck = deck[id] { return inDeck }
-      if let peeked = peekedPhotos[id] { return peeked }
-      let peeked = sessionPhotos(from: [neighbor], startingAt: 0)[0]
-      peekedPhotos[id] = peeked
-      return peeked
-    }
-  }
 
   // MARK: Photo details
 
@@ -807,8 +565,7 @@ final class SessionViewModel: ObservableObject {
 
     // Album changes on a photo that's being deleted are moot.
     let deletedIDs = Set(toDelete.map(\.id))
-    let additions = stagedAdditions.filter { !deletedIDs.contains($0.key) }
-    let removals = stagedRemovals.filter { !deletedIDs.contains($0.key) }
+    let (additions, removals) = albumStaging.changes(excludingPhotoIDs: deletedIDs)
     let changes = SessionLibraryChanges(
       deletions: toDelete.compactMap { pickedAssets[$0.id] },
       conversions: conversions.reduce(into: [String: PHAsset]()) { $0[$1.id] = pickedAssets[$1.id] },
@@ -818,33 +575,25 @@ final class SessionViewModel: ObservableObject {
       isDeleting = true
       deletionError = nil
 
-      // Sizes must be read before the originals are deleted.
-      let bytes = await library.storageSize(of: changes.deletions) ?? 0
-      var originalSizes: [String: Int64] = [:]
-      for (photoID, asset) in changes.conversions {
-        originalSizes[photoID] = await library.storageSize(of: [asset])
-      }
-      let result = await library.commitSessionChanges(changes)
+      let result = await commitService.commit(changes)
       isDeleting = false
 
       switch result {
-      case .success(let outcome):
-        await applyConversions(
-          conversions, stillIdentifiers: outcome.stillIdentifiers, originalSizes: originalSizes)
-        pinnedAlbums.pin(outcome.createdAlbumIDs.sorted())
-        if !outcome.createdAlbumIDs.isEmpty {
+      case .success(let commit):
+        applyConversions(conversions, from: commit)
+        let createdAlbumIDs = commit.outcome.createdAlbumIDs
+        pinnedAlbums.pin(createdAlbumIDs.sorted())
+        if !createdAlbumIDs.isEmpty {
           Task { await refreshLibraryAlbumsIfLoaded() }
         }
         albumAssignedCount = additions.count
-        stagedAdditions = [:]
-        stagedRemovals = [:]
-        pendingNewAlbums = []
+        albumStaging.clearStaged()
         deletedCount = toDelete.count
-        deletedBytes = bytes
+        deletedBytes = commit.bytesDeleted
         photos.removeAll { deletedIDs.contains($0.id) }
         history.removeAll()  // reversible window closes here
 
-        guard conversions.allSatisfy({ outcome.stillIdentifiers[$0.id] != nil }) else {
+        guard conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
           deletionError = PhotoLibraryError.creationFailed.localizedDescription
           persistState()
           return
@@ -861,16 +610,10 @@ final class SessionViewModel: ObservableObject {
 
     haptics.sessionComplete()
     screen = .completion
-    clearPersistedState()
+    persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
     recordReviewedPhotos()
-    recordSessionStats(kept: keptNow, deleted: deletedCount)
-  }
-
-  /// Folds a finished session's decisions into the persisted lifetime
-  /// stats via `statsStore`, which also logs a snapshot for debugging.
-  private func recordSessionStats(kept: Int, deleted: Int) {
-    statsStore.recordSession(kept: kept, deleted: deleted, bytesDeleted: deletedBytes)
+    statsStore.recordSession(kept: keptNow, deleted: deletedCount, bytesDeleted: deletedBytes)
   }
 
   /// Remembers the session's kept photos so later sessions skip them.
@@ -899,7 +642,7 @@ final class SessionViewModel: ObservableObject {
   func exitToHome() {
     endPeek()
     recordReviewedPhotos()
-    clearPersistedState()
+    persistence.clear()
     screen = .home
   }
 
@@ -913,40 +656,15 @@ final class SessionViewModel: ObservableObject {
   /// exactly where the user left off
   private func persistState() {
     guard screen == .review || screen == .pendingReview else { return }
-    let snapshot = PersistedSessionSnapshot(
-      photoIDs: photos.map(\.id),
-      decisions: photos.map(\.decision.rawValue),
-      assetIdentifiers: photos.map(\.assetIdentifier),
-      currentIndex: currentIndex,
-      historyPhotoIndices: history.map(\.photoIndex),
-      historyPrevious: history.map(\.previousDecision.rawValue),
-      historyNew: history.map(\.newDecision.rawValue),
-      historyAdvanced: history.map(\.advancedIndex),
-      albumAdditions: stagedAdditions,
-      albumRemovals: stagedRemovals,
-      pendingNewAlbumRefs: pendingNewAlbums.map(\.ref)
-    )
-    persistence.save(snapshot)
-  }
-
-  private func clearPersistedState() {
-    persistence.clear()
+    persistence.save(
+      PersistedSessionSnapshot(
+        photos: photos, currentIndex: currentIndex, history: history, albumStaging: albumStaging))
   }
 
   private func restoreIfInterrupted() {
     guard let snapshot = persistence.load() else { return }
-    // Rehydrate photos with placeholder preview data — production
-    // code would re-resolve PHAssets by localIdentifier here.
-    photos = zip(snapshot.photoIDs, zip(snapshot.decisions, snapshot.assetIdentifiers)).map {
-      id, rest in
-      let (decisionRaw, assetID) = rest
-      var p = SessionPhoto(id: id, assetIdentifier: assetID, previewURL: nil)
-      p.decision = ReviewDecision(rawValue: decisionRaw) ?? .undecided
-      return p
-    }
-    // Re-resolve real PHAssets so a resumed session's deletion and
-    // album flush have something to act on — without this, both would
-    // silently no-op against an empty `pickedAssets`.
+    photos = snapshot.restoredPhotos
+    // Resolves the real assets, so deleting and filing into albums work on a resumed session.
     let resolvedAssets = PHAsset.fetchAssets(
       withLocalIdentifiers: snapshot.assetIdentifiers, options: nil)
     var assetsByID: [String: PHAsset] = [:]
@@ -956,26 +674,9 @@ final class SessionViewModel: ObservableObject {
         pickedAssets[photo.id] = asset
       }
     }
-    stagedAdditions = snapshot.albumAdditions
-    stagedRemovals = snapshot.albumRemovals
-    pendingNewAlbums = snapshot.pendingNewAlbumRefs.map {
-      AlbumOption(ref: $0, name: $0.name ?? "")
-    }
-    refreshPendingAlbumCounts()
+    albumStaging = snapshot.restoredAlbumStaging
     currentIndex = snapshot.currentIndex
-    history = zip(
-      snapshot.historyPhotoIndices,
-      zip(snapshot.historyPrevious, zip(snapshot.historyNew, snapshot.historyAdvanced))
-    ).map { idx, rest in
-      let (prevRaw, restInner) = rest
-      let (newRaw, advanced) = restInner
-      return DecisionHistoryEntry(
-        photoIndex: idx,
-        previousDecision: ReviewDecision(rawValue: prevRaw) ?? .undecided,
-        newDecision: ReviewDecision(rawValue: newRaw) ?? .undecided,
-        advancedIndex: advanced
-      )
-    }
+    history = snapshot.restoredHistory
     screen = currentIndex >= photos.count ? .pendingReview : .review
     prefetchNextPhoto()
   }
