@@ -73,7 +73,7 @@ extension SessionViewModel {
       let id = neighbor.localIdentifier
       if let inDeck = deck[id] { return inDeck }
       if let peeked = peekedPhotos[id] { return peeked }
-      let peeked = sessionPhotos(from: [neighbor], startingAt: 0)[0]
+      let peeked = registerPhotos(from: [neighbor], startingAt: 0)[0]
       peekedPhotos[id] = peeked
       return peeked
     }

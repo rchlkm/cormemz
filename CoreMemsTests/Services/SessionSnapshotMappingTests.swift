@@ -15,12 +15,15 @@ struct SessionSnapshotMappingTests {
     var staging = AlbumStaging()
     staging.createPendingAlbum(name: "Hikes", assignTo: "p1")
 
-    let snapshot = PersistedSessionSnapshot(
-      photos: [photo], currentIndex: 1, history: history, albumStaging: staging)
+    let deck = SessionDeck(photos: [photo], currentIndex: 1, history: history)
 
-    #expect(snapshot.restoredPhotos == [photo])
-    #expect(snapshot.restoredHistory.map(\.newDecision) == [.pendingDelete])
-    #expect(snapshot.restoredHistory.map(\.advancedIndex) == [true])
+    let snapshot = PersistedSessionSnapshot(deck: deck, albumStaging: staging)
+
+    let restored = snapshot.restoredDeck
+    #expect(restored.photos == [photo])
+    #expect(restored.currentIndex == 1)
+    #expect(restored.history.map(\.newDecision) == [.pendingDelete])
+    #expect(restored.history.map(\.advancedIndex) == [true])
     #expect(snapshot.restoredAlbumStaging.pendingNewAlbums.map(\.name) == ["Hikes"])
     #expect(snapshot.restoredAlbumStaging.pendingNewAlbums[0].assetCount == 1)
   }

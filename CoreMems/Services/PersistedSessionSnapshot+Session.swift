@@ -2,26 +2,27 @@
 import Foundation
 
 extension PersistedSessionSnapshot {
-  init(
-    photos: [SessionPhoto], currentIndex: Int, history: [DecisionHistoryEntry],
-    albumStaging: AlbumStaging
-  ) {
+  init(deck: SessionDeck, albumStaging: AlbumStaging) {
     self.init(
-      photoIDs: photos.map(\.id),
-      decisions: photos.map(\.decision.rawValue),
-      assetIdentifiers: photos.map(\.assetIdentifier),
-      currentIndex: currentIndex,
-      historyPhotoIndices: history.map(\.photoIndex),
-      historyPrevious: history.map(\.previousDecision.rawValue),
-      historyNew: history.map(\.newDecision.rawValue),
-      historyAdvanced: history.map(\.advancedIndex),
+      photoIDs: deck.photos.map(\.id),
+      decisions: deck.photos.map(\.decision.rawValue),
+      assetIdentifiers: deck.photos.map(\.assetIdentifier),
+      currentIndex: deck.currentIndex,
+      historyPhotoIndices: deck.history.map(\.photoIndex),
+      historyPrevious: deck.history.map(\.previousDecision.rawValue),
+      historyNew: deck.history.map(\.newDecision.rawValue),
+      historyAdvanced: deck.history.map(\.advancedIndex),
       albumAdditions: albumStaging.additions,
       albumRemovals: albumStaging.removals,
       pendingNewAlbumRefs: albumStaging.pendingNewAlbums.map(\.ref)
     )
   }
 
-  var restoredPhotos: [SessionPhoto] {
+  var restoredDeck: SessionDeck {
+    SessionDeck(photos: restoredPhotos, currentIndex: currentIndex, history: restoredHistory)
+  }
+
+  private var restoredPhotos: [SessionPhoto] {
     (0..<min(photoIDs.count, decisions.count, assetIdentifiers.count)).map { i in
       var photo = SessionPhoto(id: photoIDs[i], assetIdentifier: assetIdentifiers[i], previewURL: nil)
       photo.decision = ReviewDecision(rawValue: decisions[i]) ?? .undecided
@@ -29,7 +30,7 @@ extension PersistedSessionSnapshot {
     }
   }
 
-  var restoredHistory: [DecisionHistoryEntry] {
+  private var restoredHistory: [DecisionHistoryEntry] {
     let count = min(
       historyPhotoIndices.count, historyPrevious.count, historyNew.count, historyAdvanced.count)
     return (0..<count).map { i in

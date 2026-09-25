@@ -3,23 +3,13 @@ import Combine
 import Foundation
 import Photos
 
-enum AppScreen: Equatable {
-  case home
-  case setup
-  case review
-  case pendingReview
-  case completion
-}
-
 @MainActor
 final class SessionViewModel: ObservableObject {
 
   // MARK: Published UI state
   @Published var screen: AppScreen = .home
   @Published var eligiblePhotoCount: Int = 0
-  @Published var photos: [SessionPhoto] = []
-  @Published var currentIndex: Int = 0
-  @Published var history: [DecisionHistoryEntry] = []
+  @Published private var deck = SessionDeck()
   @Published var isStartingSession: Bool = false
   /// Every user album (names and counts only), loaded once per app launch and
   /// refreshed on foreground return and after album creation. `nil` until loaded.
@@ -36,13 +26,13 @@ final class SessionViewModel: ObservableObject {
   @Published var isDeleting: Bool = false
   @Published var deletionError: String?
   @Published var convertedLivePhotoCount: Int = 0
-  
+
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
   @Published private(set) var markingDecision: ReviewDecision?
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
 
-  @Published private var settings = SessionSettings()
+  @Published private var settings: SessionSettings
   var checkInInterval: Int {
     get { settings.checkInInterval }
     set { settings.checkInInterval = newValue }
@@ -64,8 +54,9 @@ final class SessionViewModel: ObservableObject {
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
   @Published var lowInventoryOverride: Bool = false
+  private static let lowInventoryCap = 4
   var maxAvailable: Int {
-    lowInventoryOverride ? 4 : eligiblePhotoCount
+    lowInventoryOverride ? Self.lowInventoryCap : eligiblePhotoCount
   }
 
   @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
@@ -112,13 +103,15 @@ final class SessionViewModel: ObservableObject {
     metadataService: PhotoMetadataServicing = PhotoMetadataService(),
     statsStore: LifetimeStatsServicing = LifetimeStatsService(),
     pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore(),
-    reviewedPhotosStore: ReviewedPhotosStoring = ReviewedPhotosStore()
+    reviewedPhotosStore: ReviewedPhotosStoring = ReviewedPhotosStore(),
+    settings: SessionSettings = SessionSettings()
   ) {
     self.library = library
     self.persistence = persistence
     self.haptics = haptics
     self.metadataService = metadataService
     self.statsStore = statsStore
+    self.settings = settings
     commitService = SessionCommitService(library: library)
     pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
     self.reviewedPhotosStore = reviewedPhotosStore
@@ -134,13 +127,21 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Derived state
 
-  var pendingItems: [SessionPhoto] { photos.filter { $0.decision == .pendingDelete } }
-  var pendingConversions: [SessionPhoto] { photos.filter { $0.decision == .convertToStill } }
-  /// Deletions and conversions together, in the order they were reviewed.
-  var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
-  var keptCount: Int { photos.filter { $0.decision.isKept }.count }
-  var canGoBack: Bool { !history.isEmpty && !isPeeking }
-  var currentPhoto: SessionPhoto? { photos.indices.contains(currentIndex) ? photos[currentIndex] : nil }
+  var photos: [SessionPhoto] {
+    get { deck.photos }
+    set { deck.photos = newValue }
+  }
+  var currentIndex: Int {
+    get { deck.currentIndex }
+    set { deck.currentIndex = newValue }
+  }
+  var history: [DecisionHistoryEntry] { deck.history }
+  var currentPhoto: SessionPhoto? { deck.currentPhoto }
+  var pendingItems: [SessionPhoto] { deck.pendingItems }
+  var pendingConversions: [SessionPhoto] { deck.pendingConversions }
+  var markedPhotos: [SessionPhoto] { deck.markedPhotos }
+  var keptCount: Int { deck.keptCount }
+  var canGoBack: Bool { !deck.history.isEmpty && !isPeeking }
 
   // MARK: Session lifecycle
 
@@ -165,50 +166,59 @@ final class SessionViewModel: ObservableObject {
     let limit = max(maxAvailable, 0)
     let batchSize = checkInInterval
     let initialCount = Self.lookaheadBatches * batchSize
-    let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
-    var source = await library.makeAssetSource(
-      mode: mode, startDate: startDate, excluding: reviewed)
-    var assets = await source.nextBatch(count: initialCount)
-    // Everything in scope was already reviewed — show it again rather than an empty session.
-    if assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0 {
-      source = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: [])
-      assets = await source.nextBatch(count: initialCount)
-    }
+    let (source, assets) = await loadInitialAssets(
+      mode: mode, startDate: startDate, count: initialCount, limit: limit)
 
     if assets.isEmpty {
       // Preview/mock path — generates placeholder SessionPhoto data.
-      photos = Self.mockPhotos(count: limit)
+      deck = SessionDeck(photos: Self.mockPhotos(count: limit))
       assetSource = nil
     } else {
-      photos = sessionPhotos(from: assets, startingAt: 0)
+      deck = SessionDeck(photos: registerPhotos(from: assets, startingAt: 0))
       assetSource = assets.count < initialCount ? nil : source
     }
     sessionBatchSize = batchSize
     isLoadingBatch = false
+    sessionLabel = Self.sessionLabel(for: mode, startDate: startDate)
+    resetSessionTotals()
+    screen = .review
+    prefetchNextPhoto()
+    persistState()
+  }
 
+  /// Loads the first batch, skipping photos kept in earlier sessions. If that leaves nothing
+  /// while the library has photos, loads without the skip rather than start an empty session.
+  private func loadInitialAssets(
+    mode: SelectionMode, startDate: Date?, count: Int, limit: Int
+  ) async -> (source: any AssetBatching, assets: [PHAsset]) {
+    let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
+    let source = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: reviewed)
+    let assets = await source.nextBatch(count: count)
+    guard assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
+    else { return (source, assets) }
+    let unfiltered = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: [])
+    return (unfiltered, await unfiltered.nextBatch(count: count))
+  }
+
+  private static func sessionLabel(for mode: SelectionMode, startDate: Date?) -> String? {
     switch mode {
-    case .shuffle:
-      sessionLabel = nil
-    case .recent:
-      sessionLabel = "Most recent first"
-    case .date:
-      sessionLabel = startDate.map { "From \(Self.cardDateFormatter.string(from: $0))" }
+    case .shuffle: return nil
+    case .recent: return "Most recent first"
+    case .date: return startDate.map { "From \(cardDateFormatter.string(from: $0))" }
     }
+  }
 
-    currentIndex = 0
-    history = []
+  private func resetSessionTotals() {
     deletedCount = 0
     deletedBytes = 0
     convertedLivePhotoCount = 0
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
-    screen = .review
-    prefetchNextPhoto()
-    persistState()
   }
 
-  func sessionPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
+  /// Keeps each asset for later deletion and album changes, and returns a photo for it.
+  func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
     assets.enumerated().map { idx, asset in
       let id = "\(asset.localIdentifier)-\(offset + idx)"
       pickedAssets[id] = asset
@@ -228,16 +238,16 @@ final class SessionViewModel: ObservableObject {
   private func loadMoreIfNeeded() {
     let batchSize = sessionBatchSize
     guard let source = assetSource, !isLoadingBatch,
-      photos.count - currentIndex < Self.lookaheadBatches * batchSize
+      deck.remainingCount < Self.lookaheadBatches * batchSize
     else { return }
     isLoadingBatch = true
     Task {
       let assets = await source.nextBatch(count: batchSize)
       guard source === assetSource else { return }
       isLoadingBatch = false
-      let decided = Set(photos.map(\.assetIdentifier))
+      let decided = Set(deck.photos.map(\.assetIdentifier))
       let fresh = assets.filter { !decided.contains($0.localIdentifier) }
-      photos.append(contentsOf: sessionPhotos(from: fresh, startingAt: photos.count))
+      deck.append(registerPhotos(from: fresh, startingAt: deck.photos.count))
       if assets.count < batchSize { assetSource = nil }
       prefetchNextPhoto()
       showPendingReviewIfDeckEmpty()
@@ -248,7 +258,7 @@ final class SessionViewModel: ObservableObject {
 
   /// An empty deck only means the session is over once no more photos can arrive.
   private func showPendingReviewIfDeckEmpty() {
-    guard currentIndex >= photos.count, assetSource == nil, screen == .review else { return }
+    guard deck.isExhausted, assetSource == nil, screen == .review else { return }
     endPeek()
     screen = .pendingReview
   }
@@ -272,8 +282,7 @@ final class SessionViewModel: ObservableObject {
   /// Returns the task that finishes once recorded, or `nil` if the decision was ignored.
   @discardableResult
   func decide(index: Int, decision: ReviewDecision) -> Task<Void, Never>? {
-    guard markingDecision == nil, photos.indices.contains(index) else { return nil }
-    guard decision != .convertToStill || photos[index].isLivePhoto else { return nil }
+    guard markingDecision == nil, deck.accepts(decision, at: index) else { return nil }
 
     switch decision {
     case .keep:
@@ -305,7 +314,7 @@ final class SessionViewModel: ObservableObject {
   func decide(photoID: String, decision: ReviewDecision) -> Task<Void, Never>? {
     guard markingDecision == nil,
       decision != .keep || !isPeekedNeighbor(photoID), let photo = photo(withID: photoID),
-      decision != .convertToStill || photo.isLivePhoto,
+      photo.canReceive(decision),
       let index = adoptIntoReviewed(photoID)
     else { return nil }
     return decide(index: index, decision: decision)
@@ -314,42 +323,27 @@ final class SessionViewModel: ObservableObject {
   /// Moves a photo that isn't the active card — an unloaded neighbor or one ahead in the
   /// deck — in front of it, counting it as reviewed. Returns the photo's deck index.
   private func adoptIntoReviewed(_ photoID: String) -> Int? {
-    let adopted: SessionPhoto
-    if let index = photos.firstIndex(where: { $0.id == photoID }) {
-      guard index > currentIndex else { return index }
-      adopted = photos.remove(at: index)
-    } else if let entry = peekedPhotos.first(where: { $0.value.id == photoID }) {
-      peekedPhotos[entry.key] = nil
-      adopted = entry.value
-    } else {
-      return nil
-    }
-    photos.insert(adopted, at: currentIndex)
-    currentIndex += 1
-    return currentIndex - 1
+    if let index = deck.adoptIntoReviewed(photoID: photoID) { return index }
+    guard let key = peekedKey(for: photoID), let peeked = peekedPhotos.removeValue(forKey: key)
+    else { return nil }
+    return deck.insertReviewed(peeked)
+  }
+
+  private func peekedKey(for photoID: String) -> String? {
+    peekedPhotos.first { $0.value.id == photoID }?.key
   }
 
   /// A deck photo or a peeked neighbor.
   func photo(withID photoID: String) -> SessionPhoto? {
-    photos.first { $0.id == photoID } ?? peekedPhotos.values.first { $0.id == photoID }
+    deck.photo(withID: photoID) ?? peekedPhotos.values.first { $0.id == photoID }
   }
 
   private func record(index: Int, decision: ReviewDecision) {
-    guard photos.indices.contains(index) else { return }
-    let previous = photos[index].decision
-    let advanced = (index == currentIndex)
-    history.append(
-      DecisionHistoryEntry(
-        photoIndex: index, previousDecision: previous, newDecision: decision,
-        advancedIndex: advanced))
-    photos[index].decision = decision
-
+    guard let advanced = deck.record(index: index, decision: decision) else { return }
     if advanced {
-      currentIndex += 1
       prefetchNextPhoto()
       loadMoreIfNeeded()
     }
-
     showPendingReviewIfDeckEmpty()
     persistState()
   }
@@ -358,14 +352,8 @@ final class SessionViewModel: ObservableObject {
   /// can be changed on purpose. `history` is cleared on confirmation, so nothing confirmed
   /// can be stepped back onto.
   func goBack() {
-    guard markingDecision == nil, let last = history.popLast() else { return }
-    if !last.advancedIndex {
-      photos[last.photoIndex].decision = last.previousDecision
-    }
-    if last.advancedIndex {
-      currentIndex = last.photoIndex
-      prefetchNextPhoto()
-    }
+    guard markingDecision == nil, let advanced = deck.goBack() else { return }
+    if advanced { prefetchNextPhoto() }
     haptics.goBack()
     persistState()
   }
@@ -392,9 +380,7 @@ final class SessionViewModel: ObservableObject {
 
   /// Favoriting doesn't review a photo, so a peeked neighbor stays where it is.
   private func setFavoriteLocally(_ photoID: String, _ isFavorite: Bool) {
-    if let index = photos.firstIndex(where: { $0.id == photoID }) {
-      photos[index].isFavorite = isFavorite
-    } else if let key = peekedPhotos.first(where: { $0.value.id == photoID })?.key {
+    if !deck.setFavorite(isFavorite, photoID: photoID), let key = peekedKey(for: photoID) {
       peekedPhotos[key]?.isFavorite = isFavorite
     }
   }
@@ -404,11 +390,8 @@ final class SessionViewModel: ObservableObject {
   private func applyConversions(_ conversions: [SessionPhoto], from commit: SessionCommitResult) {
     for photo in conversions {
       guard let still = commit.stills[photo.id],
-        let index = photos.firstIndex(where: { $0.id == photo.id })
+        deck.applyConversion(photoID: photo.id, stillIdentifier: still.identifier)
       else { continue }
-      photos[index].assetIdentifier = still.identifier
-      photos[index].isLivePhoto = false
-      photos[index].decision = .keep
       if let asset = still.asset { pickedAssets[photo.id] = asset }
       statsStore.recordLivePhotoConversion(bytesSaved: still.bytesSaved)
       convertedLivePhotoCount += 1
@@ -419,18 +402,7 @@ final class SessionViewModel: ObservableObject {
   /// tray and the end-of-session grids.
   func restoreMany(ids: [String]) {
     guard !ids.isEmpty else { return }
-    let idSet = Set(ids)
-    var restoredAny = false
-    for (i, photo) in photos.enumerated()
-    where idSet.contains(photo.id) && photo.decision.isMarked {
-      history.append(
-        DecisionHistoryEntry(
-          photoIndex: i, previousDecision: photo.decision, newDecision: .keep, advancedIndex: false)
-      )
-      photos[i].decision = .keep
-      restoredAny = true
-    }
-    if restoredAny {
+    if deck.restoreMarkedToKeep(ids: Set(ids)) {
       haptics.trayRestore()
     }
     persistState()
@@ -523,7 +495,7 @@ final class SessionViewModel: ObservableObject {
     Task {
       if let asset = pickedAssets[photoID] {
         metadataForSheet = await metadataService.fetchMetadata(for: asset)
-      } else if let photo = photos.first(where: { $0.id == photoID }) {
+      } else if let photo = deck.photo(withID: photoID) {
         metadataForSheet = PhotoMetadata.placeholder(for: photo)
       }
       isLoadingMetadata = false
@@ -539,10 +511,7 @@ final class SessionViewModel: ObservableObject {
   /// `currentIndex` changes; no-ops past the end of the session or for
   /// mock/preview photos that already have a `previewURL`.
   private func prefetchNextPhoto() {
-    let nextIndex = currentIndex + 1
-    guard photos.indices.contains(nextIndex) else { return }
-    let next = photos[nextIndex]
-    guard next.previewURL == nil else { return }
+    guard let next = deck.nextPhoto, next.previewURL == nil else { return }
     Task {
       await PhotoImageLoader.shared.prefetchNext(
         identifier: next.assetIdentifier, targetSize: Self.prefetchTargetSize)
@@ -560,48 +529,15 @@ final class SessionViewModel: ObservableObject {
     let keptNow = keptCount
 
     // Album changes on a photo that's being deleted are moot.
-    let deletedIDs = Set(toDelete.map(\.id))
-    let (additions, removals) = albumStaging.changes(excludingPhotoIDs: deletedIDs)
+    let (additions, removals) = albumStaging.changes(excludingPhotoIDs: Set(toDelete.map(\.id)))
+    let convertedIDs = Set(conversions.map(\.id))
     let changes = SessionLibraryChanges(
       deletions: toDelete.compactMap { pickedAssets[$0.id] },
-      conversions: conversions.reduce(into: [String: PHAsset]()) { $0[$1.id] = pickedAssets[$1.id] },
+      conversions: pickedAssets.filter { convertedIDs.contains($0.key) },
       albumAdditions: additions, albumRemovals: removals, albumAssets: pickedAssets)
 
     if !changes.isEmpty {
-      isDeleting = true
-      deletionError = nil
-
-      let result = await commitService.commit(changes)
-      isDeleting = false
-
-      switch result {
-      case .success(let commit):
-        applyConversions(conversions, from: commit)
-        let createdAlbumIDs = commit.outcome.createdAlbumIDs
-        pinnedAlbums.pin(createdAlbumIDs.sorted())
-        if !createdAlbumIDs.isEmpty {
-          Task { await refreshLibraryAlbumsIfLoaded() }
-        }
-        albumAssignedCount = additions.count
-        albumStaging.clearStaged()
-        deletedCount = toDelete.count
-        deletedBytes = commit.bytesDeleted
-        photos.removeAll { deletedIDs.contains($0.id) }
-        history.removeAll()  // reversible window closes here
-
-        guard conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
-          deletionError = PhotoLibraryError.creationFailed.localizedDescription
-          persistState()
-          return
-        }
-      case .failure(let error):
-        // Nothing was applied, so the session is left as it was. Declining the
-        // system prompt isn't an error, but the session stays open.
-        if (error as? PHPhotosError)?.code != .userCancelled {
-          deletionError = error.localizedDescription
-        }
-        return
-      }
+      guard await commit(changes, converting: conversions, deleting: toDelete) else { return }
     }
 
     haptics.sessionComplete()
@@ -612,12 +548,54 @@ final class SessionViewModel: ObservableObject {
     statsStore.recordSession(kept: keptNow, deleted: deletedCount, bytesDeleted: deletedBytes)
   }
 
+  /// Runs `changes` as one library transaction and brings the session in line with the result.
+  /// Returns whether the session can finish; on failure it stays open, as it was.
+  private func commit(
+    _ changes: SessionLibraryChanges, converting conversions: [SessionPhoto],
+    deleting toDelete: [SessionPhoto]
+  ) async -> Bool {
+    isDeleting = true
+    deletionError = nil
+    let result = await commitService.commit(changes)
+    isDeleting = false
+
+    switch result {
+    case .success(let commit):
+      let deletedIDs = Set(toDelete.map(\.id))
+      applyConversions(conversions, from: commit)
+      let createdAlbumIDs = commit.outcome.createdAlbumIDs
+      pinnedAlbums.pin(createdAlbumIDs.sorted())
+      if !createdAlbumIDs.isEmpty {
+        Task { await refreshLibraryAlbumsIfLoaded() }
+      }
+      albumAssignedCount = changes.albumAdditions.count
+      albumStaging.clearStaged()
+      deletedCount = toDelete.count
+      deletedBytes = commit.bytesDeleted
+      deck.remove(photoIDs: deletedIDs)
+      deck.clearHistory()  // reversible window closes here
+
+      guard conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
+        deletionError = PhotoLibraryError.creationFailed.localizedDescription
+        persistState()
+        return false
+      }
+      return true
+    case .failure(let error):
+      // Declining the system prompt isn't an error, but the session stays open.
+      if (error as? PHPhotosError)?.code != .userCancelled {
+        deletionError = error.localizedDescription
+      }
+      return false
+    }
+  }
+
   /// Remembers the session's kept photos so later sessions skip them.
   /// Photos marked for deletion aren't recorded: they're either gone
   /// after confirmation or, if the session is abandoned, still unreviewed.
   private func recordReviewedPhotos() {
-    let keptIdentifiers = photos
-      .filter { $0.decision == .keep && pickedAssets[$0.id] != nil }
+    let keptIdentifiers = deck.keptPhotos
+      .filter { pickedAssets[$0.id] != nil }
       .map(\.assetIdentifier)
     reviewedPhotosStore.markReviewed(Set(keptIdentifiers))
     reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
@@ -654,26 +632,28 @@ final class SessionViewModel: ObservableObject {
     guard screen == .review || screen == .pendingReview else { return }
     persistence.save(
       PersistedSessionSnapshot(
-        photos: photos, currentIndex: currentIndex, history: history, albumStaging: albumStaging))
+        deck: deck, albumStaging: albumStaging))
   }
 
-  private func restoreIfInterrupted() {
-    guard let snapshot = persistence.load() else { return }
-    photos = snapshot.restoredPhotos
-    // Resolves the real assets, so deleting and filing into albums work on a resumed session.
-    let resolvedAssets = PHAsset.fetchAssets(
-      withLocalIdentifiers: snapshot.assetIdentifiers, options: nil)
+  /// Resolves the real assets, so deleting and filing into albums work on a resumed session.
+  private func restorePickedAssets(for photos: [SessionPhoto]) {
+    let resolved = PHAsset.fetchAssets(
+      withLocalIdentifiers: photos.map(\.assetIdentifier), options: nil)
     var assetsByID: [String: PHAsset] = [:]
-    resolvedAssets.enumerateObjects { asset, _, _ in assetsByID[asset.localIdentifier] = asset }
+    resolved.enumerateObjects { asset, _, _ in assetsByID[asset.localIdentifier] = asset }
     for photo in photos {
       if let asset = assetsByID[photo.assetIdentifier] {
         pickedAssets[photo.id] = asset
       }
     }
+  }
+
+  private func restoreIfInterrupted() {
+    guard let snapshot = persistence.load() else { return }
+    deck = snapshot.restoredDeck
+    restorePickedAssets(for: deck.photos)
     albumStaging = snapshot.restoredAlbumStaging
-    currentIndex = snapshot.currentIndex
-    history = snapshot.restoredHistory
-    screen = currentIndex >= photos.count ? .pendingReview : .review
+    screen = deck.isExhausted ? .pendingReview : .review
     prefetchNextPhoto()
   }
 }

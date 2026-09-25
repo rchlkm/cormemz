@@ -31,6 +31,11 @@ struct SessionPhoto: Identifiable, Equatable {
   var isFavorite: Bool = false
   var isLivePhoto: Bool = false
   var dateLabel: String = ""
+
+  /// Only Live Photos can be converted to a still.
+  func canReceive(_ decision: ReviewDecision) -> Bool {
+    decision != .convertToStill || isLivePhoto
+  }
 }
 
 /// One entry in the full pending-delete history for the session.

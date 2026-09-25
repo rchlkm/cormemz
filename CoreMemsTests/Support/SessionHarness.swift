@@ -32,7 +32,8 @@ struct SessionHarness {
       haptics: haptics,
       statsStore: stats,
       pinnedAlbumsStore: MockPinnedAlbumsStore(),
-      reviewedPhotosStore: reviewedStore)
+      reviewedPhotosStore: reviewedStore,
+      settings: SessionSettings(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!))
   }
 
   static func assetID(_ index: Int) -> String { "asset-\(index)" }
