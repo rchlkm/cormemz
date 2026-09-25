@@ -34,26 +34,26 @@ final class SwipeGestureTests: ReviewUITestCase {
     XCTAssertLessThan(abs(translation.height), translation.width / 2)
   }
 
-  func testUndoIsDisabledUntilThereIsSomethingToUndo() {
-    XCTAssertFalse(element(AccessibilityID.reviewUndo).isEnabled)
+  func testGoBackIsDisabledUntilThereIsSomewhereToGoBack() {
+    XCTAssertFalse(element(AccessibilityID.reviewGoBack).isEnabled)
 
     element(AccessibilityID.reviewKeep).tap()
     waitForProgress("1 reviewed")
 
-    XCTAssertTrue(element(AccessibilityID.reviewUndo).isEnabled)
+    XCTAssertTrue(element(AccessibilityID.reviewGoBack).isEnabled)
   }
 
-  func testUndoButtonBringsBackThePreviousPhoto() {
+  func testGoBackButtonBringsBackThePreviousPhoto() {
     element(AccessibilityID.reviewDelete).tap()
     waitForProgress("1 reviewed")
 
-    element(AccessibilityID.reviewUndo).tap()
+    element(AccessibilityID.reviewGoBack).tap()
 
     waitForProgress("0 reviewed")
-    XCTAssertEqual(markedPhotoCount(), 0)
+    XCTAssertEqual(markedPhotoCount(), 1)
   }
 
-  func testSwipeLeftUndoesTheLastDecision() {
+  func testSwipeLeftGoesBackOneDecision() {
     element(AccessibilityID.reviewKeep).tap()
     waitForProgress("1 reviewed")
 

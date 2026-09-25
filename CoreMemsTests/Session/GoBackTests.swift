@@ -1,63 +1,63 @@
-// CoreMemsTests/Session/UndoTests.swift
+// CoreMemsTests/Session/GoBackTests.swift
 import Testing
 
 @testable import CoreMems
 
-@Suite("Undoing decisions")
+@Suite("Going back")
 @MainActor
-struct UndoTests {
-  @Test func undoRevertsTheLastDecisionAndStepsBack() async {
+struct GoBackTests {
+  @Test func goBackStepsBackAndKeepsTheDecision() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
-    #expect(h.vm.photos[0].decision == .undecided)
+    #expect(h.vm.photos[0].decision == .pendingDelete)
     #expect(h.vm.currentIndex == 0)
-    #expect(h.vm.canUndo == false)
-    #expect(h.haptics.undoCallCount == 1)
+    #expect(h.vm.canGoBack == false)
+    #expect(h.haptics.goBackCallCount == 1)
   }
 
-  @Test func undoWithNoHistoryDoesNothing() async {
+  @Test func goBackWithNoHistoryDoesNothing() async {
     let h = await SessionHarness.started(photoCount: 3)
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     #expect(h.vm.currentIndex == 0)
-    #expect(h.haptics.undoCallCount == 0)
+    #expect(h.haptics.goBackCallCount == 0)
   }
 
-  @Test func repeatedUndoUnwindsDecisionsNewestFirst() async {
+  @Test func repeatedGoBackStepsBackThroughDecisionsNewestFirst() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .keep)
     await h.decide(1, .pendingDelete)
 
-    h.vm.quickUndo()
-    #expect(h.vm.photos[1].decision == .undecided)
+    h.vm.goBack()
+    #expect(h.vm.photos[1].decision == .pendingDelete)
     #expect(h.vm.photos[0].decision == .keep)
     #expect(h.vm.currentIndex == 1)
 
-    h.vm.quickUndo()
-    #expect(h.vm.photos[0].decision == .undecided)
+    h.vm.goBack()
+    #expect(h.vm.photos[0].decision == .keep)
     #expect(h.vm.currentIndex == 0)
   }
 
-  @Test func undoStepsBackOntoAConversionAndKeepsItMarked() async {
+  @Test func goBackStepsOntoAConversionAndKeepsItMarked() async {
     let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
     await h.decide(0, .convertToStill)
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     #expect(h.vm.photos[0].decision == .convertToStill)
     #expect(h.vm.pendingConversions.count == 1)
     #expect(h.vm.currentIndex == 0)
-    #expect(h.vm.canUndo == false)
+    #expect(h.vm.canGoBack == false)
   }
 
   @Test func keepingAfterSteppingBackCancelsTheConversion() async {
     let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
     await h.decide(0, .convertToStill)
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     await h.decide(0, .keep)
 
@@ -66,22 +66,22 @@ struct UndoTests {
     #expect(h.vm.currentIndex == 1)
   }
 
-  @Test func undoingAChangedDecisionRestoresTheConversion() async {
+  @Test func goingBackAfterChangingADecisionKeepsTheNewDecision() async {
     let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
     await h.decide(0, .convertToStill)
-    h.vm.quickUndo()
+    h.vm.goBack()
     await h.decide(0, .keep)
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
-    #expect(h.vm.photos[0].decision == .convertToStill)
+    #expect(h.vm.photos[0].decision == .keep)
     #expect(h.vm.currentIndex == 0)
   }
 
   @Test func convertingAgainAfterSteppingBackMovesOnUnchanged() async {
     let h = await SessionHarness.started(photoCount: 2, liveIndexes: [0])
     await h.decide(0, .convertToStill)
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     await h.decide(0, .convertToStill)
 
@@ -90,23 +90,23 @@ struct UndoTests {
     #expect(h.vm.currentIndex == 1)
   }
 
-  @Test func undoingATrayRestoreKeepsTheReviewIndex() async {
+  @Test func goingBackOverATrayRestoreKeepsTheReviewIndex() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)
     await h.decide(1, .keep)
     h.vm.restoreMany(ids: [SessionHarness.photoID(0)])
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     #expect(h.vm.photos[0].decision == .pendingDelete)
     #expect(h.vm.currentIndex == 2)
   }
 
-  @Test func undoIsUnavailableOnceHistoryIsEmpty() async {
+  @Test func goBackIsUnavailableOnceHistoryIsEmpty() async {
     let h = await SessionHarness.started(photoCount: 2)
-    #expect(h.vm.canUndo == false)
+    #expect(h.vm.canGoBack == false)
 
     await h.decide(0, .keep)
-    #expect(h.vm.canUndo)
+    #expect(h.vm.canGoBack)
   }
 }

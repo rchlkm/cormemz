@@ -37,17 +37,17 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
 - Swipe right → Keep
 - Swipe down → Mark for deletion
-- Swipe left → Quick undo (reverses only the most recent decision)
+- Swipe left → Go back (returns to the previous photo, which keeps its decision so you can change it)
 - Swipe up → Nearby photos (the photos taken just before and after this one); swipe down to close
 
 **Along the way**
 
-- Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion (and restore it from the same button), mark Live Photos for conversion, favorite them, or file them into albums; the filmstrip replaces the bottom buttons, and swipe decisions and undo pause while browsing
+- Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion (and restore it from the same button), mark Live Photos for conversion, favorite them, or file them into albums; the filmstrip replaces the bottom buttons, and swipe decisions and going back pause while browsing
 - Favorite a photo
 - File a photo into a Photos album, including a new one, with pinned albums in their own section shown first; reorder them or switch their sort right there
 - Pin or unpin an album without leaving the review
 - Mark a Live Photo for conversion to a still photo
-- Undo back onto a photo marked for conversion keeps it marked, so you can file the still into an album or change your mind
+- Going back onto a photo shows its decision on the card and keeps it in the marked-photos tray, so you can file a converted still into an album or change your mind
 - Open the marked-photos tray to see everything marked for deletion or conversion and restore items to Keep
 - Open a marked photo full screen to undo its mark, from the tray or the final review
 

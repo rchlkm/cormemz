@@ -7,7 +7,7 @@ enum AccessibilityID {
   static let reviewCard = "review.card"
   static let reviewDone = "review.done"
   static let reviewTray = "review.tray"
-  static let reviewUndo = "review.undo"
+  static let reviewGoBack = "review.goBack"
   static let reviewDelete = "review.delete"
   static let reviewKeep = "review.keep"
   static let liveBadge = "review.liveBadge"

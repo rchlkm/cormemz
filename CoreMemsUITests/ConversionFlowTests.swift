@@ -78,13 +78,13 @@ final class ConversionFlowTests: ReviewUITestCase {
     XCTAssertTrue(element(AccessibilityID.completion).waitForExistence(timeout: Self.uiTimeout))
   }
 
-  func testUndoRevertsAConversion() {
+  func testGoBackKeepsTheConversionMarked() {
     reachFirstLivePhoto()
     convertCurrentPhoto()
 
-    element(AccessibilityID.reviewUndo).tap()
+    element(AccessibilityID.reviewGoBack).tap()
 
     waitForProgress("\(Self.firstLivePhotoPosition) reviewed")
-    XCTAssertEqual(markedPhotoCount(), 0)
+    XCTAssertEqual(markedPhotoCount(), 1)
   }
 }

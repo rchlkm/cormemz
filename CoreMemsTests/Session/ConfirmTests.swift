@@ -85,7 +85,7 @@ struct ConfirmTests {
     #expect(Set(changes.conversions.keys) == [SessionHarness.photoID(1)])
   }
 
-  @Test func deletionRemovesPhotosRecordsStatsAndClosesTheUndoWindow() async {
+  @Test func deletionRemovesPhotosRecordsStatsAndClosesTheGoBackWindow() async {
     let h = await finishedSession(
       photoCount: 3, sizes: [1: 100, 2: 250],
       decisions: [(0, .keep), (1, .pendingDelete), (2, .pendingDelete)])
@@ -95,7 +95,7 @@ struct ConfirmTests {
     #expect(h.vm.screen == .completion)
     #expect(h.vm.deletedCount == 2)
     #expect(h.vm.photos.map(\.id) == [SessionHarness.photoID(0)])
-    #expect(h.vm.canUndo == false)
+    #expect(h.vm.canGoBack == false)
     #expect(h.vm.isDeleting == false)
     #expect(h.vm.deletionError == nil)
     #expect(h.stats.stats.totalDeleted == 2)
@@ -133,7 +133,7 @@ struct ConfirmTests {
     #expect(h.vm.screen == .pendingReview)
     #expect(h.vm.photos.count == 3)
     #expect(h.vm.photos[1].decision == .pendingDelete)
-    #expect(h.vm.canUndo)
+    #expect(h.vm.canGoBack)
     #expect(h.vm.isDeleting == false)
     #expect(h.haptics.sessionCompleteCallCount == 0)
     #expect(h.stats.stats.sessionsCompleted == 0)

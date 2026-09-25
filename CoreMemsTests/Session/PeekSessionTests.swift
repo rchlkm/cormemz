@@ -114,17 +114,17 @@ struct PeekSessionTests {
     #expect(h.vm.currentPhoto?.id == SessionHarness.photoID(2))
   }
 
-  @Test func undoIsUnavailableWhilePeeking() async {
+  @Test func goBackIsUnavailableWhilePeeking() async {
     let h = await SessionHarness.started(photoCount: 10, batchSize: 2, mode: .shuffle)
     await h.decide(0, .keep)
-    #expect(h.vm.canUndo)
+    #expect(h.vm.canGoBack)
 
     h.vm.beginPeek()
     await settle(h.vm)
-    #expect(!h.vm.canUndo)
+    #expect(!h.vm.canGoBack)
 
     h.vm.endPeek()
-    #expect(h.vm.canUndo)
+    #expect(h.vm.canGoBack)
   }
 
   // MARK: Favorites and albums

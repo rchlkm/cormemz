@@ -1,21 +1,21 @@
 // CoreMems/Views/Components/ReviewControlBar.swift
 import SwiftUI
 
-/// Undo / delete / keep action row shown beneath the review card
+/// Back / delete / keep action row shown beneath the review card
 /// stack. Purely presentational — the parent decides what each action
 /// actually does to session state.
 struct ReviewControlBar: View {
-  let canUndo: Bool
-  let onUndo: () -> Void
+  let canGoBack: Bool
+  let onGoBack: () -> Void
   let onDelete: () -> Void
   let onKeep: () -> Void
 
   var body: some View {
     HStack(spacing: 22) {
-      Button(action: onUndo) { Image(systemName: "arrow.uturn.backward") }
+      Button(action: onGoBack) { Image(systemName: "arrow.uturn.backward") }
         .buttonStyle(IconButtonStyle(size: .medium, surface: .tinted(.secondary)))
-        .accessibilityIdentifier(AccessibilityID.reviewUndo)
-        .disabled(!canUndo)
+        .accessibilityIdentifier(AccessibilityID.reviewGoBack)
+        .disabled(!canGoBack)
       Button(action: onDelete) { Image(systemName: "trash") }
         .buttonStyle(IconButtonStyle(size: .large, surface: .tinted(ReviewDecision.pendingDelete.tint)))
         .accessibilityIdentifier(AccessibilityID.reviewDelete)

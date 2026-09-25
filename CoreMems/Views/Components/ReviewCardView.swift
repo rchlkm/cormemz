@@ -64,8 +64,8 @@ struct ReviewCardView: View {
     if dy > 0 && abs(dy) > abs(dx) {
       return (DecisionOverlay(decision: .pendingDelete), min(1, dy / 90))
     }
-    if vm.canUndo && dx < 0 && abs(dx) > abs(dy) {
-      return (.undo, min(1, -dx / 90))
+    if vm.canGoBack && dx < 0 && abs(dx) > abs(dy) {
+      return (.goBack, min(1, -dx / 90))
     }
     return nil
   }
@@ -111,7 +111,7 @@ struct ReviewCardView: View {
     }
     .overlay(alignment: .top) { topBar }
     .overlay(alignment: .top) {
-      if vm.isPeeking {
+      if vm.isPeeking || subject.decision != .convertToStill {
         PeekDecisionTag(decision: subject.decision)
           .padding(.top, Self.topBarHeight + Self.decisionTagGap)
       }
@@ -211,8 +211,8 @@ struct ReviewCardView: View {
           vm.decide(index: vm.currentIndex, decision: .keep)
         } else if dy > 90 && abs(dy) > abs(dx) {
           vm.decide(index: vm.currentIndex, decision: .pendingDelete)
-        } else if dx < -90 && abs(dx) > abs(dy) && vm.canUndo {
-          vm.quickUndo()
+        } else if dx < -90 && abs(dx) > abs(dy) && vm.canGoBack {
+          vm.goBack()
         } else if dy < -90 && abs(dy) > abs(dx) {
           togglePeek()
         }
@@ -340,8 +340,8 @@ struct DecisionOverlay: View {
     }
   }
 
-  static var undo: DecisionOverlay {
-    DecisionOverlay(icon: "arrow.uturn.backward", title: "Undo", tint: .secondary)
+  static var goBack: DecisionOverlay {
+    DecisionOverlay(icon: "arrow.uturn.backward", title: "Go back", tint: .secondary)
   }
 
   var body: some View {

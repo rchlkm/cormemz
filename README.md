@@ -21,7 +21,7 @@ only at the end — without guilt-based framing.
 
 - **Review a few at a time**: shuffle, most recent, or from a date. Sessions
   run until you stop, with a periodic check-in.
-- **Keep or mark for deletion** with a swipe, with quick undo. Nothing is
+- **Keep or mark for deletion** with a swipe, with a way back. Nothing is
   deleted until you confirm at the end.
 - **Favorites and albums**: heart a photo or file it into a Photos album as
   you go, with pinned albums for the ones you use most.

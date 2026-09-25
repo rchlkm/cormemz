@@ -23,14 +23,14 @@ struct PersistenceTests {
     #expect(snapshot.historyAdvanced == [true, true])
   }
 
-  @Test func undoIsSaved() async throws {
+  @Test func goingBackIsSaved() async throws {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .keep)
 
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     let snapshot = try #require(h.persistence.snapshot)
-    #expect(snapshot.decisions.first == "undecided")
+    #expect(snapshot.decisions.first == "keep")
     #expect(snapshot.currentIndex == 0)
     #expect(snapshot.historyPhotoIndices.isEmpty)
   }
@@ -50,17 +50,17 @@ struct PersistenceTests {
     #expect(resumed.pendingItems.map(\.id) == [SessionHarness.photoID(1)])
   }
 
-  @Test func undoWorksAfterResuming() async {
+  @Test func goingBackWorksAfterResuming() async {
     let h = await SessionHarness.started(photoCount: 4)
     await h.decide(0, .keep)
     await h.decide(1, .pendingDelete)
     let resumed = SessionHarness(persistence: h.persistence).vm
 
-    resumed.quickUndo()
+    resumed.goBack()
 
-    #expect(resumed.photos[1].decision == .undecided)
+    #expect(resumed.photos[1].decision == .pendingDelete)
     #expect(resumed.currentIndex == 1)
-    #expect(resumed.canUndo)
+    #expect(resumed.canGoBack)
   }
 
   @Test func aSessionSavedAtTheEndOfTheDeckResumesOnPendingReview() async {

@@ -6,7 +6,7 @@ protocol HapticsServicing {
   func keep()
   func markForDeletion()
   func convertToStill()
-  func undo()
+  func goBack()
   func trayRestore()
   //  func confirmDelete()
   func sessionComplete()
@@ -35,14 +35,14 @@ final class HapticsService: HapticsServicing {
     case keep = 1057  // 1004
     case markForDeletion = 1051
     case convertToStill = 1108  // photo shutter
-    case undo = 1053  // error
+    case goBack = 1053  // error
     case trayRestore = 1054
     // case confirmDelete = 1050
     case sessionComplete = 1109 //1050
     case favorite = 1111
     // case keep = 1111
     // case markForDeletion = 1110
-    // case undo = 1053
+    // case goBack = 1053
     // case trayRestore = 1109
     // case confirmDelete = 1050
     // case sessionComplete = 1335
@@ -70,9 +70,9 @@ final class HapticsService: HapticsServicing {
     play(.convertToStill)
   }
 
-  func undo() {
+  func goBack() {
     lightImpact.impactOccurred()
-    play(.undo)
+    play(.goBack)
   }
 
   func trayRestore() {
@@ -108,7 +108,7 @@ final class MockHapticsService: HapticsServicing {
   private(set) var keepCallCount = 0
   private(set) var markForDeletionCallCount = 0
   private(set) var convertToStillCallCount = 0
-  private(set) var undoCallCount = 0
+  private(set) var goBackCallCount = 0
   private(set) var trayRestoreCallCount = 0
   // private(set) var confirmDeleteCallCount = 0
   private(set) var sessionCompleteCallCount = 0
@@ -118,7 +118,7 @@ final class MockHapticsService: HapticsServicing {
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
   func convertToStill() { convertToStillCallCount += 1 }
-  func undo() { undoCallCount += 1 }
+  func goBack() { goBackCallCount += 1 }
   func trayRestore() { trayRestoreCallCount += 1 }
   // func confirmDelete() { confirmDeleteCallCount += 1 }
   func sessionComplete() { sessionCompleteCallCount += 1 }
@@ -138,8 +138,8 @@ final class MockHapticsService: HapticsServicing {
     }
     .buttonStyle(.borderedProminent)
 
-    Button("undo") {
-      service.undo()
+    Button("go back") {
+      service.goBack()
     }
     .buttonStyle(.borderedProminent)
 

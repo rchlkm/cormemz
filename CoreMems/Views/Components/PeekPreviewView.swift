@@ -41,11 +41,13 @@ struct PeekDecisionTag: View {
     if decision != .undecided {
       let content = DecisionOverlay.content(for: decision)
       Label(content.title, systemImage: content.icon)
-        .font(.subheadline.weight(.semibold))
+        .font(.title3.weight(.bold))
         .foregroundStyle(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(content.tint.opacity(0.85), in: Capsule())
+        .padding(.horizontal, 22)
+        .padding(.vertical, 14)
+        .background(content.tint.opacity(0.55), in: Capsule())
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
     }
   }
 }

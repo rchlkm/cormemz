@@ -120,8 +120,8 @@ struct ReviewView: View {
           .padding(.bottom, Self.filmstripBottomPadding)
         } else {
           ReviewControlBar(
-            canUndo: vm.canUndo,
-            onUndo: { vm.quickUndo() },
+            canGoBack: vm.canGoBack,
+            onGoBack: { vm.goBack() },
             onDelete: { vm.decide(index: vm.currentIndex, decision: .pendingDelete) },
             onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
           )

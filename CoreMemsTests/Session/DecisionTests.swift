@@ -80,11 +80,11 @@ struct DecisionTests {
     let task = h.vm.decide(index: 0, decision: .convertToStill)
 
     let competing = h.vm.decide(index: 1, decision: .keep)
-    h.vm.quickUndo()
+    h.vm.goBack()
 
     #expect(competing == nil)
     #expect(h.vm.photos[1].decision == .undecided)
-    #expect(h.haptics.undoCallCount == 0)
+    #expect(h.haptics.goBackCallCount == 0)
 
     await task?.value
     #expect(h.vm.history.count == 1)

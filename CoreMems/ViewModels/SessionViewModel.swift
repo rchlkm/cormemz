@@ -37,7 +37,7 @@ final class SessionViewModel: ObservableObject {
   @Published var deletionError: String?
   @Published var convertedLivePhotoCount: Int = 0
   
-  /// The decision being shown before it's recorded; decisions and undo are ignored meanwhile.
+  /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
   @Published private(set) var markingDecision: ReviewDecision?
   @Published var metadataForSheet: PhotoMetadata?
   @Published var isLoadingMetadata: Bool = false
@@ -139,7 +139,7 @@ final class SessionViewModel: ObservableObject {
   /// Deletions and conversions together, in the order they were reviewed.
   var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
-  var canUndo: Bool { !history.isEmpty && !isPeeking }
+  var canGoBack: Bool { !history.isEmpty && !isPeeking }
   var currentPhoto: SessionPhoto? { photos.indices.contains(currentIndex) ? photos[currentIndex] : nil }
 
   // MARK: Session lifecycle
@@ -263,7 +263,7 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  // MARK: Keep / Delete / Undo
+  // MARK: Keep / Delete / Go back
 
   /// Records a decision for the photo at `index`, first showing it for its hold in
   /// `decisionHolds`, if any. Recording advances the review index if it's the active
@@ -354,23 +354,19 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  /// Quick single-step Undo (swipe left / Undo button). 
-  /// must never restore a photo submitted after final confirmation —
-  /// enforced simply by the fact that `history` is cleared once
-  /// deletion is confirmed (see `confirmDeletion`).
-  ///
-  /// Stepping back onto a conversion leaves it marked, so the still can be
-  /// filed into an album or the decision changed on purpose.
-  func quickUndo() {
+  /// Steps back one decision (swipe left / back button). The photo keeps its decision so it
+  /// can be changed on purpose. `history` is cleared on confirmation, so nothing confirmed
+  /// can be stepped back onto.
+  func goBack() {
     guard markingDecision == nil, let last = history.popLast() else { return }
-    if !(last.advancedIndex && last.newDecision == .convertToStill) {
+    if !last.advancedIndex {
       photos[last.photoIndex].decision = last.previousDecision
     }
     if last.advancedIndex {
       currentIndex = last.photoIndex
       prefetchNextPhoto()
     }
-    haptics.undo()
+    haptics.goBack()
     persistState()
   }
 
