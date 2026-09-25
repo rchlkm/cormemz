@@ -86,7 +86,7 @@ struct PersistenceTests {
     await h.decide(0, .keep)
     await h.decide(1, .keep)
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.persistence.snapshot == nil)
     #expect(SessionHarness(persistence: h.persistence).vm.screen == .home)

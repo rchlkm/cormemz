@@ -23,7 +23,7 @@ struct ConfirmTests {
     let h = await finishedSession(photoCount: 3, decisions: [(0, .pendingDelete), (1, .keep)])
     h.library.assets.removeFirst()
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.vm.eligiblePhotoCount == 2)
   }
@@ -32,7 +32,7 @@ struct ConfirmTests {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.library.events.isEmpty)
     #expect(h.vm.screen == .completion)
@@ -47,7 +47,7 @@ struct ConfirmTests {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .pendingDelete), (2, .keep)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(
       h.reviewedStore.reviewedIdentifiers()
@@ -60,7 +60,7 @@ struct ConfirmTests {
       photoCount: 3, liveIndexes: [2], sizes: [1: 100, 2: 900],
       decisions: [(0, .keep), (1, .pendingDelete), (2, .convertToStill)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(
       h.library.events == [
@@ -75,7 +75,7 @@ struct ConfirmTests {
       photoCount: 4, liveIndexes: [1],
       decisions: [(0, .pendingDelete), (1, .convertToStill), (2, .keep), (3, .pendingDelete)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.library.committedChanges.count == 1)
     let changes = h.library.committedChanges[0]
@@ -90,7 +90,7 @@ struct ConfirmTests {
       photoCount: 3, sizes: [1: 100, 2: 250],
       decisions: [(0, .keep), (1, .pendingDelete), (2, .pendingDelete)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.vm.screen == .completion)
     #expect(h.vm.deletedCount == 2)
@@ -109,7 +109,7 @@ struct ConfirmTests {
       photoCount: 2, liveIndexes: [1], sizes: [1: 900],
       decisions: [(0, .keep), (1, .convertToStill)])
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     let converted = h.vm.photos[1]
     #expect(converted.decision == .keep)
@@ -127,7 +127,7 @@ struct ConfirmTests {
       photoCount: 3, decisions: [(0, .keep), (1, .pendingDelete), (2, .keep)])
     h.library.commitFailure = LibraryTestError.rejected
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.vm.deletionError != nil)
     #expect(h.vm.screen == .pendingReview)
@@ -145,7 +145,7 @@ struct ConfirmTests {
       photoCount: 2, decisions: [(0, .pendingDelete), (1, .keep)])
     h.library.commitFailure = PHPhotosError(.userCancelled)
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.vm.deletionError == nil)
     #expect(h.vm.screen == .pendingReview)
@@ -159,7 +159,7 @@ struct ConfirmTests {
       decisions: [(0, .keep), (1, .convertToStill), (2, .convertToStill)])
     h.library.photoIDsWithoutStill = [SessionHarness.photoID(2)]
 
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
 
     #expect(h.vm.deletionError == PhotoLibraryError.creationFailed.localizedDescription)
     #expect(h.vm.screen == .pendingReview)

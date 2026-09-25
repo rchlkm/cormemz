@@ -530,21 +530,11 @@ final class SessionViewModel: ObservableObject {
   /// Applies everything staged this session as one library transaction: still copies
   /// of converted Live Photos, album changes, and deletions. All of it happens or none
   /// of it does, behind a single system prompt.
-  func confirmDeletion() async {
-    let toDelete = pendingItems
-    let conversions = pendingConversions.filter { pickedAssets[$0.id] != nil }
-    let keptNow = keptCount
+  func confirmSession() async {
+    let plan = SessionConfirmationPlan(deck: deck, assets: pickedAssets, staging: albumStaging)
 
-    // Album changes on a photo that's being deleted are moot.
-    let (additions, removals) = albumStaging.changes(excludingPhotoIDs: Set(toDelete.map(\.id)))
-    let convertedIDs = Set(conversions.map(\.id))
-    let changes = SessionLibraryChanges(
-      deletions: toDelete.compactMap { pickedAssets[$0.id] },
-      conversions: pickedAssets.filter { convertedIDs.contains($0.key) },
-      albumAdditions: additions, albumRemovals: removals, albumAssets: pickedAssets)
-
-    if !changes.isEmpty {
-      guard await commit(changes, converting: conversions, deleting: toDelete) else { return }
+    if !plan.changes.isEmpty {
+      guard await commit(plan) else { return }
     }
 
     haptics.sessionComplete()
@@ -552,36 +542,32 @@ final class SessionViewModel: ObservableObject {
     persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
     recordReviewedPhotos()
-    statsStore.recordSession(kept: keptNow, deleted: deletedCount, bytesDeleted: deletedBytes)
+    statsStore.recordSession(kept: plan.keptCount, deleted: deletedCount, bytesDeleted: deletedBytes)
   }
 
-  /// Runs `changes` as one library transaction and brings the session in line with the result.
+  /// Runs the plan's changes as one library transaction and brings the session in line with the result.
   /// Returns whether the session can finish; on failure it stays open, as it was.
-  private func commit(
-    _ changes: SessionLibraryChanges, converting conversions: [SessionPhoto],
-    deleting toDelete: [SessionPhoto]
-  ) async -> Bool {
+  private func commit(_ plan: SessionConfirmationPlan) async -> Bool {
     commitState = .committing
-    let result = await commitService.commit(changes)
+    let result = await commitService.commit(plan.changes)
     commitState = .idle
 
     switch result {
     case .success(let commit):
-      let deletedIDs = Set(toDelete.map(\.id))
-      applyConversions(conversions, from: commit)
+      applyConversions(plan.conversions, from: commit)
       let createdAlbumIDs = commit.outcome.createdAlbumIDs
       pinnedAlbums.pin(createdAlbumIDs.sorted())
       if !createdAlbumIDs.isEmpty {
         Task { await refreshLibraryAlbumsIfLoaded() }
       }
-      albumAssignedCount = changes.albumAdditions.count
+      albumAssignedCount = plan.changes.albumAdditions.count
       albumStaging.clearStaged()
-      deletedCount = toDelete.count
+      deletedCount = plan.deletions.count
       deletedBytes = commit.bytesDeleted
-      deck.remove(photoIDs: deletedIDs)
+      deck.remove(photoIDs: Set(plan.deletions.map(\.id)))
       deck.clearHistory()  // reversible window closes here
 
-      guard conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
+      guard plan.conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
         commitState = .failed(PhotoLibraryError.creationFailed.localizedDescription)
         persistState()
         return false

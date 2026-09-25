@@ -69,7 +69,7 @@ struct StartSessionTests {
   @Test func aNewSessionClearsThePreviousOnesCounts() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)
-    await h.vm.confirmDeletion()
+    await h.vm.confirmSession()
     #expect(h.vm.deletedCount == 1)
 
     await h.vm.startSession(mode: .recent, startDate: nil)

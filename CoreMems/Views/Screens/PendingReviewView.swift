@@ -58,7 +58,7 @@ struct PendingReviewView: View {
       }
 
       Button {
-        Task { await vm.confirmDeletion() }
+        Task { await vm.confirmSession() }
       } label: {
         if vm.isDeleting {
           ProgressView()

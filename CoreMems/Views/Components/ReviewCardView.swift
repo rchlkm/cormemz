@@ -75,7 +75,7 @@ struct ReviewCardView: View {
   /// underneath — the hint itself never moves with the drag.
   private var swipableCard: some View {
     ZStack {
-      swipeUpHint
+      SwipeUpHintView(size: maxSize, progress: min(1, max(0, -dragOffset.height / 90)))
       cardForeground
     }
   }
@@ -130,7 +130,7 @@ struct ReviewCardView: View {
     }
     .overlay(alignment: .bottom) {
       if !vm.isPeeking && photo.decision == .convertToStill {
-        conversionMarker
+        ConversionMarker { vm.decide(index: vm.currentIndex, decision: .convertToStill) }
       }
     }
     .overlay(alignment: .bottomTrailing) {
@@ -245,26 +245,6 @@ struct ReviewCardView: View {
     .accessibilityIdentifier(AccessibilityID.reviewPeekToggle)
   }
 
-  /// Shown on a photo already marked for conversion; tapping moves on without changing it.
-  private var conversionMarker: some View {
-    Button {
-      vm.decide(index: vm.currentIndex, decision: .convertToStill)
-    } label: {
-      HStack(spacing: 6) {
-        Image(systemName: "livephoto.slash")
-        Text("Converts to still")
-        Image(systemName: "chevron.right")
-      }
-      .font(.caption.weight(.semibold))
-      .foregroundStyle(.white)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(ReviewDecision.convertToStill.tint.opacity(0.85), in: Capsule())
-    }
-    .buttonStyle(.plain)
-    .padding(.bottom, 12)
-  }
-
   private var topBar: some View {
     ZStack {
       LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom)
@@ -282,83 +262,5 @@ struct ReviewCardView: View {
       .padding(.horizontal, 14)
     }
     .frame(height: Self.topBarHeight)
-  }
-
-  private var swipeUpHint: some View {
-    let hintOpacity = min(1, max(0, -dragOffset.height / 90))
-    return ZStack {
-      RoundedRectangle(cornerRadius: 26)
-        .fill(Color.black.opacity(0.6))
-      VStack {
-        Spacer()
-        SwipeUpHintBadge()
-          .padding(.bottom, 32)
-      }
-    }
-    .frame(width: maxSize.width, height: maxSize.height)
-    .opacity(hintOpacity)
-  }
-}
-
-/// Hints that the swipe-up gesture is about to trigger.
-private struct SwipeUpHintBadge: View {
-  var body: some View {
-    VStack(spacing: 4) {
-      Image(systemName: "chevron.up")
-        .font(.system(size: 16, weight: .bold))
-      Text("Nearby photos")
-        .font(.headline)
-    }
-    .foregroundStyle(.white)
-  }
-}
-
-/// Dims the photo and names a decision or swipe action, with the same colored circle
-/// as the control bar's buttons; swallows taps.
-struct DecisionOverlay: View {
-  let icon: String
-  let title: String
-  let tint: Color
-
-  init(icon: String, title: String, tint: Color) {
-    self.icon = icon
-    self.title = title
-    self.tint = tint
-  }
-
-  init(decision: ReviewDecision) {
-    let content = Self.content(for: decision)
-    self.init(icon: content.icon, title: content.title, tint: content.tint)
-  }
-
-  static func content(for decision: ReviewDecision) -> (icon: String, title: String, tint: Color) {
-    switch decision {
-    case .keep: return ("checkmark", "Kept", decision.tint)
-    case .pendingDelete: return ("trash", "Marked for deletion", decision.tint)
-    case .convertToStill: return ("livephoto.slash", "Marked for conversion", decision.tint)
-    case .undecided: return ("questionmark", "Undecided", decision.tint)
-    }
-  }
-
-  static var goBack: DecisionOverlay {
-    DecisionOverlay(icon: "arrow.uturn.backward", title: "Go back", tint: .secondary)
-  }
-
-  var body: some View {
-    ZStack {
-      Color.black.opacity(0.6)
-      VStack(spacing: 12) {
-        Image(systemName: icon)
-          .font(.system(size: 24, weight: .semibold))
-          .foregroundStyle(tint)
-          .frame(width: 64, height: 64)
-          .background(Circle().fill(tint.opacity(0.25)))
-        Text(title)
-          .font(.headline)
-          .foregroundStyle(.white)
-      }
-    }
-    .contentShape(Rectangle())
-    .onTapGesture {}
   }
 }
