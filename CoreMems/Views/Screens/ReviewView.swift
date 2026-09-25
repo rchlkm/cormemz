@@ -9,6 +9,7 @@ struct ReviewView: View {
   @State private var showCheckIn = false
   @State private var lastCheckInIndex = -1
   @State private var showAlbumPicker = false
+  @State private var showUnconfirmedChanges = false
   @AppStorage("cm_albumStripExpanded") private var isAlbumStripExpanded = true
   @Namespace private var heroNamespace
 
@@ -25,10 +26,12 @@ struct ReviewView: View {
     GeometryReader { geo in
       PhotoActionRailView(
         isFavorite: photo.isFavorite,
+        isHeldForLater: photo.isHeldForLater,
         containerSize: geo.size,
         albumCount: vm.effectiveAlbums(for: photo.id).count,
         isLoadingAlbumData: vm.libraryAlbums == nil,
         onToggleFavorite: { vm.toggleFavorite(photoID: photo.id) },
+        onToggleHeldForLater: { vm.toggleHeldForLater(photoID: photo.id) },
         onToggleAlbumStrip: { isAlbumStripExpanded.toggle() }
       )
       .frame(width: geo.size.width, height: geo.size.height, alignment: .trailing)
@@ -49,7 +52,9 @@ struct ReviewView: View {
       VStack(spacing: 0) {
         TopBar(
           title: "",
-          onBack: { vm.exitToHome() },
+          onBack: {
+            if vm.markedPhotos.isEmpty { vm.exitToSetup() } else { showUnconfirmedChanges = true }
+          },
           trailing: AnyView(
             HStack(spacing: 12) {
               MarkedPhotosTrayButton(markedCount: vm.markedPhotos.count) { showTray = true }
@@ -126,6 +131,12 @@ struct ReviewView: View {
             onKeep: { vm.decide(index: vm.currentIndex, decision: .keep) }
           )
         }
+      }
+      .alert("Unconfirmed changes", isPresented: $showUnconfirmedChanges) {
+        Button("Cancel", role: .cancel) {}
+        Button("Review changes") { vm.finishEarly() }
+      } message: {
+        Text("You have marked photos that haven't been confirmed.")
       }
       .sheet(isPresented: $showTray) {
         MarkedPhotosTrayView(

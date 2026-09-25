@@ -39,6 +39,8 @@ struct SessionPhoto: Identifiable, Equatable {
   var decision: ReviewDecision = .undecided
   var isFavorite: Bool = false
   var isLivePhoto: Bool = false
+  /// Held photos aren't remembered as reviewed, so later sessions offer them again.
+  var isHeldForLater: Bool = false
   var dateLabel: String = ""
 
   /// Only Live Photos can be converted to a still.

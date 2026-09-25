@@ -107,6 +107,14 @@ struct SessionDeck {
     return true
   }
 
+  /// Returns whether the photo is in the deck.
+  @discardableResult
+  mutating func setHeldForLater(_ isHeld: Bool, photoID: String) -> Bool {
+    guard let index = index(ofPhotoID: photoID) else { return false }
+    photos[index].isHeldForLater = isHeld
+    return true
+  }
+
   /// Repoints a converted photo at its still copy as a plain keep. Returns whether it's in the deck.
   mutating func applyConversion(photoID: String, stillIdentifier: String) -> Bool {
     guard let index = index(ofPhotoID: photoID) else { return false }

@@ -23,6 +23,7 @@ Review one item at a time in full screen.
 - Pin and reorder frequently used albums
 - Mark Live Photos for conversion to stills
 - Undo deletion or conversion marks
+- Hold a photo for later so it isn't remembered as reviewed and shows up in future sessions
 
 ## Review & Confirmation
 

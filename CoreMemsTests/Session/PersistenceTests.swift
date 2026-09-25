@@ -92,13 +92,13 @@ struct PersistenceTests {
     #expect(SessionHarness(persistence: h.persistence).vm.screen == .home)
   }
 
-  @Test func leavingForHomeClearsTheSavedState() async {
+  @Test func leavingForSetupClearsTheSavedState() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .keep)
 
-    h.vm.exitToHome()
+    h.vm.exitToSetup()
 
-    #expect(h.vm.screen == .home)
+    #expect(h.vm.screen == .setup)
     #expect(h.persistence.snapshot == nil)
   }
 }

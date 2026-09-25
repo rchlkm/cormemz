@@ -8,6 +8,7 @@ struct SessionSnapshotMappingTests {
   @Test func aSnapshotRoundTripsTheSessionState() {
     var photo = SessionPhoto(id: "p1", assetIdentifier: "a1", previewURL: nil)
     photo.decision = .pendingDelete
+    photo.isHeldForLater = true
     let history = [
       DecisionHistoryEntry(
         photoIndex: 0, previousDecision: .undecided, newDecision: .pendingDelete, advancedIndex: true)

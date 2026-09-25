@@ -389,6 +389,17 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  /// Toggles whether the photo is left out of the reviewed history, so a later session shows it again.
+  func toggleHeldForLater(photoID: String) {
+    guard let photo = photo(withID: photoID) else { return }
+    let isHeld = !photo.isHeldForLater
+    if !deck.setHeldForLater(isHeld, photoID: photoID) {
+      peekController.setHeldForLater(isHeld, photoID: photoID)
+    }
+    haptics.albumToggle()
+    persistState()
+  }
+
   /// Repoints each converted photo at its still copy as a plain keep and records the
   /// space freed by dropping the video.
   private func applyConversions(_ conversions: [SessionPhoto], from commit: SessionCommitResult) {
@@ -610,9 +621,10 @@ final class SessionViewModel: ObservableObject {
   /// Remembers the session's kept photos so later sessions skip them.
   /// Photos marked for deletion aren't recorded: they're either gone
   /// after confirmation or, if the session is abandoned, still unreviewed.
+  /// Photos held for later are skipped too.
   private func recordReviewedPhotos() {
     let keptIdentifiers = deck.keptPhotos
-      .filter { pickedAssets[$0.id] != nil }
+      .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
       .map(\.assetIdentifier)
     reviewedPhotosStore.markReviewed(Set(keptIdentifiers))
     reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
@@ -630,11 +642,11 @@ final class SessionViewModel: ObservableObject {
     reviewedPhotoCount = 0
   }
 
-  func exitToHome() {
+  func exitToSetup() {
     endPeek()
     recordReviewedPhotos()
     persistence.clear()
-    screen = .home
+    screen = .setup
   }
 
   func resetForAnotherSession() {

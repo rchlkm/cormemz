@@ -11,6 +11,7 @@ import SwiftUI
 /// buttons render dimmed and don't respond to taps.
 struct PhotoActionRailView: View {
   let isFavorite: Bool
+  let isHeldForLater: Bool
   let containerSize: CGSize
 
   /// How many albums the current photo already belongs to — shown as a
@@ -20,6 +21,9 @@ struct PhotoActionRailView: View {
   /// Shows a spinner in place of the badge while album data loads.
   var isLoadingAlbumData: Bool = false
   let onToggleFavorite: () -> Void
+
+  /// Keeps the photo out of the reviewed history so a later session shows it again.
+  let onToggleHeldForLater: () -> Void
 
   /// Shows or hides the album quick strip.
   let onToggleAlbumStrip: () -> Void
@@ -32,7 +36,7 @@ struct PhotoActionRailView: View {
 
   /// Rough footprint of the rail's capsule, used only to keep it
   /// draggable within `containerSize` instead of off the edge.
-  private let estimatedSize = CGSize(width: 70, height: 270)
+  private let estimatedSize = CGSize(width: 70, height: 320)
 
   var body: some View {
     VStack(spacing: 4) {
@@ -41,8 +45,12 @@ struct PhotoActionRailView: View {
         tint: isFavorite ? .pink : .white,
         action: onToggleFavorite
       )
+      actionRailButton(
+        systemImage: isHeldForLater ? "flag.fill" : "flag",
+        tint: isHeldForLater ? .yellow : .white,
+        action: onToggleHeldForLater
+      )
       albumRailButton
-      actionRailButton(systemImage: "text.bubble", tint: .white, enabled: false) {}
       Image(systemName: "line.3.horizontal")
         .font(.system(size: 11, weight: .semibold))
         .foregroundStyle(.white.opacity(0.45))

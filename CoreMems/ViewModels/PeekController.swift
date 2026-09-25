@@ -72,6 +72,14 @@ final class PeekController: ObservableObject {
     return true
   }
 
+  /// Returns whether the photo is a cached neighbor.
+  @discardableResult
+  func setHeldForLater(_ isHeld: Bool, photoID: String) -> Bool {
+    guard let key = cache.first(where: { $0.value.id == photoID })?.key else { return false }
+    cache[key]?.isHeldForLater = isHeld
+    return true
+  }
+
   private func load() {
     guard let current = state else { return }
     let (older, newer) = (current.olderCount, current.newerCount)

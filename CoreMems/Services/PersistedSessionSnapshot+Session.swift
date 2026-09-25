@@ -14,6 +14,7 @@ extension PersistedSessionSnapshot {
       historyAdvanced: deck.history.map(\.advancedIndex),
       albumAdditions: albumStaging.additions,
       albumRemovals: albumStaging.removals,
+      heldPhotoIDs: deck.photos.filter(\.isHeldForLater).map(\.id),
       pendingNewAlbumRefs: albumStaging.pendingNewAlbums.map(\.ref)
     )
   }
@@ -26,6 +27,7 @@ extension PersistedSessionSnapshot {
     (0..<min(photoIDs.count, decisions.count, assetIdentifiers.count)).map { i in
       var photo = SessionPhoto(id: photoIDs[i], assetIdentifier: assetIdentifiers[i], previewURL: nil)
       photo.decision = ReviewDecision(rawValue: decisions[i]) ?? .undecided
+      photo.isHeldForLater = heldPhotoIDs.contains(photoIDs[i])
       return photo
     }
   }

@@ -55,6 +55,27 @@ struct ConfirmTests {
     #expect(h.vm.reviewedPhotoCount == 2)
   }
 
+  @Test func photosHeldForLaterAreNotRememberedAsReviewed() async {
+    let h = await finishedSession(photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
+    h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(1))
+
+    await h.vm.confirmSession()
+
+    #expect(
+      h.reviewedStore.reviewedIdentifiers()
+        == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
+  }
+
+  @Test func togglingHeldForLaterTwiceRemembersThePhotoAgain() async {
+    let h = await finishedSession(photoCount: 1, decisions: [(0, .keep)])
+    h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(0))
+    h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(0))
+
+    await h.vm.confirmSession()
+
+    #expect(h.reviewedStore.reviewedIdentifiers() == [SessionHarness.assetID(0)])
+  }
+
   @Test func albumCreatedWithAPhotoIsRecentUntilTheCommitSwapsInTheRealAlbum() async {
     let h = await finishedSession(photoCount: 2, decisions: [(0, .keep), (1, .keep)])
     h.vm.createPendingAlbum(name: "Hikes", assignToPhotoID: SessionHarness.photoID(0))
