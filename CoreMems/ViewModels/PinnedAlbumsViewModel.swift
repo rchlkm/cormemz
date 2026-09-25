@@ -34,13 +34,13 @@ final class PinnedAlbumsViewModel: ObservableObject {
   /// Called after an album is created, so other album lists can refresh.
   var onAlbumCreated: (() async -> Void)?
 
-  private let library: PhotoLibraryServicing
+  private let library: AlbumLibrary
   private let store: PinnedAlbumsStoring
   private let defaults: UserDefaults
   private static let sortDefaultsKey = "cm_pinnedAlbumSort"
 
   init(
-    library: PhotoLibraryServicing, store: PinnedAlbumsStoring,
+    library: AlbumLibrary, store: PinnedAlbumsStoring,
     defaults: UserDefaults = .standard
   ) {
     self.library = library

@@ -20,8 +20,9 @@ final class SessionViewModel: ObservableObject {
   }
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
-  @Published var isDeleting: Bool = false
-  @Published var deletionError: String?
+  @Published private(set) var commitState: CommitState = .idle
+  var isDeleting: Bool { commitState == .committing }
+  var deletionError: String? { commitState.failureMessage }
   @Published var convertedLivePhotoCount: Int = 0
 
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
@@ -180,7 +181,8 @@ final class SessionViewModel: ObservableObject {
     }
     sessionBatchSize = batchSize
     isLoadingBatch = false
-    sessionLabel = Self.sessionLabel(for: mode, startDate: startDate)
+    sessionLabel = mode.sessionLabel(
+      startDateText: startDate.map(Self.cardDateFormatter.string(from:)))
     resetSessionTotals()
     screen = .review
     prefetchNextPhoto()
@@ -201,14 +203,6 @@ final class SessionViewModel: ObservableObject {
     return (unfiltered, await unfiltered.nextBatch(count: count))
   }
 
-  private static func sessionLabel(for mode: SelectionMode, startDate: Date?) -> String? {
-    switch mode {
-    case .shuffle: return nil
-    case .recent: return "Most recent first"
-    case .date: return startDate.map { "From \(cardDateFormatter.string(from: $0))" }
-    }
-  }
-
   private func resetSessionTotals() {
     deletedCount = 0
     deletedBytes = 0
@@ -220,16 +214,22 @@ final class SessionViewModel: ObservableObject {
 
   /// Keeps each asset for later deletion and album changes, and returns a photo for it.
   private func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
+    let photos = Self.makePhotos(from: assets, startingAt: offset)
+    for (photo, asset) in zip(photos, assets) {
+      pickedAssets[photo.id] = asset
+    }
+    return photos
+  }
+
+  private static func makePhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
     assets.enumerated().map { idx, asset in
-      let id = "\(asset.localIdentifier)-\(offset + idx)"
-      pickedAssets[id] = asset
-      return SessionPhoto(
-        id: id,
+      SessionPhoto(
+        id: "\(asset.localIdentifier)-\(offset + idx)",
         assetIdentifier: asset.localIdentifier,
         previewURL: nil,
         isFavorite: asset.isFavorite,
         isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
-        dateLabel: asset.creationDate.map(Self.cardDateFormatter.string) ?? ""
+        dateLabel: asset.creationDate.map(cardDateFormatter.string) ?? ""
       )
     }
   }
@@ -285,16 +285,7 @@ final class SessionViewModel: ObservableObject {
   func decide(index: Int, decision: ReviewDecision) -> Task<Void, Never>? {
     guard markingDecision == nil, deck.accepts(decision, at: index) else { return nil }
 
-    switch decision {
-    case .keep:
-      haptics.keep()
-    case .pendingDelete:
-      haptics.markForDeletion()
-    case .convertToStill:
-      haptics.convertToStill()
-    case .undecided:
-      break
-    }
+    haptics.decided(decision)
 
     guard let hold = Self.decisionHolds[decision] else {
       record(index: index, decision: decision)
@@ -570,10 +561,9 @@ final class SessionViewModel: ObservableObject {
     _ changes: SessionLibraryChanges, converting conversions: [SessionPhoto],
     deleting toDelete: [SessionPhoto]
   ) async -> Bool {
-    isDeleting = true
-    deletionError = nil
+    commitState = .committing
     let result = await commitService.commit(changes)
-    isDeleting = false
+    commitState = .idle
 
     switch result {
     case .success(let commit):
@@ -592,7 +582,7 @@ final class SessionViewModel: ObservableObject {
       deck.clearHistory()  // reversible window closes here
 
       guard conversions.allSatisfy({ commit.stills[$0.id] != nil }) else {
-        deletionError = PhotoLibraryError.creationFailed.localizedDescription
+        commitState = .failed(PhotoLibraryError.creationFailed.localizedDescription)
         persistState()
         return false
       }
@@ -600,7 +590,7 @@ final class SessionViewModel: ObservableObject {
     case .failure(let error):
       // Declining the system prompt isn't an error, but the session stays open.
       if (error as? PHPhotosError)?.code != .userCancelled {
-        deletionError = error.localizedDescription
+        commitState = .failed(error.localizedDescription)
       }
       return false
     }

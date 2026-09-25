@@ -19,9 +19,9 @@ struct SessionCommitResult {
 
 /// Commits a session's library changes and measures the space they free.
 final class SessionCommitService {
-  private let library: PhotoLibraryServicing
+  private let library: LibraryEditing
 
-  init(library: PhotoLibraryServicing) {
+  init(library: LibraryEditing) {
     self.library = library
   }
 

@@ -18,6 +18,15 @@ enum SelectionMode: String, Equatable, CaseIterable {
   case shuffle
   case recent
   case date
+
+  /// The review screen's caption; `startDateText` fills `.date`.
+  func sessionLabel(startDateText: String?) -> String? {
+    switch self {
+    case .shuffle: return nil
+    case .recent: return "Most recent first"
+    case .date: return startDateText.map { "From \($0)" }
+    }
+  }
 }
 
 /// A single photo in a review session. In production `assetIdentifier`

@@ -14,6 +14,17 @@ protocol HapticsServicing {
   func albumToggle()
 }
 
+extension HapticsServicing {
+  func decided(_ decision: ReviewDecision) {
+    switch decision {
+    case .keep: keep()
+    case .pendingDelete: markForDeletion()
+    case .convertToStill: convertToStill()
+    case .undecided: break
+    }
+  }
+}
+
 /// Haptic + system-sound feedback for review decisions.
 ///
 /// `AudioServicesPlaySystemSound` respects the ring/silent switch by
