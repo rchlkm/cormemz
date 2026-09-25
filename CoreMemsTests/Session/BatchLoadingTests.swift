@@ -95,4 +95,26 @@ struct BatchLoadingTests {
     #expect(await eventually { h.vm.screen == .pendingReview })
     #expect(await requestedBatchSizes(h).last == Self.batchSize)
   }
+
+  @Test func aSessionNeverLoadsPastItsPhotoCap() async {
+    let cap = SessionSettings.maxPhotosPerSession
+    let h = await SessionHarness.started(photoCount: cap + 100, batchSize: 50)
+
+    for index in 0..<cap {
+      await h.decide(index, .keep)
+      try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(await eventually { h.vm.screen == .pendingReview })
+    #expect(h.vm.photos.count == cap)
+    #expect(h.vm.reachedSessionCap)
+  }
+
+  @Test func endingEarlyIsNotTheSessionCap() async {
+    let h = await started(photoCount: 40)
+
+    h.vm.finishEarly()
+
+    #expect(!h.vm.reachedSessionCap)
+  }
 }

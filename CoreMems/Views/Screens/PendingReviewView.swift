@@ -36,6 +36,17 @@ struct PendingReviewView: View {
     VStack(alignment: .leading, spacing: 0) {
       TopBar(title: "Before you go", onBack: { vm.screen = .review })
 
+      if vm.reachedSessionCap {
+        Label(
+          "You've reviewed \(SessionSettings.maxPhotosPerSession) photos. Confirm your changes, then start another session to keep going.",
+          systemImage: "info.circle"
+        )
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 26)
+        .padding(.bottom, 8)
+      }
+
       if marked.isEmpty {
         ScrollView {
           header(

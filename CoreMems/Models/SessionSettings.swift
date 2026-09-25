@@ -5,6 +5,8 @@ import Foundation
 struct SessionSettings {
   static let checkInIntervalRange = 5...50
   static let defaultCheckInInterval = 12
+  /// Photos a session loads before it goes to Pending Review, so nothing stays staged for long.
+  static let maxPhotosPerSession = 200
   private static let checkInIntervalKey = "cm_checkInInterval"
   private static let includesReviewedKey = "cm_includesReviewedPhotos"
 

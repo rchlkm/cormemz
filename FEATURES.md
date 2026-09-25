@@ -19,7 +19,7 @@ unless a feature is called out as photo- or video-specific.
 
 **How sessions run**
 
-- Sessions run until you stop, with a periodic check-in
+- Sessions run until you stop, with a periodic check-in, and go to the final review after 200 photos
 - Photos you've already kept are skipped in later sessions
 
 ### Settings

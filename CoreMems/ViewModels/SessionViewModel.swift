@@ -82,6 +82,7 @@ final class SessionViewModel: ObservableObject {
   private let metadataService: PhotoMetadataServicing
   private let statsStore: LifetimeStatsServicing
   private let reviewedPhotosStore: ReviewedPhotosStoring
+  private let imageLoader: PhotoImageLoader
 
   static let cardDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -101,7 +102,8 @@ final class SessionViewModel: ObservableObject {
     statsStore: LifetimeStatsServicing = LifetimeStatsService(),
     pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore(),
     reviewedPhotosStore: ReviewedPhotosStoring = ReviewedPhotosStore(),
-    settings: SessionSettings = SessionSettings()
+    settings: SessionSettings = SessionSettings(),
+    imageLoader: PhotoImageLoader = .shared
   ) {
     self.library = library
     self.persistence = persistence
@@ -109,6 +111,7 @@ final class SessionViewModel: ObservableObject {
     self.metadataService = metadataService
     self.statsStore = statsStore
     self.settings = settings
+    self.imageLoader = imageLoader
     commitService = SessionCommitService(library: library)
     pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
     self.reviewedPhotosStore = reviewedPhotosStore
@@ -217,6 +220,7 @@ final class SessionViewModel: ObservableObject {
   /// Keeps each asset for later deletion and album changes, and returns a photo for it.
   private func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
     let photos = Self.makePhotos(from: assets, startingAt: offset)
+    imageLoader.register(assets)
     for (photo, asset) in zip(photos, assets) {
       pickedAssets[photo.id] = asset
     }
@@ -239,9 +243,9 @@ final class SessionViewModel: ObservableObject {
   /// Loads another batch whenever fewer than `lookaheadBatches` batches of
   /// photos remain ahead of the current card.
   private func loadMoreIfNeeded() {
-    let batchSize = sessionBatchSize
-    guard let source = assetSource, !isLoadingBatch,
-      deck.remainingCount < Self.lookaheadBatches * batchSize
+    let batchSize = min(sessionBatchSize, remainingSessionCapacity)
+    guard let source = assetSource, !isLoadingBatch, batchSize > 0,
+      deck.remainingCount < Self.lookaheadBatches * sessionBatchSize
     else { return }
     isLoadingBatch = true
     Task {
@@ -259,9 +263,18 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  private var remainingSessionCapacity: Int {
+    max(SessionSettings.maxPhotosPerSession - deck.photos.count, 0)
+  }
+
+  /// Whether every photo the session may load has been reviewed.
+  var reachedSessionCap: Bool { deck.isExhausted && remainingSessionCapacity == 0 }
+
   /// An empty deck only means the session is over once no more photos can arrive.
   private func showPendingReviewIfDeckEmpty() {
-    guard deck.isExhausted, assetSource == nil, screen == .review else { return }
+    guard deck.isExhausted, assetSource == nil || remainingSessionCapacity == 0,
+      screen == .review
+    else { return }
     endPeek()
     screen = .pendingReview
   }
@@ -527,7 +540,7 @@ final class SessionViewModel: ObservableObject {
   private func prefetchNextPhoto() {
     guard let next = deck.nextPhoto, next.previewURL == nil else { return }
     Task {
-      await PhotoImageLoader.shared.prefetchNext(
+      await imageLoader.prefetchNext(
         identifier: next.assetIdentifier, targetSize: Self.prefetchTargetSize)
     }
   }
@@ -648,6 +661,7 @@ final class SessionViewModel: ObservableObject {
         pickedAssets[photo.id] = asset
       }
     }
+    imageLoader.register(Array(assetsByID.values))
   }
 
   private func restoreIfInterrupted() {

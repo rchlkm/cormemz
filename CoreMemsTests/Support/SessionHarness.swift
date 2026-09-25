@@ -33,7 +33,8 @@ struct SessionHarness {
       statsStore: stats,
       pinnedAlbumsStore: MockPinnedAlbumsStore(),
       reviewedPhotosStore: reviewedStore,
-      settings: SessionSettings(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!))
+      settings: SessionSettings(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!),
+      imageLoader: PhotoImageLoader { @Sendable _, _ in nil })
   }
 
   static func assetID(_ index: Int) -> String { "asset-\(index)" }
