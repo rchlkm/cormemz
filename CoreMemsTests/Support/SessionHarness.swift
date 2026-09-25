@@ -39,8 +39,8 @@ struct SessionHarness {
 
   static func assetID(_ index: Int) -> String { "asset-\(index)" }
 
-  /// The session photo ID a library asset gets when it is the `index`th photo of a session.
-  static func photoID(_ index: Int) -> String { "asset-\(index)-\(index)" }
+  /// The session photo ID of a library asset.
+  static func photoID(_ index: Int) -> String { assetID(index) }
 
   /// A harness whose session is already under review, over `photoCount` library photos.
   /// `liveIndexes` are Live Photos; `sizes` maps an asset index to its reported bytes.

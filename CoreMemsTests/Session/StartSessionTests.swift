@@ -24,6 +24,14 @@ struct StartSessionTests {
     #expect(h.vm.photos.map(\.assetIdentifier) == [SessionHarness.assetID(1), SessionHarness.assetID(2)])
   }
 
+  @Test func photoIDsAreTheAssetIdentifiers() async {
+    let h = harness(assetCount: 3)
+
+    await h.vm.startSession(mode: .recent, startDate: nil)
+
+    #expect(h.vm.photos.map(\.id) == h.vm.photos.map(\.assetIdentifier))
+  }
+
   @Test func reviewedPhotosCanBeIncluded() async {
     let h = harness(assetCount: 3, reviewed: [0])
     h.vm.includesReviewedPhotos = true

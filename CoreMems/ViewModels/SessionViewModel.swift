@@ -180,7 +180,7 @@ final class SessionViewModel: ObservableObject {
       deck = SessionDeck(photos: Self.mockPhotos(count: limit))
       assetSource = nil
     } else {
-      deck = SessionDeck(photos: registerPhotos(from: assets, startingAt: 0))
+      deck = SessionDeck(photos: registerPhotos(from: assets))
       assetSource = assets.count < initialCount ? nil : source
     }
     sessionBatchSize = batchSize
@@ -218,8 +218,8 @@ final class SessionViewModel: ObservableObject {
   }
 
   /// Keeps each asset for later deletion and album changes, and returns a photo for it.
-  private func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
-    let photos = Self.makePhotos(from: assets, startingAt: offset)
+  private func registerPhotos(from assets: [PHAsset]) -> [SessionPhoto] {
+    let photos = Self.makePhotos(from: assets)
     imageLoader.register(assets)
     for (photo, asset) in zip(photos, assets) {
       pickedAssets[photo.id] = asset
@@ -227,10 +227,10 @@ final class SessionViewModel: ObservableObject {
     return photos
   }
 
-  private static func makePhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
-    assets.enumerated().map { idx, asset in
+  private static func makePhotos(from assets: [PHAsset]) -> [SessionPhoto] {
+    assets.map { asset in
       SessionPhoto(
-        id: "\(asset.localIdentifier)-\(offset + idx)",
+        id: asset.localIdentifier,
         assetIdentifier: asset.localIdentifier,
         previewURL: nil,
         isFavorite: asset.isFavorite,
@@ -254,7 +254,7 @@ final class SessionViewModel: ObservableObject {
       isLoadingBatch = false
       let decided = Set(deck.photos.map(\.assetIdentifier))
       let fresh = assets.filter { !decided.contains($0.localIdentifier) }
-      deck.append(registerPhotos(from: fresh, startingAt: deck.photos.count))
+      deck.append(registerPhotos(from: fresh))
       if assets.count < batchSize { assetSource = nil }
       prefetchNextPhoto()
       showPendingReviewIfDeckEmpty()
@@ -307,9 +307,11 @@ final class SessionViewModel: ObservableObject {
       return Task {}
     }
     markingDecision = decision
+    let photoID = deck.photos[index].id
     return Task {
       try? await Task.sleep(for: hold)
       markingDecision = nil
+      guard let index = deck.index(ofPhotoID: photoID) else { return }
       record(index: index, decision: decision)
     }
   }
@@ -505,7 +507,7 @@ final class SessionViewModel: ObservableObject {
       let id = neighbor.localIdentifier
       if let inDeck = deckByAsset[id] { return inDeck }
       if let peeked = peekController.cachedPhoto(forAssetID: id) { return peeked }
-      let peeked = registerPhotos(from: [neighbor], startingAt: 0)[0]
+      let peeked = registerPhotos(from: [neighbor])[0]
       peekController.cache(peeked, forAssetID: id)
       return peeked
     }

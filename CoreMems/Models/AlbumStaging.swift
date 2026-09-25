@@ -51,7 +51,9 @@ struct AlbumStaging {
 
     if isMember {
       // Also drops an add staged before membership loaded.
-      additions[photoID]?.remove(ref)
+      if additions[photoID]?.remove(ref) != nil {
+        adjustPendingCount(of: ref, by: -1)
+      }
       if additions[photoID]?.isEmpty == true {
         additions.removeValue(forKey: photoID)
       }
@@ -65,19 +67,19 @@ struct AlbumStaging {
       }
     } else {
       additions[photoID, default: []].insert(ref)
+      adjustPendingCount(of: ref, by: 1)
     }
-    refreshPendingAlbumCounts()
     return !isMember
   }
 
   /// Adds a not-yet-real album, optionally staging it onto one photo.
   mutating func createPendingAlbum(name: String, assignTo photoID: String?) {
     let ref = AlbumRef.pendingNew(tempID: UUID().uuidString, name: name)
-    pendingNewAlbums.append(AlbumOption(ref: ref, name: name))
+    pendingNewAlbums.append(AlbumOption(ref: ref, name: name, assetCount: 0))
     if let photoID {
       additions[photoID, default: []].insert(ref)
+      adjustPendingCount(of: ref, by: 1)
     }
-    refreshPendingAlbumCounts()
   }
 
   /// The staged changes minus those on photos that are being deleted.
@@ -92,6 +94,11 @@ struct AlbumStaging {
     additions = [:]
     removals = [:]
     pendingNewAlbums = []
+  }
+
+  private mutating func adjustPendingCount(of ref: AlbumRef, by delta: Int) {
+    guard let i = pendingNewAlbums.firstIndex(where: { $0.ref == ref }) else { return }
+    pendingNewAlbums[i].assetCount = (pendingNewAlbums[i].assetCount ?? 0) + delta
   }
 
   private mutating func refreshPendingAlbumCounts() {

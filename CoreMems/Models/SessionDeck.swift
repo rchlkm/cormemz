@@ -60,8 +60,11 @@ struct SessionDeck {
     photos.append(contentsOf: newPhotos)
   }
 
+  /// Removes the photos and keeps the active card on the same photo.
   mutating func remove(photoIDs: Set<String>) {
+    let removedBeforeCursor = photos.prefix(currentIndex).filter { photoIDs.contains($0.id) }.count
     photos.removeAll { photoIDs.contains($0.id) }
+    currentIndex -= removedBeforeCursor
   }
 
   mutating func clearHistory() {

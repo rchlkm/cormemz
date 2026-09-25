@@ -204,4 +204,36 @@ struct SessionDeckTests {
     #expect(deck.photos.map(\.id) == ["p1", "p2"])
     #expect(deck.history.isEmpty)
   }
+
+  @Test func removingPhotosBehindTheCardKeepsItOnTheSamePhoto() {
+    var deck = makeDeck(count: 4)
+    deck.record(index: 0, decision: .pendingDelete)
+    deck.record(index: 1, decision: .keep)
+
+    deck.remove(photoIDs: ["p0"])
+
+    #expect(deck.currentPhoto?.id == "p2")
+    #expect(deck.currentIndex == 1)
+  }
+
+  @Test func removingPhotosAheadOfTheCardLeavesItInPlace() {
+    var deck = makeDeck(count: 4)
+    deck.record(index: 0, decision: .keep)
+
+    deck.remove(photoIDs: ["p3"])
+
+    #expect(deck.currentPhoto?.id == "p1")
+    #expect(deck.currentIndex == 1)
+  }
+
+  @Test func removingEveryReviewedPhotoLeavesAnExhaustedDeckExhausted() {
+    var deck = makeDeck(count: 2)
+    deck.record(index: 0, decision: .pendingDelete)
+    deck.record(index: 1, decision: .pendingDelete)
+
+    deck.remove(photoIDs: ["p0", "p1"])
+
+    #expect(deck.currentIndex == 0)
+    #expect(deck.isExhausted)
+  }
 }

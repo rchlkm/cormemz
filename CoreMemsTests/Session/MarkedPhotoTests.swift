@@ -15,6 +15,17 @@ struct MarkedPhotoTests {
     #expect(h.vm.pendingConversions.map(\.id) == [SessionHarness.photoID(1)])
   }
 
+  @Test func aHeldDecisionLandsOnItsPhotoWhenTheDeckShiftsMeanwhile() async {
+    let h = await SessionHarness.started(photoCount: 3, liveIndexes: [0])
+
+    let pending = h.vm.decide(index: 0, decision: .convertToStill)
+    h.vm.photos.insert(SessionPhoto(id: "extra", assetIdentifier: "extra", previewURL: nil), at: 0)
+    await pending?.value
+
+    #expect(h.vm.photo(withID: SessionHarness.photoID(0))?.decision == .convertToStill)
+    #expect(h.vm.photo(withID: "extra")?.decision == ReviewDecision.undecided)
+  }
+
   @Test func markedPhotosListDeletionsAndConversionsInReviewOrder() async {
     let h = await SessionHarness.started(photoCount: 4, liveIndexes: [1])
     await h.decide(0, .pendingDelete)
