@@ -1,89 +1,66 @@
-# Core Mems — Features
+# Corememz
 
-The full feature list, plus what's planned. For the overview, see
-[README.md](README.md).
+See [README.md](README.md) for the overview.
 
-Everywhere this doc says "photo," the same applies to videos, Live Photos,
-timelapses, screenshots, and any other media type in the Photos library,
-unless a feature is called out as photo- or video-specific.
+## Sessions
 
-## Features
+- **Shuffle** — random media from your library
+- **Most Recent** — newest first
+- **From a Date** — start from a specific date and work backward
+- Periodic check-ins and a final review after 200 items
+- Previously reviewed items can be skipped in future sessions
 
-### Session Setup
+## Review
 
-**Selection modes**, chosen at session start:
-
-1. **Shuffle** — random from the whole library
-2. **Most Recent** — newest first, working backward
-3. **From a Date** — starts on a chosen day and works backward in time, e.g. a trip
-
-**How sessions run**
-
-- Sessions run until you stop, with a periodic check-in, and go to the final review after 200 photos
-- Photos you've already kept are skipped in later sessions
-
-### Settings
-
-- Set check-in frequency
-- Include or reset reviewed photos
-- Choose pinned albums, and sort them by your own drag order or by most recently used
-- View lifetime stats
-
-### Review Interaction
-
-One photo at a time, full-screen, decided with a swipe or the buttons below it.
-
-**Gestures**
+Review one item at a time in full screen.
 
 - Swipe right → Keep
 - Swipe down → Mark for deletion
-- Swipe left → Go back (returns to the previous photo, which keeps its decision so you can change it)
-- Swipe up → Nearby photos (the photos taken just before and after this one); swipe down to close
+- Swipe left → Go back
+- Swipe up → Browse nearby media
+- Favorite media
+- Add media to Photos albums or create new ones
+- Pin and reorder frequently used albums
+- Mark Live Photos for conversion to stills
+- Undo deletion or conversion marks
 
-**Along the way**
+## Review & Confirmation
 
-- Browse nearby photos in a strip, scrolling through them (more load as you reach either end) and zooming in to full screen; mark any of them for deletion (and restore it from the same button), mark Live Photos for conversion, favorite them, or file them into albums; the filmstrip replaces the bottom buttons, and swipe decisions and going back pause while browsing
-- Favorite a photo
-- File a photo into a Photos album, including a new one, with pinned albums in their own section shown first; reorder them or switch their sort right there
-- Pin or unpin an album without leaving the review
-- Mark a Live Photo for conversion to a still photo
-- Going back onto a photo shows its decision on the card and keeps it in the marked-photos tray, so you can file a converted still into an album or change your mind
-- Open the marked-photos tray to see everything marked for deletion or conversion and restore items to Keep
-- Open a marked photo full screen to undo its mark, from the tray or the final review
+- Review everything marked for deletion or conversion
+- Filter by All, Delete, or Convert
+- Restore items before confirming
+- See what will be kept, deleted, or converted
+- See how much storage will be cleared
+- Nothing changes in Apple Photos until explicit confirmation
+- Deleted media goes through Apple's Recently Deleted
 
-### End-of-Session Review & Confirmation
+## Progress
 
-- Review everything marked for deletion or conversion before confirming, and filter or swipe between All, Delete, and Convert
-- Deleted photos move to Recently Deleted, and favorites are flagged before you confirm
-- See a summary of what was kept vs converted vs deleted
-- See how much of your library you've reviewed, here and in lifetime stats
+- Media reviewed, kept, deleted, and converted
+- Sessions completed
+- Live Photos converted
+- Storage cleared
+- Kept / deleted / converted breakdown
+- Lifetime stats with the option to reset
 
-### Lifetime Stats
+## Settings
 
-- "Your core memories"
-- Running totals across sessions: reviewed, kept, deleted, sessions completed
-- Live Photos converted to stills
-- Storage cleaned, split between deleted photos and Live Photo conversions
-- Kept-vs-deleted-vs-converted ratio bar
-- Clear lifetime stats, which resets the totals and the tracking date
+- Check-in frequency
+- Reviewed-media tracking
+- Pinned albums and sorting
 
-### Access & Inventory Edge States
+# What's Next
 
-- Prompt to share more photos when access is limited
-- Friendly message when the library is empty
+### Review Modes
 
----
+- **Screenshots** — review screenshots separately
 
-## Planned
+### Organization
 
-### Session Setup
+- **Smart album suggestions** — suggest albums based on recency or visual similarity
 
-- **Review Screenshots** — a dedicated selection mode scoped to just screenshots
+### Editing
 
-### Review Interaction
-
-- **Smart folder suggestions** — auto-recommend a folder based on recency or visual similarity
-- **Edit photos** — crop, adjust, etc., saved as a new photo that retains the original's metadata
-- **Edit videos** — trim clip duration, saved as a new clip while deleting the original
+- **Photo editing** — crop and adjust photos while preserving the original
+- **Video editing** — trim videos while preserving the original
 - **Paste filter presets**
-- ~~**Show item in Photos app** — jump straight to it in Apple Photos~~ — PhotoKit does not support this

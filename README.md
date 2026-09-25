@@ -1,36 +1,31 @@
 # corememz
 
-## Problem & Goal
+**Clean up your camera roll while revisiting core memories 🎉**
 
-People avoid cleaning up large photo libraries because reviewing everything
-at once is overwhelming. Core Mems lets someone review a stream of media a
-few at a time, make reversible keep/delete decisions, and confirm deletion
-only at the end — without guilt-based framing.
+I have 100k+ photos and videos in my library, and I’m constantly running out of iCloud storage.
 
-## Ground rules
+I’ve wanted to clean up and organize my library for years, but going through everything is overwhelming. I wanted an easier way to decide what to keep, delete, or put into albums.
 
-1. Apple Photos remains the source of truth.
-2. Marking an item for deletion is not deletion — no Photos-library
-   mutation happens until explicit final confirmation.
-3. An item never appears twice as an active review item within one
-   session.
-4. Confirmed deletion goes through Apple's Recently Deleted mechanism; the
-   app must never imply permanent deletion.
+I tried a few existing apps, but none quite worked the way I wanted, and I didn’t want another subscription. So with the help of Claude Code, I built corememz.
+
+It’s an iOS app for cleaning up and organizing your photos, with some fun along the way: see your progress, track how much storage you’ve cleared, and rediscover photos you forgot about.
+
+**Make some room, get organized, and rediscover your core memories.**
 
 ## What it does
 
-- **Review a few at a time**: shuffle, most recent, or from a date. Sessions
-  run until you stop, with a periodic check-in.
-- **Keep or mark for deletion** with a swipe, with a way back. Nothing is
-  deleted until you confirm at the end.
-- **Favorites and albums**: heart a photo or file it into a Photos album as
-  you go, with pinned albums for the ones you use most.
-- **Live Photos**: convert a Live Photo to a still.
-- **Marked-photos tray and final review**: see and restore everything marked
-  for deletion or conversion before confirming.
-- **Skips what you've reviewed**, so each session picks up where the last
-  one left off.
-- **Settings and lifetime stats**: check-in frequency, reviewed photos,
-  pinned albums, and running totals across sessions.
+- **Review:** Shuffle your library, start with recent photos, or pick a date.
+- **Keep or delete:** Swipe through photos and mark them for deletion. Review everything before confirming.
+- **Organize:** Favorite photos and add them to albums as you go, with quick access to your pinned albums.
+- **Live Photos:** Convert Live Photos to stills.
+- **Progress:** Track what you’ve reviewed and how much storage you’ve cleared.
+- **Pick up where you left off:** Previously reviewed photos are skipped in future sessions.
+
+### A few rules
+
+- Apple Photos remains the source of truth.
+- Nothing is changed until you explicitly confirm.
+- Deletions go through Apple's Recently Deleted.
+- You can undo your decisions before confirming.
 
 See [FEATURES.md](FEATURES.md) for the full feature list and what's planned.
