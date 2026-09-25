@@ -6,15 +6,19 @@ struct CompletionView: View {
   let deletedCount: Int
   let albumAssignedCount: Int
   let convertedCount: Int
+  let deletedBytes: Int64
+  let convertedBytesSaved: Int64
   let reviewedPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
 
   /// Converted photos are also counted in `keptCount`; they get their own tile.
+  private var keptUnchangedCount: Int { max(keptCount - convertedCount, 0) }
+
   private var tiles: [StatTileItem] {
     var items = [
       StatTileItem(
-        label: "Kept", value: max(keptCount - convertedCount, 0).formatted(),
+        label: "Kept", value: keptUnchangedCount.formatted(),
         systemImage: "checkmark", tint: ReviewDecision.keep.tint),
       StatTileItem(
         label: "Deleted", value: deletedCount.formatted(), systemImage: "trash",
@@ -47,6 +51,11 @@ struct CompletionView: View {
               .foregroundStyle(.secondary)
               .multilineTextAlignment(.center)
           }
+          OutcomeRatioCard(
+            kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
+          if deletedBytes + convertedBytesSaved > 0 {
+            SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
+          }
           ReviewProgressCard(reviewed: reviewedPhotoCount, total: libraryPhotoCount)
         }
         .padding(.horizontal, 16)
@@ -66,7 +75,7 @@ struct CompletionView: View {
     VStack(spacing: 10) {
       Image(systemName: "checkmark.circle.fill")
         .font(.system(size: 44))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(ReviewDecision.keep.tint)
       Text("Session complete")
         .font(.title2.bold())
     }
@@ -79,6 +88,8 @@ struct CompletionView: View {
     deletedCount: 3,
     albumAssignedCount: 2,
     convertedCount: 1,
+    deletedBytes: 1_840_000_000,
+    convertedBytesSaved: 310_000_000,
     reviewedPhotoCount: 1_206,
     libraryPhotoCount: 3_100,
     onAgain: {})

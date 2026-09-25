@@ -37,6 +37,8 @@ struct SessionLibraryChanges {
 struct SessionLibraryResult {
   /// Local identifier of each still copy, by session photo ID.
   var stillIdentifiers: [String: String] = [:]
+  /// File size in bytes of each still copy, by session photo ID.
+  var stillSizes: [String: Int64] = [:]
   /// Local identifiers of albums created for former `.pendingNew` refs.
   var createdAlbumIDs: Set<String> = []
 }

@@ -109,6 +109,8 @@ struct RootView: View {
             deletedCount: vm.deletedCount,
             albumAssignedCount: vm.albumAssignedCount,
             convertedCount: vm.convertedLivePhotoCount,
+            deletedBytes: vm.deletedBytes,
+            convertedBytesSaved: vm.convertedBytesSaved,
             reviewedPhotoCount: vm.reviewedPhotoCount,
             libraryPhotoCount: vm.eligiblePhotoCount,
             onAgain: { vm.resetForAnotherSession() }

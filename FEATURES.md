@@ -55,7 +55,7 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 
 - Review everything marked for deletion or conversion before confirming, and filter or swipe between All, Delete, and Convert
 - Deleted photos move to Recently Deleted, and favorites are flagged before you confirm
-- See a summary of what was kept and deleted
+- See a summary of what was kept vs converted vs deleted
 - See how much of your library you've reviewed, here and in lifetime stats
 
 ### Lifetime Stats
@@ -64,7 +64,7 @@ One photo at a time, full-screen, decided with a swipe or the buttons below it.
 - Running totals across sessions: reviewed, kept, deleted, sessions completed
 - Live Photos converted to stills
 - Storage cleaned, split between deleted photos and Live Photo conversions
-- Kept-vs-deleted ratio bar
+- Kept-vs-deleted-vs-converted ratio bar
 - Clear lifetime stats, which resets the totals and the tracking date
 
 ### Access & Inventory Edge States

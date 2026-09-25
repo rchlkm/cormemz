@@ -20,6 +20,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var authorizationStatus: PHAuthorizationStatus = .authorized
   /// Bytes reported per asset identifier; unlisted assets report zero.
   var storageSizes: [String: Int64] = [:]
+  /// Bytes of the still copy made for each original asset identifier; unlisted assets report zero.
+  var stillSizes: [String: Int64] = [:]
   /// When set, every commit returns this instead of succeeding.
   var commitFailure: Error?
   /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
@@ -87,7 +89,11 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     let stills = changes.conversions
       .filter { !photoIDsWithoutStill.contains($0.key) }
       .mapValues { "still-\($0.localIdentifier)" }
-    return .success(SessionLibraryResult(stillIdentifiers: stills, createdAlbumIDs: createdAlbumIDs))
+    let sizes = changes.conversions
+      .filter { stills[$0.key] != nil }
+      .mapValues { stillSizes[$0.localIdentifier] ?? 0 }
+    return .success(SessionLibraryResult(
+      stillIdentifiers: stills, stillSizes: sizes, createdAlbumIDs: createdAlbumIDs))
   }
 
   func createAlbum(named name: String) async -> Result<String, Error> {

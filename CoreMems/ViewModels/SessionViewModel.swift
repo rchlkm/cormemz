@@ -24,6 +24,8 @@ final class SessionViewModel: ObservableObject {
   var isDeleting: Bool { commitState == .committing }
   var deletionError: String? { commitState.failureMessage }
   @Published var convertedLivePhotoCount: Int = 0
+  @Published private(set) var deletedBytes: Int64 = 0
+  @Published private(set) var convertedBytesSaved: Int64 = 0
 
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
   @Published private(set) var markingDecision: ReviewDecision?
@@ -63,7 +65,6 @@ final class SessionViewModel: ObservableObject {
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   let peekController = PeekController()
   private var peekObservation: AnyCancellable?
-  private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: (any AssetBatching)?
   private var sessionBatchSize = SessionSettings.defaultCheckInInterval
@@ -207,6 +208,7 @@ final class SessionViewModel: ObservableObject {
     deletedCount = 0
     deletedBytes = 0
     convertedLivePhotoCount = 0
+    convertedBytesSaved = 0
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
@@ -382,6 +384,7 @@ final class SessionViewModel: ObservableObject {
       if let asset = still.asset { pickedAssets[photo.id] = asset }
       statsStore.recordLivePhotoConversion(bytesSaved: still.bytesSaved)
       convertedLivePhotoCount += 1
+      convertedBytesSaved += still.bytesSaved
     }
   }
 

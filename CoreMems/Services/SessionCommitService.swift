@@ -42,17 +42,17 @@ final class SessionCommitService {
     var stills: [String: ConvertedStill] = [:]
     for (photoID, identifier) in outcome.stillIdentifiers {
       let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject
-      let bytesSaved = await spaceFreed(originalSize: originalSizes[photoID], newAsset: asset)
       stills[photoID] = ConvertedStill(
-        identifier: identifier, asset: asset, bytesSaved: bytesSaved)
+        identifier: identifier, asset: asset,
+        bytesSaved: spaceFreed(
+          originalSize: originalSizes[photoID], stillSize: outcome.stillSizes[photoID]))
     }
     return .success(
       SessionCommitResult(outcome: outcome, bytesDeleted: bytesDeleted, stills: stills))
   }
 
-  private func spaceFreed(originalSize: Int64?, newAsset: PHAsset?) async -> Int64 {
-    guard let originalSize, let newAsset, let newSize = await library.storageSize(of: [newAsset])
-    else { return 0 }
-    return max(originalSize - newSize, 0)
+  private func spaceFreed(originalSize: Int64?, stillSize: Int64?) -> Int64 {
+    guard let originalSize, let stillSize else { return 0 }
+    return max(originalSize - stillSize, 0)
   }
 }

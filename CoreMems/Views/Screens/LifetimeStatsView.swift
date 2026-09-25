@@ -10,19 +10,6 @@ struct LifetimeStatsView: View {
 
   @State private var showClearConfirmation = false
 
-  private struct RatioSegment: Identifiable {
-    let label: String
-    let count: Int
-    let color: Color
-    var id: String { label }
-  }
-
-  private struct SpaceRow: Identifiable {
-    let label: String
-    let bytes: Int64
-    var id: String { label }
-  }
-
   private var tiles: [StatTileItem] {
     [
       StatTileItem(
@@ -38,34 +25,17 @@ struct LifetimeStatsView: View {
     ]
   }
 
-  private var ratioSegments: [RatioSegment] {
-    [
-      RatioSegment(label: "Kept", count: stats.keptUnchanged, color: ReviewDecision.keep.tint),
-      RatioSegment(
-        label: "Converted", count: stats.livePhotosConverted,
-        color: ReviewDecision.convertToStill.tint),
-      RatioSegment(
-        label: "Deleted", count: stats.totalDeleted, color: ReviewDecision.pendingDelete.tint),
-    ]
-  }
-
-  private var ratioTotal: Int { ratioSegments.reduce(0) { $0 + $1.count } }
-
-  private var spaceRows: [SpaceRow] {
-    [
-      SpaceRow(label: "Deleted photos", bytes: stats.bytesDeleted),
-      SpaceRow(label: "Live Photo conversions", bytes: stats.bytesSavedByConversion),
-    ]
-  }
-
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
         hero
         StatTileGrid(items: tiles)
-        ratioCard
+        OutcomeRatioCard(
+          kept: stats.keptUnchanged, converted: stats.livePhotosConverted,
+          deleted: stats.totalDeleted)
         ReviewProgressCard(reviewed: reviewedPhotoCount, total: libraryPhotoCount)
-        spaceCard
+        SpaceCleanedCard(
+          deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion)
         footer
         clearButton
       }
@@ -84,7 +54,7 @@ struct LifetimeStatsView: View {
         .monospacedDigit()
       Text("photos deleted")
         .font(.headline)
-      Text("\(byteString(stats.bytesCleaned)) cleaned")
+      Text("\(stats.bytesCleaned.fileSizeText) cleaned")
         .font(.subheadline)
         .foregroundStyle(.secondary)
     }
@@ -92,76 +62,6 @@ struct LifetimeStatsView: View {
     .padding(.vertical, 28)
     .cardBackground()
     .accessibilityElement(children: .combine)
-  }
-
-  private var ratioCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Kept vs deleted vs converted")
-        .font(.headline)
-      ratioBar
-      HStack(spacing: 16) {
-        ForEach(ratioSegments) { legendItem($0) }
-      }
-    }
-    .padding(16)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .cardBackground()
-    .accessibilityElement(children: .combine)
-  }
-
-  private var ratioBar: some View {
-    GeometryReader { proxy in
-      let segments = ratioSegments.filter { $0.count > 0 }
-      let gaps = CGFloat(max(segments.count - 1, 0)) * Self.ratioBarSpacing
-      let available = proxy.size.width - gaps
-      HStack(spacing: Self.ratioBarSpacing) {
-        if segments.isEmpty {
-          Capsule().fill(Color(uiColor: .tertiarySystemFill))
-        }
-        ForEach(segments) { segment in
-          Capsule()
-            .fill(segment.color)
-            .frame(width: available * CGFloat(segment.count) / CGFloat(ratioTotal))
-        }
-      }
-    }
-    .frame(height: 14)
-  }
-
-  private func legendItem(_ segment: RatioSegment) -> some View {
-    HStack(spacing: 6) {
-      Circle()
-        .fill(segment.color)
-        .frame(width: 8, height: 8)
-      Text(segment.label)
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-      Text(percentString(segment))
-        .font(.footnote.weight(.semibold))
-        .monospacedDigit()
-    }
-  }
-
-  private func percentString(_ segment: RatioSegment) -> String {
-    guard ratioTotal > 0 else { return "–" }
-    return (Double(segment.count) / Double(ratioTotal)).formatted(
-      .percent.precision(.fractionLength(0)))
-  }
-
-  private var spaceCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Space cleaned")
-        .font(.headline)
-      ForEach(spaceRows) { row in
-        LabeledContent(row.label, value: byteString(row.bytes))
-      }
-      Divider()
-      LabeledContent("Total", value: byteString(stats.bytesCleaned))
-        .fontWeight(.semibold)
-    }
-    .padding(16)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .cardBackground()
   }
 
   private var footer: some View {
@@ -191,12 +91,6 @@ struct LifetimeStatsView: View {
     } message: {
       Text("Totals and the tracking date start over. Your photos aren't changed.")
     }
-  }
-
-  private static let ratioBarSpacing: CGFloat = 3
-
-  private func byteString(_ bytes: Int64) -> String {
-    bytes.formatted(.byteCount(style: .file))
   }
 }
 

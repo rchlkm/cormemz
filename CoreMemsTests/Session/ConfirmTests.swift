@@ -114,6 +114,7 @@ struct ConfirmTests {
     #expect(h.stats.stats.totalDeleted == 2)
     #expect(h.stats.stats.totalKept == 1)
     #expect(h.stats.stats.bytesDeleted == 350)
+    #expect(h.vm.deletedBytes == 350)
     #expect(h.persistence.snapshot == nil)
   }
 
@@ -133,6 +134,18 @@ struct ConfirmTests {
     #expect(h.vm.pendingConversions.isEmpty)
     #expect(h.vm.screen == .completion)
     #expect(h.vm.deletedCount == 0)
+  }
+
+  @Test func conversionRecordsOriginalSizeMinusStillSize() async {
+    let h = await finishedSession(
+      photoCount: 2, liveIndexes: [1], sizes: [1: 900],
+      decisions: [(0, .keep), (1, .convertToStill)])
+    h.library.stillSizes = [SessionHarness.assetID(1): 300]
+
+    await h.vm.confirmSession()
+
+    #expect(h.stats.stats.bytesSavedByConversion == 600)
+    #expect(h.vm.convertedBytesSaved == 600)
   }
 
   @Test func rejectedCommitLeavesTheSessionUntouched() async {

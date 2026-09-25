@@ -108,6 +108,7 @@ extension PhotoLibraryService {
           PHAssetChangeRequest.deleteAssets(deletions as NSArray)
         }
         result.stillIdentifiers = stills.mapValues(\.localIdentifier)
+        result.stillSizes = stillData.filter { stills[$0.key] != nil }.mapValues { Int64($0.count) }
       }
       return .success(result)
     } catch {
