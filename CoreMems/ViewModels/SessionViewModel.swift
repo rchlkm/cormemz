@@ -11,16 +11,13 @@ final class SessionViewModel: ObservableObject {
   @Published var eligiblePhotoCount: Int = 0
   @Published private var deck = SessionDeck()
   @Published var isStartingSession: Bool = false
-  /// Every user album (names and counts only), loaded once per app launch and
-  /// refreshed on foreground return and after album creation. `nil` until loaded.
-  @Published var libraryAlbums: [AlbumOption]? {
-    didSet {
-      libraryAlbumsByID = Dictionary(
-        (libraryAlbums ?? []).map { ($0.ref.identifier, $0) },
-        uniquingKeysWith: { first, _ in first })
-    }
+  @Published private var albumCatalog = AlbumCatalog()
+  /// Every user album, loaded once per app launch and refreshed on foreground return and
+  /// after album creation. `nil` until loaded.
+  var libraryAlbums: [AlbumOption]? {
+    get { albumCatalog.albums }
+    set { albumCatalog.albums = newValue }
   }
-  private var libraryAlbumsByID: [String: AlbumOption] = [:]
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published var isDeleting: Bool = false
@@ -47,9 +44,6 @@ final class SessionViewModel: ObservableObject {
   /// a subtitle under the review progress line. `nil` for `.shuffle`.
   @Published var sessionLabel: String?
 
-  /// The library neighbors being browsed around the session photo; `nil` when not peeking.
-  @Published var peek: PeekState?
-
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
@@ -65,8 +59,9 @@ final class SessionViewModel: ObservableObject {
   private let commitService: SessionCommitService
   let pinnedAlbums: PinnedAlbumsViewModel
   private var pinnedAlbumsObservation: AnyCancellable?
-  var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
-  @Published var peekedPhotos: [String: SessionPhoto] = [:]  // asset id -> neighbor not in the deck
+  private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
+  let peekController = PeekController()
+  private var peekObservation: AnyCancellable?
   private var deletedBytes: Int64 = 0
   /// Source of the photos not yet loaded into `photos`; `nil` once it runs dry.
   private var assetSource: (any AssetBatching)?
@@ -122,6 +117,12 @@ final class SessionViewModel: ObservableObject {
       pinnedAlbums.$identifiers.removeDuplicates().dropFirst().map { _ in },
       pinnedAlbums.$sort.removeDuplicates().dropFirst().map { _ in }
     ).sink { [weak self] in self?.objectWillChange.send() }
+    peekController.loadNeighbors = { [weak self] anchorID, before, after in
+      await self?.neighborPhotos(of: anchorID, before: before, after: after) ?? []
+    }
+    peekObservation = peekController.objectWillChange.sink { [weak self] in
+      self?.objectWillChange.send()
+    }
     restoreIfInterrupted()
   }
 
@@ -218,7 +219,7 @@ final class SessionViewModel: ObservableObject {
   }
 
   /// Keeps each asset for later deletion and album changes, and returns a photo for it.
-  func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
+  private func registerPhotos(from assets: [PHAsset], startingAt offset: Int) -> [SessionPhoto] {
     assets.enumerated().map { idx, asset in
       let id = "\(asset.localIdentifier)-\(offset + idx)"
       pickedAssets[id] = asset
@@ -324,18 +325,13 @@ final class SessionViewModel: ObservableObject {
   /// deck — in front of it, counting it as reviewed. Returns the photo's deck index.
   private func adoptIntoReviewed(_ photoID: String) -> Int? {
     if let index = deck.adoptIntoReviewed(photoID: photoID) { return index }
-    guard let key = peekedKey(for: photoID), let peeked = peekedPhotos.removeValue(forKey: key)
-    else { return nil }
+    guard let peeked = peekController.take(photoID: photoID) else { return nil }
     return deck.insertReviewed(peeked)
-  }
-
-  private func peekedKey(for photoID: String) -> String? {
-    peekedPhotos.first { $0.value.id == photoID }?.key
   }
 
   /// A deck photo or a peeked neighbor.
   func photo(withID photoID: String) -> SessionPhoto? {
-    deck.photo(withID: photoID) ?? peekedPhotos.values.first { $0.id == photoID }
+    deck.photo(withID: photoID) ?? peekController.photo(withID: photoID)
   }
 
   private func record(index: Int, decision: ReviewDecision) {
@@ -380,8 +376,8 @@ final class SessionViewModel: ObservableObject {
 
   /// Favoriting doesn't review a photo, so a peeked neighbor stays where it is.
   private func setFavoriteLocally(_ photoID: String, _ isFavorite: Bool) {
-    if !deck.setFavorite(isFavorite, photoID: photoID), let key = peekedKey(for: photoID) {
-      peekedPhotos[key]?.isFavorite = isFavorite
+    if !deck.setFavorite(isFavorite, photoID: photoID) {
+      peekController.setFavorite(isFavorite, photoID: photoID)
     }
   }
 
@@ -423,8 +419,7 @@ final class SessionViewModel: ObservableObject {
   /// `libraryAlbums` (empty until it loads).
   var quickAccessAlbums: [AlbumOption] {
     let pinned = orderedPinnedAlbumIDs
-    let ids = pinned + recentAlbumIDs.filter { !pinned.contains($0) }
-    return ids.compactMap { libraryAlbumsByID[$0] }
+    return albumCatalog.albums(withIdentifiers: pinned + recentAlbumIDs.filter { !pinned.contains($0) })
   }
 
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
@@ -438,12 +433,12 @@ final class SessionViewModel: ObservableObject {
 
   /// Loads the library's album list once per app launch.
   func preloadLibraryAlbums() async {
-    guard libraryAlbums == nil else { return }
+    guard !albumCatalog.isLoaded else { return }
     await refreshLibraryAlbums()
   }
 
   func refreshLibraryAlbums() async {
-    libraryAlbums = await library.fetchAllUserAlbums()
+    albumCatalog.albums = await library.fetchAllUserAlbums()
   }
 
   /// Re-reads access, the photo count and the album list.
@@ -455,7 +450,7 @@ final class SessionViewModel: ObservableObject {
   /// Refreshes only once a list is loaded. Foreground album changes (e.g. iCloud
   /// sync) aren't observed; a `PHPhotoLibraryChangeObserver` would call this.
   func refreshLibraryAlbumsIfLoaded() async {
-    guard libraryAlbums != nil else { return }
+    guard albumCatalog.isLoaded else { return }
     await refreshLibraryAlbums()
   }
 
@@ -483,6 +478,27 @@ final class SessionViewModel: ObservableObject {
 
   /// A random eligible photo's date, for starting a `.date` session without picking one.
   func randomAssetDate() async -> Date? { await library.randomAssetDate() }
+
+  // MARK: Peek
+
+  /// Up to `before` older and `after` newer photos around `photoID`'s asset, by the library's own
+  /// creation-date order — independent of the session's fetch order. Includes the photo
+  /// itself. Neighbors outside the deck stay off it until decided. Empty if the photo
+  /// has no real `PHAsset` (mock/preview data).
+  func neighborPhotos(of photoID: String, before: Int, after: Int) async -> [SessionPhoto] {
+    guard let asset = pickedAssets[photoID] else { return [] }
+    let neighbors = await library.neighborAssets(of: asset.localIdentifier, before: before, after: after)
+    let deckByAsset = Dictionary(
+      deck.photos.map { ($0.assetIdentifier, $0) }, uniquingKeysWith: { first, _ in first })
+    return neighbors.map { neighbor in
+      let id = neighbor.localIdentifier
+      if let inDeck = deckByAsset[id] { return inDeck }
+      if let peeked = peekController.cachedPhoto(forAssetID: id) { return peeked }
+      let peeked = registerPhotos(from: [neighbor], startingAt: 0)[0]
+      peekController.cache(peeked, forAssetID: id)
+      return peeked
+    }
+  }
 
   // MARK: Photo details
 
