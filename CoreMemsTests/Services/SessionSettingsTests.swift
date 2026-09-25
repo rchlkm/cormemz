@@ -65,4 +65,15 @@ struct SessionSettingsTests {
 
     #expect(RecentAlbums(defaults: defaults).ids == ["real"])
   }
+
+  @Test func forgettingRemovesOnlyTheGivenAlbums() {
+    var recents = RecentAlbums(defaults: makeDefaults())
+    recents.record("a")
+    recents.record("b")
+    recents.record("c")
+
+    recents.forget(["b"])
+
+    #expect(recents.ids == ["c", "a"])
+  }
 }

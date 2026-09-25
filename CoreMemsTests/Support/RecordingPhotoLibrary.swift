@@ -24,6 +24,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var commitFailure: Error?
   /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
   var stubbedRandomDate: Date?
+  /// Identifiers of the albums each commit reports as created.
+  var createdAlbumIDs: Set<String> = []
   /// Session photo IDs whose still copy the commit fails to produce.
   var photoIDsWithoutStill: Set<String> = []
 
@@ -85,7 +87,7 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     let stills = changes.conversions
       .filter { !photoIDsWithoutStill.contains($0.key) }
       .mapValues { "still-\($0.localIdentifier)" }
-    return .success(SessionLibraryResult(stillIdentifiers: stills))
+    return .success(SessionLibraryResult(stillIdentifiers: stills, createdAlbumIDs: createdAlbumIDs))
   }
 
   func createAlbum(named name: String) async -> Result<String, Error> {

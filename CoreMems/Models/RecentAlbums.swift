@@ -3,7 +3,7 @@ import Foundation
 
 /// Most recently used album IDs, newest first, persisted across launches.
 struct RecentAlbums {
-  static let limit = 15
+  static let limit = 10
   private static let defaultsKey = "cm_recentAlbumIDs"
 
   private(set) var ids: [String]
@@ -21,6 +21,10 @@ struct RecentAlbums {
     if ids.count > Self.limit {
       ids.removeLast(ids.count - Self.limit)
     }
+  }
+
+  mutating func forget(_ identifiers: Set<String>) {
+    ids.removeAll { identifiers.contains($0) }
   }
 
   /// `pendingIDs` are session-local temp UUIDs, so they aren't stored.

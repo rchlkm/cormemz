@@ -461,9 +461,13 @@ final class SessionViewModel: ObservableObject {
     persistState()
   }
 
-  /// Creates a not-yet-real album, optionally staging it onto one photo right away.
+  /// Creates a not-yet-real album, optionally staging it onto one photo right away
+  /// (which also makes it a recent).
   func createPendingAlbum(name: String, assignToPhotoID: String?) {
     albumStaging.createPendingAlbum(name: name, assignTo: assignToPhotoID)
+    if assignToPhotoID != nil, let created = pendingNewAlbums.last {
+      recentAlbums.record(created.ref.identifier)
+    }
     persistState()
   }
 
@@ -557,6 +561,9 @@ final class SessionViewModel: ObservableObject {
       applyConversions(plan.conversions, from: commit)
       let createdAlbumIDs = commit.outcome.createdAlbumIDs
       pinnedAlbums.pin(createdAlbumIDs.sorted())
+      recentAlbums.forget(Set(pendingNewAlbums.map(\.ref.identifier)))
+      createdAlbumIDs.sorted().forEach { recentAlbums.record($0) }
+      recentAlbums.persist(excluding: [])
       if !createdAlbumIDs.isEmpty {
         Task { await refreshLibraryAlbumsIfLoaded() }
       }

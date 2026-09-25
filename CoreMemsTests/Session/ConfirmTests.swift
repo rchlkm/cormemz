@@ -55,6 +55,19 @@ struct ConfirmTests {
     #expect(h.vm.reviewedPhotoCount == 2)
   }
 
+  @Test func albumCreatedWithAPhotoIsRecentUntilTheCommitSwapsInTheRealAlbum() async {
+    let h = await finishedSession(photoCount: 2, decisions: [(0, .keep), (1, .keep)])
+    h.vm.createPendingAlbum(name: "Hikes", assignToPhotoID: SessionHarness.photoID(0))
+    let tempID = h.vm.pendingNewAlbums[0].ref.identifier
+    #expect(h.vm.recentAlbumIDs.first == tempID)
+    h.library.createdAlbumIDs = ["real-album"]
+
+    await h.vm.confirmSession()
+
+    #expect(h.vm.recentAlbumIDs.first == "real-album")
+    #expect(!h.vm.recentAlbumIDs.contains(tempID))
+  }
+
   @Test func sizesAreReadBeforeTheSingleCommit() async {
     let h = await finishedSession(
       photoCount: 3, liveIndexes: [2], sizes: [1: 100, 2: 900],

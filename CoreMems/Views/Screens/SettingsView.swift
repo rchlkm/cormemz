@@ -27,6 +27,9 @@ struct SettingsView: View {
       pinnedAlbumsSection
       checkInSection
       reviewedPhotosSection
+      #if DEBUG
+        DebugStateDumpSection()
+      #endif
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)

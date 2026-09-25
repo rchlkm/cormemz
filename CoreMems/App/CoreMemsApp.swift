@@ -119,8 +119,14 @@ struct RootView: View {
     }
     .task {
       vm.refreshAuthorizationStatus()
+      #if DEBUG
+        PersistedStateDump.runIfEnabled(reason: "launch")
+      #endif
     }
     .onChange(of: scenePhase) { oldPhase, newPhase in
+      #if DEBUG
+        if newPhase == .background { PersistedStateDump.runIfEnabled(reason: "background") }
+      #endif
       if newPhase == .active {
         vm.refreshAuthorizationStatus()
         // Albums may have changed in Photos while backgrounded; brief
