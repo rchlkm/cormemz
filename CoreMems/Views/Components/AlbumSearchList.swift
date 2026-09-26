@@ -13,13 +13,13 @@ struct AlbumSearchQuery {
   init(text: String) {
     self.text = text
     self.trimmed = text.trimmingCharacters(in: .whitespaces)
-    self.folded = trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+    self.folded = trimmed.searchFolded
   }
 
   var isSearching: Bool { !text.isEmpty }
 
-  func matches(_ album: AlbumOption) -> Bool {
-    folded.isEmpty || album.searchKey.contains(folded)
+  func matches(_ item: some Searchable) -> Bool {
+    folded.isEmpty || item.searchKey.contains(folded)
   }
 
   func isExactMatch(_ album: AlbumOption) -> Bool {
@@ -36,6 +36,26 @@ struct AlbumSearchHint: View {
   }
 }
 
+/// Closes search when the scroll view is pulled down past its top edge.
+/// Reads the search environment, so it must sit inside the view that applies `.searchable`.
+private struct PullDownToCloseSearch<Content: View>: View {
+  /// Overscroll distance, in points, that closes search.
+  private static var threshold: CGFloat { 70 }
+
+  @Environment(\.isSearching) private var isSearching
+  @Environment(\.dismissSearch) private var dismissSearch
+  @ViewBuilder let content: Content
+
+  var body: some View {
+    content
+      .onScrollGeometryChange(for: Bool.self) {
+        $0.contentOffset.y + $0.contentInsets.top < -Self.threshold
+      } action: { _, isPulledDown in
+        if isPulledDown && isSearching { dismissSearch() }
+      }
+  }
+}
+
 /// Search-or-create list shared by the album picker and pinned albums settings.
 /// Screens supply the rows via `content`; requires an enclosing `NavigationStack`.
 struct AlbumSearchList<Content: View>: View {
@@ -47,6 +67,8 @@ struct AlbumSearchList<Content: View>: View {
   /// Disables the create row while a create is in flight.
   let isCreating: Bool
   let onCreate: (String) -> Void
+  /// Puts the list in edit mode so `reorderable` rows show handles; off while searching.
+  let isReorderable: Bool
   let content: (AlbumSearchQuery) -> Content
 
   @State private var searchText = ""
@@ -57,6 +79,7 @@ struct AlbumSearchList<Content: View>: View {
     isLoading: Bool = false,
     isCreating: Bool = false,
     onCreate: @escaping (String) -> Void,
+    isReorderable: Bool = false,
     @ViewBuilder content: @escaping (AlbumSearchQuery) -> Content
   ) {
     self.albums = albums
@@ -64,6 +87,7 @@ struct AlbumSearchList<Content: View>: View {
     self.isLoading = isLoading
     self.isCreating = isCreating
     self.onCreate = onCreate
+    self.isReorderable = isReorderable
     self.content = content
   }
 
@@ -76,7 +100,15 @@ struct AlbumSearchList<Content: View>: View {
 
   var body: some View {
     let query = AlbumSearchQuery(text: searchText)
-    return List {
+    return PullDownToCloseSearch { list(for: query) }
+      .searchable(
+        text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
+        prompt: "Search or create album"
+      )
+  }
+
+  private func list(for query: AlbumSearchQuery) -> some View {
+    List {
       if isLoading {
         HStack {
           Spacer()
@@ -115,9 +147,6 @@ struct AlbumSearchList<Content: View>: View {
         content(query)
       }
     }
-    .searchable(
-      text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
-      prompt: "Search or create album"
-    )
+    .environment(\.editMode, .constant(isReorderable && !query.isSearching ? .active : .inactive))
   }
 }

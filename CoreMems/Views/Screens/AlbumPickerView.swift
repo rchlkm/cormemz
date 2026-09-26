@@ -64,7 +64,8 @@ struct AlbumPickerView: View {
         albums: albums,
         libraryAlbums: libraryAlbums,
         isLoading: libraryAlbums == nil && albums.isEmpty,
-        onCreate: onCreate
+        onCreate: onCreate,
+        isReorderable: pinnedAlbums.sort == .myOrder
       ) { search in
         let results = computeResults(for: search)
 
@@ -130,42 +131,19 @@ struct AlbumPickerView: View {
   }
 
   private func albumRow(_ album: AlbumOption) -> some View {
-    let isAssigned = assignedRefs.contains(album.ref)
-    return Button {
-      onToggle(album.ref)
-    } label: {
-      HStack(spacing: 12) {
-        RoundedRectangle(cornerRadius: 9)
-          .fill(album.ref.kind == .pendingNew ? Color.orange.gradient : Color.accentColor.gradient)
-          .frame(width: 38, height: 38)
-          .overlay {
-            Image(systemName: album.ref.kind == .pendingNew ? "sparkles" : "photo.stack.fill")
-              .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(.white)
-          }
-
-        VStack(alignment: .leading, spacing: 1) {
-          Text(album.name)
-            .foregroundStyle(.primary)
-          if let count = album.assetCount {
-            Text("\(count) photo\(count == 1 ? "" : "s")")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-        }
-
-        Spacer()
-
-        if isAssigned {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(.green)
-            .font(.title3)
-        }
+    let isPinned = pinnedAlbums.identifiers.contains(album.ref.identifier)
+    return AlbumRow(
+      album: album, isPinned: isPinned,
+      onTogglePin: album.ref.kind == .existing
+        ? { pinnedAlbums.toggle(album.ref.identifier) } : nil,
+      onTap: { onToggle(album.ref) }
+    ) {
+      if assignedRefs.contains(album.ref) {
+        Image(systemName: "checkmark.circle.fill")
+          .foregroundStyle(.green)
+          .font(.title3)
       }
-      .padding(.vertical, 2)
-      .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
     .swipeActions {
       if album.ref.kind == .existing {
         AlbumPinButton(isPinned: pinnedAlbums.identifiers.contains(album.ref.identifier)) {

@@ -21,6 +21,7 @@ Review one item at a time in full screen.
 - Favorite media
 - Add media to Photos albums or create new ones
 - Pin and reorder frequently used albums
+- Sort pinned albums in the album picker: **My order** or **Recently used**
 - Mark Live Photos for conversion to stills
 - Undo deletion or conversion marks
 - Hold a photo for later so it isn't remembered as reviewed and shows up in future sessions
@@ -48,7 +49,7 @@ Review one item at a time in full screen.
 
 - Check-in frequency
 - Reviewed-media tracking
-- Pinned albums and sorting
+- Pinned albums: browse folders and subfolders to pin albums, drag to reorder
 
 # What's Next
 
@@ -65,3 +66,15 @@ Review one item at a time in full screen.
 - **Photo editing** — crop and adjust photos while preserving the original
 - **Video editing** — trim videos while preserving the original
 - **Paste filter presets**
+
+
+### Future User Settings
+
+- **Album grouping threshold** — choose how many pinned albums from one Photos folder collapse into a single folder chip in the album strip
+- **Session length** — choose how many photos a session loads before final review, up to the current 200
+- **Default session mode** — choose which mode (Shuffle, Most Recent, From a Date) Setup opens with
+- **Default pinned album sort** — choose whether the album picker opens on **My order** or **Recently used**
+- **Recent albums length** — choose how many recently used albums are remembered
+- **Browse nearby range** — choose how many neighboring photos load on each side when swiping up
+- **Haptics** — turn haptic feedback on or off, or choose its intensity
+- **Swipe mapping** — reassign which swipe direction performs Keep, Mark for deletion, and Go back

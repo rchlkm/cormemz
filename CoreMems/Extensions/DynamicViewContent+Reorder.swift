@@ -2,8 +2,8 @@
 import SwiftUI
 
 extension DynamicViewContent {
-  /// Drag-to-reorder without an Edit button: rows show handles whenever `isEnabled`.
-  /// `onReorder` receives `ids` in their new order.
+  /// Drag-to-reorder without an Edit button. Handles show when the enclosing list is in edit
+  /// mode (see `AlbumSearchList.isReorderable`). `onReorder` receives `ids` in their new order.
   func reorderable(
     _ isEnabled: Bool, ids: [String], onReorder: @escaping ([String]) -> Void
   ) -> some View {
@@ -15,6 +15,5 @@ extension DynamicViewContent {
           onReorder(reordered)
         } : nil
     )
-    .environment(\.editMode, .constant(isEnabled ? .active : .inactive))
   }
 }
