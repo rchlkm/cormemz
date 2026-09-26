@@ -111,10 +111,8 @@ struct ReviewCardView: View {
     }
     .overlay(alignment: .top) { topBar }
     .overlay(alignment: .top) {
-      if vm.isPeeking || subject.decision != .convertToStill {
-        PeekDecisionTag(decision: subject.decision)
-          .padding(.top, Self.topBarHeight + Self.decisionTagGap)
-      }
+      PeekDecisionTag(decision: subject.decision)
+        .padding(.top, Self.topBarHeight + Self.decisionTagGap)
     }
     .overlay(alignment: .bottomLeading) {
       if subject.isLivePhoto {
@@ -126,11 +124,6 @@ struct ReviewCardView: View {
           onConvertToStill: { vm.decide(photoID: subject.id, decision: .convertToStill) }
         )
         .accessibilityIdentifier(AccessibilityID.liveBadge)
-      }
-    }
-    .overlay(alignment: .bottom) {
-      if !vm.isPeeking && photo.decision == .convertToStill {
-        ConversionMarker { vm.decide(index: vm.currentIndex, decision: .convertToStill) }
       }
     }
     .overlay(alignment: .bottomTrailing) {

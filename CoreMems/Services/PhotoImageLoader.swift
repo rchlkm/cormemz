@@ -140,6 +140,10 @@ actor PhotoImageLoader {
     options.resizeMode = .fast
     options.isNetworkAccessAllowed = true
     options.isSynchronous = false
+    #if DEBUG
+      let transfer = NetworkTransferProbe()
+      options.progressHandler = { _, _, _, _ in transfer.markTransferred() }
+    #endif
 
     // .highQualityFormat delivers a single result, and Photos also calls back once
     // when the request is cancelled, so the continuation resumes exactly once.
@@ -149,6 +153,9 @@ actor PhotoImageLoader {
         let id = manager.requestImage(
           for: asset, targetSize: targetSize, contentMode: .aspectFill, options: options
         ) { image, _ in
+          #if DEBUG
+            if image != nil, transfer.didTransfer { NetworkDownloadStats.recordDownload(of: asset) }
+          #endif
           continuation.resume(returning: image)
         }
         token.attach(id, to: manager)

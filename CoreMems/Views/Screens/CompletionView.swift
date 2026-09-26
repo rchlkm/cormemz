@@ -65,8 +65,8 @@ struct CompletionView: View {
 
       Button("Another session", action: onAgain)
         .buttonStyle(ActionButtonStyle(role: .primary))
-        .padding(.horizontal, 32)
-        .padding(.bottom, 26)
+      .padding(.horizontal, 32)
+      .padding(.bottom, 26)
     }
     .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
   }

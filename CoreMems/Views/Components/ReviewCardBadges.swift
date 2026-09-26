@@ -27,25 +27,3 @@ struct SwipeUpHintView: View {
     .opacity(progress)
   }
 }
-
-/// Shown on a photo already marked for conversion; tapping moves on without changing it.
-struct ConversionMarker: View {
-  let action: () -> Void
-
-  var body: some View {
-    Button(action: action) {
-      HStack(spacing: 6) {
-        Image(systemName: "livephoto.slash")
-        Text("Converts to still")
-        Image(systemName: "chevron.right")
-      }
-      .font(.caption.weight(.semibold))
-      .foregroundStyle(.white)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(ReviewDecision.convertToStill.tint.opacity(0.85), in: Capsule())
-    }
-    .buttonStyle(.plain)
-    .padding(.bottom, 12)
-  }
-}

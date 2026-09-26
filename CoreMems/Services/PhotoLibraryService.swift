@@ -78,15 +78,22 @@ final class PhotoLibraryService: PhotoLibraryServicing {
 
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the
   /// `fileSize` key, so the lookup is guarded against the key going away.
+  nonisolated static func fileSize(of asset: PHAsset) -> Int64? {
+    let sizeKey = "fileSize"
+    var total: Int64 = 0
+    for resource in PHAssetResource.assetResources(for: asset) {
+      guard resource.responds(to: NSSelectorFromString(sizeKey)) else { return nil }
+      total += (resource.value(forKey: sizeKey) as? NSNumber)?.int64Value ?? 0
+    }
+    return total
+  }
+
   func storageSize(of assets: [PHAsset]) async -> Int64? {
     await Task.detached(priority: .userInitiated) { () -> Int64? in
-      let sizeKey = "fileSize"
       var total: Int64 = 0
       for asset in assets {
-        for resource in PHAssetResource.assetResources(for: asset) {
-          guard resource.responds(to: NSSelectorFromString(sizeKey)) else { return nil }
-          total += (resource.value(forKey: sizeKey) as? NSNumber)?.int64Value ?? 0
-        }
+        guard let size = Self.fileSize(of: asset) else { return nil }
+        total += size
       }
       return total
     }.value

@@ -29,6 +29,7 @@ struct SettingsView: View {
       reviewedPhotosSection
       #if DEBUG
         DebugStateDumpSection()
+        DebugNetworkStatsSection()
       #endif
     }
     .navigationTitle("Settings")

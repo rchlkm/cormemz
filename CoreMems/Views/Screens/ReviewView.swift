@@ -134,9 +134,9 @@ struct ReviewView: View {
       }
       .alert("Unconfirmed changes", isPresented: $showUnconfirmedChanges) {
         Button("Cancel", role: .cancel) {}
-        Button("Review changes") { vm.finishEarly() }
+        Button("Leave without applying", role: .destructive) { vm.exitToSetup() }
       } message: {
-        Text("You have marked photos that haven't been confirmed.")
+        Text("You have marked photos that haven't been confirmed. Leaving discards those changes.")
       }
       .sheet(isPresented: $showTray) {
         MarkedPhotosTrayView(
@@ -155,7 +155,7 @@ struct ReviewView: View {
             onToggle: { ref in vm.toggleAlbumMembership(photoID: focused.id, ref: ref) },
             onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: focused.id) }
           )
-          .presentationDetents([.height(Self.compactAlbumSheetHeight), .medium])
+          .presentationDetents([.height(Self.compactAlbumSheetHeight), .medium, .large])
           .presentationDragIndicator(.visible)
         }
       }
