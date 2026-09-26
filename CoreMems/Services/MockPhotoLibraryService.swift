@@ -8,6 +8,8 @@ import UIKit
 final class MockPhotoLibraryService: PhotoLibraryServicing {
   var mockEligibleCount: Int = 200
   var mockAuthStatus: PHAuthorizationStatus = .authorized
+  var mockAlbums: [AlbumOption] = []
+  var mockAlbumGroups: [AlbumGroup] = []
 
   func requestAuthorization() async -> PHAuthorizationStatus { mockAuthStatus }
   func currentAuthorizationStatus() -> PHAuthorizationStatus { mockAuthStatus }
@@ -32,7 +34,9 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
 
-  func fetchAllUserAlbums() async -> [AlbumOption] { [] }
+  func fetchAllUserAlbums() async -> [AlbumOption] { mockAlbums }
+
+  func fetchAlbumGroups() async -> [AlbumGroup] { mockAlbumGroups }
 
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String> {
     []

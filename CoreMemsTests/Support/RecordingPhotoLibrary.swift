@@ -74,7 +74,13 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
 
   func presentLimitedLibraryPicker(from viewController: UIViewController) {}
 
-  func fetchAllUserAlbums() async -> [AlbumOption] { [] }
+  var albums: [AlbumOption] = []
+
+  func fetchAllUserAlbums() async -> [AlbumOption] { albums }
+
+  var albumGroups: [AlbumGroup] = []
+
+  func fetchAlbumGroups() async -> [AlbumGroup] { albumGroups }
 
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String> {
     []

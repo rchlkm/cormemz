@@ -16,13 +16,15 @@ enum PinnedAlbumSort: String, CaseIterable, Identifiable {
   }
 }
 
-/// The user's pinned albums, which drive the review quick-access strip and the
-/// Pinned Albums settings screen. `identifiers` is the order the user arranged.
+/// The pinned albums behind the quick-access strip and Pinned Albums settings.
+/// `identifiers` is the order the user arranged.
 @MainActor
 final class PinnedAlbumsViewModel: ObservableObject {
   @Published private(set) var identifiers: [String]
   /// Every user album, for the settings screen to browse. Loaded on demand.
   @Published private(set) var albums: [AlbumOption] = []
+  /// Every Photos folder of albums, for the settings screen to browse. Loaded on demand.
+  @Published private(set) var groups: [AlbumGroup] = []
   @Published private(set) var isLoading = false
   @Published private(set) var isCreating = false
   @Published private(set) var creationError: String?
@@ -56,11 +58,20 @@ final class PinnedAlbumsViewModel: ObservableObject {
     case .myOrder:
       return identifiers
     case .recentlyUsed:
-      let rank = Dictionary(
-        recents.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+      let rank = recents.enumerated().indexed(by: \.element).mapValues(\.offset)
       return identifiers.enumerated()
         .sorted { (rank[$0.element] ?? .max, $0.offset) < (rank[$1.element] ?? .max, $1.offset) }
         .map(\.element)
+    }
+  }
+
+  /// The folders containing each album or subfolder, outermost first, by identifier.
+  var folderPathsByChildID: [String: [AlbumGroup]] {
+    let parents = groups.parentsByChildID
+    return parents.mapValues { parent in
+      var path = [parent]
+      while let outer = parents[path[0].identifier] { path.insert(outer, at: 0) }
+      return path
     }
   }
 
@@ -70,9 +81,24 @@ final class PinnedAlbumsViewModel: ObservableObject {
     isLoading = true
     identifiers = store.pinnedAlbumIdentifiers()
     Task {
-      albums = await library.fetchAllUserAlbums()
+      async let fetchedAlbums = library.fetchAllUserAlbums()
+      async let fetchedGroups = library.fetchAlbumGroups()
+      groups = await fetchedGroups
+      albums = await fetchedAlbums
+      prune(albums: albums)
       isLoading = false
     }
+  }
+
+  /// Unpins identifiers that aren't albums in a fetched library. An empty library changes
+  /// nothing, so a failed or blocked fetch can't clear the pins.
+  func prune(albums: [AlbumOption]) {
+    guard !albums.isEmpty else { return }
+    let existing = Set(albums.map(\.ref.identifier))
+    let kept = identifiers.filter(existing.contains)
+    guard kept.count < identifiers.count else { return }
+    identifiers = kept
+    store.setOrder(kept)
   }
 
   func toggle(_ identifier: String) {
@@ -127,13 +153,16 @@ final class PinnedAlbumsViewModel: ObservableObject {
 #if DEBUG
   extension PinnedAlbumsViewModel {
     /// A view model over in-memory doubles, for SwiftUI Previews.
-    static func mock(albums: [AlbumOption] = [], pinned: [String] = []) -> PinnedAlbumsViewModel {
+    static func mock(
+      albums: [AlbumOption] = [], groups: [AlbumGroup] = [], pinned: [String] = []
+    ) -> PinnedAlbumsViewModel {
       let store = MockPinnedAlbumsStore()
       store.identifiers = pinned
       let model = PinnedAlbumsViewModel(
         library: MockPhotoLibraryService(), store: store,
         defaults: UserDefaults(suiteName: UUID().uuidString)!)
       model.albums = albums
+      model.groups = groups
       return model
     }
   }

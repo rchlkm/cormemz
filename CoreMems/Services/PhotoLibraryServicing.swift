@@ -74,6 +74,9 @@ protocol AlbumLibrary {
   /// Every user-created album (names and counts only); `.albumRegular`
   /// excludes smart albums like Favorites. Runs off the main thread.
   func fetchAllUserAlbums() async -> [AlbumOption]
+  /// Top-level Photos folders and their regular albums; folders with none are omitted.
+  /// Runs off the main thread.
+  func fetchAlbumGroups() async -> [AlbumGroup]
   /// Identifiers of every user album containing the asset. A direct lookup
   /// for one asset, so it stays fast at any library size. Runs off the main thread.
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String>

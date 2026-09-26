@@ -96,7 +96,51 @@ struct AlbumOption: Identifiable, Equatable {
     self.ref = ref
     self.name = name
     self.assetCount = assetCount
-    self.searchKey = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+    self.searchKey = name.searchFolded
+  }
+}
+
+/// A Photos folder of albums, as shown by the Photos app's album groups.
+struct AlbumGroup: Identifiable, Hashable {
+  let identifier: String  // PHCollectionList.localIdentifier
+  let name: String
+  /// Direct child albums, in the folder's order.
+  let albumIdentifiers: [String]
+  /// Direct child folders, in the folder's order.
+  let groupIdentifiers: [String]
+  let searchKey: String
+  var id: String { identifier }
+
+  init(
+    identifier: String, name: String, albumIdentifiers: [String], groupIdentifiers: [String] = []
+  ) {
+    self.identifier = identifier
+    self.name = name
+    self.albumIdentifiers = albumIdentifiers
+    self.groupIdentifiers = groupIdentifiers
+    self.searchKey = name.searchFolded
+  }
+}
+
+/// Something the album search can match by name.
+protocol Searchable {
+  var searchKey: String { get }
+}
+
+extension AlbumOption: Searchable {}
+extension AlbumGroup: Searchable {}
+
+extension String {
+  /// Case- and diacritic-insensitive form used for search matching.
+  var searchFolded: String {
+    folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+  }
+}
+
+extension Sequence {
+  /// Elements keyed by `key`; the first element wins on duplicate keys.
+  func indexed<Key: Hashable>(by key: KeyPath<Element, Key>) -> [Key: Element] {
+    Dictionary(map { ($0[keyPath: key], $0) }, uniquingKeysWith: { first, _ in first })
   }
 }
 

@@ -442,6 +442,13 @@ final class SessionViewModel: ObservableObject {
     return albumCatalog.albums(withIdentifiers: pinned + recentAlbumIDs.filter { !pinned.contains($0) })
   }
 
+  /// Pinned albums as displayed, in their sort order (empty until the library loads).
+  var pinnedDisplayItems: [PinnedDisplayItem] {
+    PinnedDisplayItem.items(
+      identifiers: orderedPinnedAlbumIDs, albums: albumCatalog.albums ?? [],
+      groups: albumCatalog.groups)
+  }
+
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
   func loadAlbumMembership(for photoID: String) async {
     guard !albumStaging.hasInitialMembership(for: photoID),
@@ -458,7 +465,12 @@ final class SessionViewModel: ObservableObject {
   }
 
   func refreshLibraryAlbums() async {
-    albumCatalog.albums = await library.fetchAllUserAlbums()
+    async let albums = library.fetchAllUserAlbums()
+    async let groups = library.fetchAlbumGroups()
+    // Groups first, so they're in place once `albums` marks the catalog loaded.
+    albumCatalog.groups = await groups
+    albumCatalog.albums = await albums
+    pinnedAlbums.prune(albums: albumCatalog.albums ?? [])
   }
 
   /// Re-reads access, the photo count and the album list.

@@ -58,6 +58,20 @@ struct PinnedAlbumTests {
     #expect(h.vm.quickAccessAlbums == [family, trips])
   }
 
+  @Test func pinnedFolderIdentifiersAreNotShownAsPins() async {
+    let library = RecordingPhotoLibrary()
+    let views = AlbumGroup(identifier: "views", name: "Views", albumIdentifiers: ["trees"])
+    library.albumGroups = [views]
+    let h = SessionHarness(library: library)
+    let trees = AlbumOption(ref: .existing(localIdentifier: "trees"), name: "Trees")
+    await h.vm.refreshLibraryAlbums()
+    h.vm.libraryAlbums = [trees]
+
+    h.vm.pinnedAlbums.pin(["views", "trees"])
+
+    #expect(h.vm.pinnedDisplayItems == [.album(trees)])
+  }
+
   @Test func pinChangesNotifySessionObservers() async {
     let h = await SessionHarness.started(photoCount: 2)
     var notifications = 0

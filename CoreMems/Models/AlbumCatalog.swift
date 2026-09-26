@@ -6,11 +6,13 @@ struct AlbumCatalog {
   /// `nil` until loaded.
   var albums: [AlbumOption]? {
     didSet {
-      byID = Dictionary(
-        (albums ?? []).map { ($0.ref.identifier, $0) }, uniquingKeysWith: { first, _ in first })
+      byID = (albums ?? []).indexed(by: \.ref.identifier)
     }
   }
   private var byID: [String: AlbumOption] = [:]
+
+  /// Photos folders that hold at least one album, at any depth.
+  var groups: [AlbumGroup] = []
 
   var isLoaded: Bool { albums != nil }
 

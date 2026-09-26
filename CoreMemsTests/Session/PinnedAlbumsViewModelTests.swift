@@ -21,6 +21,71 @@ struct PinnedAlbumsViewModelTests {
     #expect(makeViewModel().identifiers == ["trips"])
   }
 
+  @Test func loadFetchesAlbumGroups() async {
+    let library = RecordingPhotoLibrary()
+    let views = AlbumGroup(identifier: "views", name: "Views", albumIdentifiers: ["trees"])
+    library.albumGroups = [views]
+    let pinned = PinnedAlbumsViewModel(library: library, store: store, defaults: defaults)
+
+    pinned.load()
+    while pinned.isLoading { await Task.yield() }
+
+    #expect(pinned.groups == [views])
+  }
+
+  @Test func loadUnpinsIdentifiersThatAreNotLibraryAlbums() async {
+    let library = RecordingPhotoLibrary()
+    library.albumGroups = [AlbumGroup(identifier: "views", name: "Views", albumIdentifiers: ["a"])]
+    library.albums = [AlbumOption(ref: .existing(localIdentifier: "a"), name: "A")]
+    store.identifiers = ["views", "deleted", "a"]
+    let pinned = PinnedAlbumsViewModel(library: library, store: store, defaults: defaults)
+
+    pinned.load()
+    while pinned.isLoading { await Task.yield() }
+
+    #expect(pinned.identifiers == ["a"])
+    #expect(store.identifiers == ["a"])
+  }
+
+  @Test func pruneUnpinsAlbumsMissingFromTheLibrary() {
+    store.identifiers = ["trips", "deleted", "family"]
+    let pinned = makeViewModel()
+    let library = ["trips", "family", "other"].map {
+      AlbumOption(ref: .existing(localIdentifier: $0), name: $0)
+    }
+
+    pinned.prune(albums: library)
+
+    #expect(pinned.identifiers == ["trips", "family"])
+    #expect(store.identifiers == ["trips", "family"])
+  }
+
+  @Test func pruneKeepsEveryPinWhenTheLibraryIsEmpty() {
+    store.identifiers = ["trips", "family"]
+    let pinned = makeViewModel()
+
+    pinned.prune(albums: [])
+
+    #expect(pinned.identifiers == ["trips", "family"])
+    #expect(store.identifiers == ["trips", "family"])
+  }
+
+  @Test func folderPathsListEnclosingFoldersOutermostFirst() async {
+    let library = RecordingPhotoLibrary()
+    let trips = AlbumGroup(
+      identifier: "trips", name: "Trips", albumIdentifiers: [], groupIdentifiers: ["y2024"])
+    let year = AlbumGroup(identifier: "y2024", name: "2024", albumIdentifiers: ["japan"])
+    library.albumGroups = [trips, year]
+    let pinned = PinnedAlbumsViewModel(library: library, store: store, defaults: defaults)
+
+    pinned.load()
+    while pinned.isLoading { await Task.yield() }
+
+    #expect(pinned.folderPathsByChildID["japan"]?.map(\.name) == ["Trips", "2024"])
+    #expect(pinned.folderPathsByChildID["y2024"]?.map(\.name) == ["Trips"])
+    #expect(pinned.folderPathsByChildID["trips"] == nil)
+  }
+
   @Test func togglePersistsBothWays() {
     let pinned = makeViewModel()
 
