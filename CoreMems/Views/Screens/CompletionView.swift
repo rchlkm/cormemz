@@ -5,6 +5,8 @@ struct CompletionView: View {
   let keptCount: Int
   let deletedCount: Int
   let albumAssignedCount: Int
+  /// Staged album adds/removes that no-op'd because the album no longer existed.
+  let missingAlbumCount: Int
   let convertedCount: Int
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
@@ -51,6 +53,15 @@ struct CompletionView: View {
               .foregroundStyle(.secondary)
               .multilineTextAlignment(.center)
           }
+          if missingAlbumCount > 0 {
+            Text(
+              "\(missingAlbumCount) album assignment\(missingAlbumCount == 1 ? "" : "s") "
+                + "couldn't be made — the album may have been deleted."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+          }
           OutcomeRatioCard(
             kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
           if deletedBytes + convertedBytesSaved > 0 {
@@ -87,6 +98,7 @@ struct CompletionView: View {
     keptCount: 8,
     deletedCount: 3,
     albumAssignedCount: 2,
+    missingAlbumCount: 1,
     convertedCount: 1,
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,

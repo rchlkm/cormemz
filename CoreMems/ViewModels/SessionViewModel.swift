@@ -25,6 +25,9 @@ final class SessionViewModel: ObservableObject {
   /// Photos folders of albums, loaded alongside `libraryAlbums`.
   var libraryAlbumGroups: [AlbumGroup] { pinnedAlbums.groups }
   @Published var albumAssignedCount: Int = 0
+  /// Staged album adds/removes from this commit that no-op'd because the album no longer
+  /// existed by the time the session was confirmed.
+  @Published private(set) var missingAlbumCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published private(set) var commitState: CommitState = .idle
   var isDeleting: Bool { commitState == .committing }
@@ -615,6 +618,7 @@ final class SessionViewModel: ObservableObject {
         Task { await refreshLibraryAlbumsIfLoaded() }
       }
       albumAssignedCount = plan.changes.albumAdditions.count
+      missingAlbumCount = commit.outcome.missingAlbumIdentifiers.count
       albumStaging.clearStaged()
       deletedCount = plan.deletions.count
       deletedBytes = commit.bytesDeleted

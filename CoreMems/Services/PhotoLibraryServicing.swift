@@ -41,6 +41,9 @@ struct SessionLibraryResult {
   var stillSizes: [String: Int64] = [:]
   /// Local identifiers of albums created for former `.pendingNew` refs.
   var createdAlbumIDs: Set<String> = []
+  /// Identifiers of staged album adds/removes that silently no-op'd because the album no
+  /// longer exists (deleted, or renamed away, since the photo was tagged for it).
+  var missingAlbumIdentifiers: Set<String> = []
 }
 
 /// Photos permission state and the limited-library picker.

@@ -114,6 +114,7 @@ import SwiftUI
               keptCount: vm.keptCount,
               deletedCount: vm.deletedCount,
               albumAssignedCount: vm.albumAssignedCount,
+              missingAlbumCount: vm.missingAlbumCount,
               convertedCount: vm.convertedLivePhotoCount,
               deletedBytes: vm.deletedBytes,
               convertedBytesSaved: vm.convertedBytesSaved,

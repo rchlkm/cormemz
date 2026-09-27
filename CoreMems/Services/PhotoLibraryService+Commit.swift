@@ -91,13 +91,19 @@ extension PhotoLibraryService {
         for (id, albumAssets) in assetsByExistingAddID {
           guard let collection = collectionsByID[id],
             let request = PHAssetCollectionChangeRequest(for: collection)
-          else { continue }
+          else {
+            result.missingAlbumIdentifiers.insert(id)
+            continue
+          }
           request.addAssets(albumAssets as NSArray)
         }
         for (id, albumAssets) in assetsByExistingRemoveID {
           guard let collection = collectionsByID[id],
             let request = PHAssetCollectionChangeRequest(for: collection)
-          else { continue }
+          else {
+            result.missingAlbumIdentifiers.insert(id)
+            continue
+          }
           request.removeAssets(albumAssets as NSArray)
         }
 
