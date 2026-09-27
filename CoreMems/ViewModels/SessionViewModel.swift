@@ -18,6 +18,8 @@ final class SessionViewModel: ObservableObject {
     get { albumCatalog.albums }
     set { albumCatalog.albums = newValue }
   }
+  /// Photos folders of albums, loaded alongside `libraryAlbums`.
+  var libraryAlbumGroups: [AlbumGroup] { albumCatalog.groups }
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published private(set) var commitState: CommitState = .idle

@@ -66,14 +66,7 @@ final class PinnedAlbumsViewModel: ObservableObject {
   }
 
   /// The folders containing each album or subfolder, outermost first, by identifier.
-  var folderPathsByChildID: [String: [AlbumGroup]] {
-    let parents = groups.parentsByChildID
-    return parents.mapValues { parent in
-      var path = [parent]
-      while let outer = parents[path[0].identifier] { path.insert(outer, at: 0) }
-      return path
-    }
-  }
+  var folderPathsByChildID: [String: [AlbumGroup]] { groups.folderPaths }
 
   /// Always fetches the whole library: the settings screen is an infrequent visit.
   func load() {

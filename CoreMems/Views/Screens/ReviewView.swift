@@ -151,6 +151,8 @@ struct ReviewView: View {
             albums: vm.quickAccessAlbums + vm.pendingNewAlbums,
             assignedRefs: vm.effectiveAlbums(for: focused.id),
             libraryAlbums: vm.libraryAlbums,
+            groups: vm.libraryAlbumGroups,
+            recentAlbumIDs: vm.recentAlbumIDs,
             pinnedAlbums: vm.pinnedAlbums,
             onToggle: { ref in vm.toggleAlbumMembership(photoID: focused.id, ref: ref) },
             onCreate: { name in vm.createPendingAlbum(name: name, assignToPhotoID: focused.id) }
