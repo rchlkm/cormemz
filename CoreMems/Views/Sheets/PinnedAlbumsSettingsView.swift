@@ -6,10 +6,15 @@ import SwiftUI
 /// The search field also creates and pins a new album (see `AlbumSearchList`).
 struct PinnedAlbumsSettingsView: View {
   @ObservedObject var pinnedAlbums: PinnedAlbumsViewModel
-  /// The pinned album IDs in display order.
-  let pinnedIdentifiers: [String]
+  /// Recently used album IDs, newest first.
+  let recentAlbumIDs: [String]
 
   @State private var openedGroup: AlbumGroup?
+  @State private var hasLoaded = false
+
+  /// Handles and moves wait for this visit's load to finish, so a reload can't reshuffle rows
+  /// mid-drag. The list stays in edit mode throughout, so nothing relayouts when they appear.
+  private var canReorder: Bool { pinnedAlbums.sort == .myOrder && hasLoaded }
 
   /// Pinned albums in display order, then the groups and unpinned albums. Pinned albums sharing a
   /// folder collapse into it; subfolders and albums inside a group are listed under it. Search
@@ -19,6 +24,7 @@ struct PinnedAlbumsSettingsView: View {
   ) {
     let albumsByID = pinnedAlbums.albums.indexed(by: \.ref.identifier)
     let groupsByID = pinnedAlbums.groups.indexed(by: \.identifier)
+    let pinnedIdentifiers = pinnedAlbums.orderedIdentifiers(recents: recentAlbumIDs)
     let pinnedSet = Set(pinnedIdentifiers)
     let groupedAlbumIDs = Set(pinnedAlbums.groups.flatMap(\.albumIdentifiers))
     let subgroupIDs = Set(pinnedAlbums.groups.flatMap(\.groupIdentifiers))
@@ -66,16 +72,6 @@ struct PinnedAlbumsSettingsView: View {
         }
       }
 
-      if !search.isSearching {
-        Section {
-          Text(
-            "Pinned albums show up first when adding a photo to an album, so you can rotate through the ones you use most instead of scrolling your whole library. Open a group to pin its albums."
-          )
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-        }
-      }
-
       if !pinned.isEmpty {
         Section {
           ForEach(pinned) {
@@ -84,9 +80,12 @@ struct PinnedAlbumsSettingsView: View {
               pinnedAlbums: pinnedAlbums)
           }
           .reorderable(
-            pinnedAlbums.sort == .myOrder && !search.isSearching,
+            canReorder && !search.isSearching,
             ids: pinned.map(\.id),
-            onReorder: { pinnedAlbums.reorder($0.flatMap { identifiersByItem[$0] ?? [] }) })
+            onReorder: {
+              PinnedLoadTrace.log("reorder dropped")
+              pinnedAlbums.reorder($0.flatMap { identifiersByItem[$0] ?? [] })
+            })
         } header: {
           PinnedSectionHeader(sort: $pinnedAlbums.sort)
         }
@@ -106,9 +105,17 @@ struct PinnedAlbumsSettingsView: View {
     }
     .navigationTitle("Pinned Albums")
     .navigationBarTitleDisplayMode(.inline)
+    .onChange(of: pinnedAlbums.isLoading) { _, isLoading in
+      if !isLoading {
+        hasLoaded = true
+        PinnedLoadTrace.log("handles enabled")
+      }
+    }
+    .onAppear { PinnedLoadTrace.begin() }
+    .onDisappear { PinnedLoadTrace.end() }
     .environment(\.openFolder) { openedGroup = $0 }
     .navigationDestination(item: $openedGroup) {
-      PinnedGroupView(group: $0, pinnedAlbums: pinnedAlbums, pinnedIdentifiers: pinnedIdentifiers)
+      PinnedGroupView(group: $0, pinnedAlbums: pinnedAlbums, recentAlbumIDs: recentAlbumIDs)
     }
   }
 }
@@ -230,10 +237,16 @@ private struct CollapsedFolderRow: View {
 private struct PinnedGroupView: View {
   let group: AlbumGroup
   @ObservedObject var pinnedAlbums: PinnedAlbumsViewModel
-  /// The pinned album IDs in display order.
-  let pinnedIdentifiers: [String]
+  /// Recently used album IDs, newest first.
+  let recentAlbumIDs: [String]
 
   @State private var openedGroup: AlbumGroup?
+
+  private var canReorder: Bool { pinnedAlbums.sort == .myOrder && !pinnedAlbums.isLoading }
+
+  private var pinnedIdentifiers: [String] {
+    pinnedAlbums.orderedIdentifiers(recents: recentAlbumIDs)
+  }
 
   private var subfolders: [PinnedDisplayItem] {
     let groupsByID = pinnedAlbums.groups.indexed(by: \.identifier)
@@ -275,7 +288,7 @@ private struct PinnedGroupView: View {
             PinnedEntryRow(entry: $0, pinnedIDs: pinnedIDs, pinnedAlbums: pinnedAlbums)
           }
           .reorderable(
-            pinnedAlbums.sort == .myOrder, ids: pinnedEntries.map(\.id),
+            canReorder, ids: pinnedEntries.map(\.id),
             onReorder: { pinnedAlbums.reorder($0) })
         }
       }
@@ -306,7 +319,7 @@ private struct PinnedGroupView: View {
     }
     .environment(\.openFolder) { openedGroup = $0 }
     .navigationDestination(item: $openedGroup) {
-      PinnedGroupView(group: $0, pinnedAlbums: pinnedAlbums, pinnedIdentifiers: pinnedIdentifiers)
+      PinnedGroupView(group: $0, pinnedAlbums: pinnedAlbums, recentAlbumIDs: recentAlbumIDs)
     }
     .navigationTitle(group.name)
     .navigationBarTitleDisplayMode(.inline)
@@ -323,7 +336,7 @@ private struct PinnedGroupView: View {
         ],
         groups: [AlbumGroup(identifier: "g1", name: "Views", albumIdentifiers: ["1", "2"])],
         pinned: ["1", "g1"]),
-      pinnedIdentifiers: ["1", "g1"]
+      recentAlbumIDs: []
     )
   }
 }

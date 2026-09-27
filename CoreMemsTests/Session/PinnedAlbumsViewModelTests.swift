@@ -1,4 +1,5 @@
 // CoreMemsTests/Session/PinnedAlbumsViewModelTests.swift
+import Combine
 import Foundation
 import Testing
 
@@ -31,6 +32,23 @@ struct PinnedAlbumsViewModelTests {
     while pinned.isLoading { await Task.yield() }
 
     #expect(pinned.groups == [views])
+  }
+
+  @Test func reloadingUnchangedLibraryOnlyTogglesLoading() async {
+    let library = RecordingPhotoLibrary()
+    library.albums = [AlbumOption(ref: .existing(localIdentifier: "a"), name: "A")]
+    library.albumGroups = [AlbumGroup(identifier: "g", name: "G", albumIdentifiers: ["a"])]
+    let pinned = PinnedAlbumsViewModel(library: library, store: store, defaults: defaults)
+    pinned.load()
+    while pinned.isLoading { await Task.yield() }
+    var changes = 0
+    let subscription = pinned.objectWillChange.sink { changes += 1 }
+
+    pinned.load()
+    while pinned.isLoading { await Task.yield() }
+
+    #expect(changes == 2)
+    subscription.cancel()
   }
 
   @Test func loadUnpinsIdentifiersThatAreNotLibraryAlbums() async {

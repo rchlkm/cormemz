@@ -9,8 +9,8 @@ struct SettingsView: View {
   let libraryPhotoCount: Int
   let onResetReviewedPhotos: () -> Void
   let pinnedAlbums: PinnedAlbumsViewModel
-  /// The pinned album IDs in display order.
-  let pinnedAlbumOrder: [String]
+  /// Recently used album IDs, newest first; orders pinned albums when sorted by recency.
+  let recentAlbumIDs: [String]
   let lifetimeStats: LifetimeSessionStats
   let onClearLifetimeStats: () -> Void
 
@@ -93,13 +93,15 @@ struct SettingsView: View {
   private var pinnedAlbumsSection: some View {
     Section {
       NavigationLink {
-        PinnedAlbumsSettingsView(pinnedAlbums: pinnedAlbums, pinnedIdentifiers: pinnedAlbumOrder)
+        PinnedAlbumsSettingsView(pinnedAlbums: pinnedAlbums, recentAlbumIDs: recentAlbumIDs)
           .task { pinnedAlbums.load() }
       } label: {
         Label("Choose albums", systemImage: "pin.fill")
       }
     } header: {
       Text("Pinned albums")
+    } footer: {
+      Text("Pinned albums show first when you add a photo to an album.")
     }
   }
 
@@ -140,7 +142,7 @@ struct SettingsView: View {
       libraryPhotoCount: 3_100,
       onResetReviewedPhotos: {},
       pinnedAlbums: .mock(),
-      pinnedAlbumOrder: [],
+      recentAlbumIDs: [],
       lifetimeStats: LifetimeSessionStats(
         totalReviewed: 150,
         totalKept: 100,

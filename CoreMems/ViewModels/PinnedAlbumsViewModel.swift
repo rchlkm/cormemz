@@ -79,15 +79,26 @@ final class PinnedAlbumsViewModel: ObservableObject {
   func load() {
     guard !isLoading else { return }
     isLoading = true
-    identifiers = store.pinnedAlbumIdentifiers()
+    PinnedLoadTrace.log("load started")
+    assign(\.identifiers, store.pinnedAlbumIdentifiers())
     Task {
       async let fetchedAlbums = library.fetchAllUserAlbums()
       async let fetchedGroups = library.fetchAlbumGroups()
-      groups = await fetchedGroups
-      albums = await fetchedAlbums
-      prune(albums: albums)
+      let (newAlbums, newGroups) = await (fetchedAlbums, fetchedGroups)
+      PinnedLoadTrace.log("fetched \(newAlbums.count) albums, \(newGroups.count) groups")
+      assign(\.groups, newGroups)
+      assign(\.albums, newAlbums)
+      prune(albums: newAlbums)
       isLoading = false
+      PinnedLoadTrace.log("load finished")
     }
+  }
+
+  /// Sets a published property only when it differs, so an unchanged reload doesn't redraw.
+  private func assign<Value: Equatable>(
+    _ keyPath: ReferenceWritableKeyPath<PinnedAlbumsViewModel, Value>, _ value: Value
+  ) {
+    if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
   }
 
   /// Unpins identifiers that aren't albums in a fetched library. An empty library changes

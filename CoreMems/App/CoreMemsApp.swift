@@ -46,7 +46,7 @@ struct RootView: View {
       libraryPhotoCount: vm.eligiblePhotoCount,
       onResetReviewedPhotos: { vm.resetReviewedPhotos() },
       pinnedAlbums: vm.pinnedAlbums,
-      pinnedAlbumOrder: vm.orderedPinnedAlbumIDs,
+      recentAlbumIDs: vm.recentAlbumIDs,
       lifetimeStats: vm.lifetimeStats,
       onClearLifetimeStats: { vm.clearLifetimeStats() }
     )

@@ -77,16 +77,22 @@ struct AlbumRow<Trailing: View>: View {
   var body: some View {
     HStack(spacing: 12) {
       icon
-      if let onTap {
-        Button(action: onTap) { content.contentShape(Rectangle()) }
-          .buttonStyle(.borderless)
-      } else {
-        content
-      }
+      tappableContent
+        .accessibilitySortPriority(1)
     }
     .padding(.vertical, 2)
     .accessibilityElement(children: .contain)
     .accessibilityLabel(album.name)
+  }
+
+  @ViewBuilder
+  private var tappableContent: some View {
+    if let onTap {
+      Button(action: onTap) { content.contentShape(Rectangle()) }
+        .buttonStyle(.borderless)
+    } else {
+      content
+    }
   }
 
   @ViewBuilder
