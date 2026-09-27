@@ -21,10 +21,9 @@ enum PinnedAlbumSort: String, CaseIterable, Identifiable {
 @MainActor
 final class PinnedAlbumsViewModel: ObservableObject {
   @Published private(set) var identifiers: [String]
-  /// Every user album, for the settings screen to browse. Loaded on demand.
-  @Published private(set) var albums: [AlbumOption] = []
-  /// Every Photos folder of albums, for the settings screen to browse. Loaded on demand.
-  @Published private(set) var groups: [AlbumGroup] = []
+  /// The user's album library: shared by Pinned Albums settings and the session's album
+  /// picker/strip, so it's fetched once rather than by each independently.
+  @Published private var catalog = AlbumCatalog()
   @Published private(set) var isLoading = false
   @Published private(set) var isCreating = false
   @Published private(set) var creationError: String?
@@ -65,22 +64,37 @@ final class PinnedAlbumsViewModel: ObservableObject {
     }
   }
 
+  /// Every user album, for the settings screen and session to browse. Empty until loaded.
+  var albums: [AlbumOption] { catalog.albums ?? [] }
+  /// Every Photos folder of albums, for the settings screen and session to browse.
+  var groups: [AlbumGroup] { catalog.groups }
+  /// Whether the library has been fetched at least once.
+  var isLoaded: Bool { catalog.isLoaded }
+
+  /// The albums for `identifiers`, in that order, skipping any not in the catalog.
+  func albums(withIdentifiers identifiers: [String]) -> [AlbumOption] {
+    catalog.albums(withIdentifiers: identifiers)
+  }
+
   /// The folders containing each album or subfolder, outermost first, by identifier.
   var folderPathsByChildID: [String: [AlbumGroup]] { groups.folderPaths }
 
-  /// Always fetches the whole library: the settings screen is an infrequent visit.
-  func load() {
-    guard !isLoading else { return }
+  /// Always fetches the whole library: an on-demand reload, not tied to how often a
+  /// screen appears. Returns the task that finishes once loaded, or `nil` if a load is
+  /// already in flight.
+  @discardableResult
+  func load() -> Task<Void, Never>? {
+    guard !isLoading else { return nil }
     isLoading = true
     PinnedLoadTrace.log("load started")
     assign(\.identifiers, store.pinnedAlbumIdentifiers())
-    Task {
+    return Task {
       async let fetchedAlbums = library.fetchAllUserAlbums()
       async let fetchedGroups = library.fetchAlbumGroups()
       let (newAlbums, newGroups) = await (fetchedAlbums, fetchedGroups)
       PinnedLoadTrace.log("fetched \(newAlbums.count) albums, \(newGroups.count) groups")
-      assign(\.groups, newGroups)
-      assign(\.albums, newAlbums)
+      if catalog.groups != newGroups { catalog.groups = newGroups }
+      if catalog.albums == nil || catalog.albums! != newAlbums { catalog.albums = newAlbums }
       prune(albums: newAlbums)
       isLoading = false
       PinnedLoadTrace.log("load finished")
@@ -143,9 +157,11 @@ final class PinnedAlbumsViewModel: ObservableObject {
       switch result {
       case .success(let newAlbumID):
         pin([newAlbumID])
-        albums.append(
+        var updated = catalog.albums ?? []
+        updated.append(
           AlbumOption(ref: .existing(localIdentifier: newAlbumID), name: name, assetCount: 0))
-        albums.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        updated.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        catalog.albums = updated
         await onAlbumCreated?()
       case .failure(let error):
         creationError = error.localizedDescription
@@ -156,6 +172,9 @@ final class PinnedAlbumsViewModel: ObservableObject {
 
 #if DEBUG
   extension PinnedAlbumsViewModel {
+    /// Seeds the album list directly, bypassing `load()`, for tests and previews.
+    func setAlbums(_ albums: [AlbumOption]?) { catalog.albums = albums }
+
     /// A view model over in-memory doubles, for SwiftUI Previews.
     static func mock(
       albums: [AlbumOption] = [], groups: [AlbumGroup] = [], pinned: [String] = []
@@ -165,8 +184,8 @@ final class PinnedAlbumsViewModel: ObservableObject {
       let model = PinnedAlbumsViewModel(
         library: MockPhotoLibraryService(), store: store,
         defaults: UserDefaults(suiteName: UUID().uuidString)!)
-      model.albums = albums
-      model.groups = groups
+      model.catalog.groups = groups
+      model.catalog.albums = albums
       return model
     }
   }

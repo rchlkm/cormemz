@@ -11,15 +11,19 @@ final class SessionViewModel: ObservableObject {
   @Published var eligiblePhotoCount: Int = 0
   @Published private var deck = SessionDeck()
   @Published var isStartingSession: Bool = false
-  @Published private var albumCatalog = AlbumCatalog()
   /// Every user album, loaded once per app launch and refreshed on foreground return and
-  /// after album creation. `nil` until loaded.
+  /// after album creation. `nil` until loaded. Backed by `pinnedAlbums`'s catalog, so it's
+  /// the same fetch Pinned Albums settings uses rather than a second one.
   var libraryAlbums: [AlbumOption]? {
-    get { albumCatalog.albums }
-    set { albumCatalog.albums = newValue }
+    get { pinnedAlbums.isLoaded ? pinnedAlbums.albums : nil }
+    set {
+      #if DEBUG
+        pinnedAlbums.setAlbums(newValue)
+      #endif
+    }
   }
   /// Photos folders of albums, loaded alongside `libraryAlbums`.
-  var libraryAlbumGroups: [AlbumGroup] { albumCatalog.groups }
+  var libraryAlbumGroups: [AlbumGroup] { pinnedAlbums.groups }
   @Published var albumAssignedCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published private(set) var commitState: CommitState = .idle
@@ -441,14 +445,13 @@ final class SessionViewModel: ObservableObject {
   /// `libraryAlbums` (empty until it loads).
   var quickAccessAlbums: [AlbumOption] {
     let pinned = orderedPinnedAlbumIDs
-    return albumCatalog.albums(withIdentifiers: pinned + recentAlbumIDs.filter { !pinned.contains($0) })
+    return pinnedAlbums.albums(withIdentifiers: pinned + recentAlbumIDs.filter { !pinned.contains($0) })
   }
 
   /// Pinned albums as displayed, in their sort order (empty until the library loads).
   var pinnedDisplayItems: [PinnedDisplayItem] {
     PinnedDisplayItem.items(
-      identifiers: orderedPinnedAlbumIDs, albums: albumCatalog.albums ?? [],
-      groups: albumCatalog.groups)
+      identifiers: orderedPinnedAlbumIDs, albums: pinnedAlbums.albums, groups: pinnedAlbums.groups)
   }
 
   /// Loads the albums `photoID` already belongs to, via a per-asset lookup. No-op once loaded.
@@ -462,17 +465,13 @@ final class SessionViewModel: ObservableObject {
 
   /// Loads the library's album list once per app launch.
   func preloadLibraryAlbums() async {
-    guard !albumCatalog.isLoaded else { return }
+    guard !pinnedAlbums.isLoaded else { return }
     await refreshLibraryAlbums()
   }
 
+  /// `pinnedAlbums.load()` also prunes pins no longer in the library.
   func refreshLibraryAlbums() async {
-    async let albums = library.fetchAllUserAlbums()
-    async let groups = library.fetchAlbumGroups()
-    // Groups first, so they're in place once `albums` marks the catalog loaded.
-    albumCatalog.groups = await groups
-    albumCatalog.albums = await albums
-    pinnedAlbums.prune(albums: albumCatalog.albums ?? [])
+    if let task = pinnedAlbums.load() { await task.value }
   }
 
   /// Re-reads access, the photo count and the album list.
@@ -484,7 +483,7 @@ final class SessionViewModel: ObservableObject {
   /// Refreshes only once a list is loaded. Foreground album changes (e.g. iCloud
   /// sync) aren't observed; a `PHPhotoLibraryChangeObserver` would call this.
   func refreshLibraryAlbumsIfLoaded() async {
-    guard albumCatalog.isLoaded else { return }
+    guard pinnedAlbums.isLoaded else { return }
     await refreshLibraryAlbums()
   }
 
