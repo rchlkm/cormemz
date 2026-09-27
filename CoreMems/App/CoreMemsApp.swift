@@ -125,17 +125,12 @@ struct RootView: View {
         PersistedStateDump.runIfEnabled(reason: "launch")
       #endif
     }
-    .onChange(of: scenePhase) { oldPhase, newPhase in
+    .onChange(of: scenePhase) { _, newPhase in
       #if DEBUG
         if newPhase == .background { PersistedStateDump.runIfEnabled(reason: "background") }
       #endif
       if newPhase == .active {
         vm.refreshAuthorizationStatus()
-        // Albums may have changed in Photos while backgrounded; brief
-        // inactive blips (e.g. Control Center) don't count.
-        if oldPhase == .background {
-          Task { await vm.refreshLibraryAlbumsIfLoaded() }
-        }
       }
     }
   }

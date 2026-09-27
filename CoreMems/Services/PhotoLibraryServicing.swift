@@ -86,6 +86,11 @@ protocol AlbumLibrary {
   /// creates via `commitSessionChanges` alongside an assignment).
   /// Returns the new album's `PHAssetCollection.localIdentifier`.
   func createAlbum(named name: String) async -> Result<String, Error>
+  /// Calls `handler` whenever the Photos library changes (an album added, renamed, or
+  /// deleted, on this device or via iCloud sync) — including changes made while the app
+  /// was suspended. `handler` may be called on any thread. The returned token keeps
+  /// observing until deallocated.
+  func observeLibraryChanges(_ handler: @escaping () -> Void) -> AnyObject
 }
 
 /// Changes written to the library, and the size lookup that precedes deleting.

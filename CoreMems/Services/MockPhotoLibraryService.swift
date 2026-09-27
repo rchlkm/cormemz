@@ -52,4 +52,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func createAlbum(named name: String) async -> Result<String, Error> {
     .success(UUID().uuidString)
   }
+
+  func observeLibraryChanges(_ handler: @escaping () -> Void) -> AnyObject {
+    NSObject()
+  }
 }

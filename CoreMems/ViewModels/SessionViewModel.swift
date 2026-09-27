@@ -68,6 +68,8 @@ final class SessionViewModel: ObservableObject {
   private let commitService: SessionCommitService
   let pinnedAlbums: PinnedAlbumsViewModel
   private var pinnedAlbumsObservation: AnyCancellable?
+  /// Keeps `library`'s change observer registered for this view model's lifetime.
+  private var libraryChangeObservation: AnyObject?
   private var pickedAssets: [String: PHAsset] = [:]  // photo.id -> PHAsset, for real deletion
   let peekController = PeekController()
   private var peekObservation: AnyCancellable?
@@ -123,6 +125,9 @@ final class SessionViewModel: ObservableObject {
     self.reviewedPhotosStore = reviewedPhotosStore
     self.reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
     pinnedAlbums.onAlbumCreated = { [weak self] in await self?.refreshLibraryAlbumsIfLoaded() }
+    libraryChangeObservation = library.observeLibraryChanges { [weak self] in
+      Task { @MainActor in await self?.refreshLibraryAlbumsIfLoaded() }
+    }
     // Only the state `quickAccessAlbums` reads re-renders this object's observers.
     pinnedAlbumsObservation = Publishers.Merge(
       pinnedAlbums.$identifiers.removeDuplicates().dropFirst().map { _ in },
@@ -480,8 +485,8 @@ final class SessionViewModel: ObservableObject {
     await refreshLibraryAlbums()
   }
 
-  /// Refreshes only once a list is loaded. Foreground album changes (e.g. iCloud
-  /// sync) aren't observed; a `PHPhotoLibraryChangeObserver` would call this.
+  /// Refreshes only once a list is loaded; called when `library` reports the Photos
+  /// library changed, and after a pending album is created.
   func refreshLibraryAlbumsIfLoaded() async {
     guard pinnedAlbums.isLoaded else { return }
     await refreshLibraryAlbums()

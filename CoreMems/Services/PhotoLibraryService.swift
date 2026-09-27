@@ -33,11 +33,28 @@ private actor ChronologicalImages {
   }
 }
 
-/// Library changes aren't observed. Live album updates would register a
-/// `PHPhotoLibraryChangeObserver` here and call
-/// `SessionViewModel.refreshLibraryAlbumsIfLoaded`.
+/// Forwards `PHPhotoLibraryChangeObserver` callbacks to a plain closure, so callers don't
+/// need to adopt the delegate protocol themselves. Unregisters when deallocated.
+private final class LibraryChangeObserver: NSObject, PHPhotoLibraryChangeObserver {
+  private let handler: () -> Void
+
+  init(handler: @escaping () -> Void) {
+    self.handler = handler
+    super.init()
+    PHPhotoLibrary.shared().register(self)
+  }
+
+  deinit { PHPhotoLibrary.shared().unregisterChangeObserver(self) }
+
+  func photoLibraryDidChange(_ changeInstance: PHChange) { handler() }
+}
+
 final class PhotoLibraryService: PhotoLibraryServicing {
   private let chronologicalImages = ChronologicalImages()
+
+  func observeLibraryChanges(_ handler: @escaping () -> Void) -> AnyObject {
+    LibraryChangeObserver(handler: handler)
+  }
 
   func requestAuthorization() async -> PHAuthorizationStatus {
     await PHPhotoLibrary.requestAuthorization(for: .readWrite)
