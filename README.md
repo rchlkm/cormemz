@@ -28,4 +28,4 @@ It’s an iOS app for cleaning up and organizing your photos, with some fun alon
 - Deletions go through Apple's Recently Deleted.
 - You can undo your decisions before confirming.
 
-See [FEATURES.md](FEATURES.md) for the full feature list and what's planned.
+See [FEATURES.md](docs/FEATURES.md) for the full feature list and what's planned.
