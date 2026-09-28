@@ -13,6 +13,11 @@ struct PhotoCardView: View {
   let maxSize: CGSize
 
   var body: some View {
-    AdaptiveAssetImage(photo: photo, fitWithin: maxSize)
+    if photo.isVideo {
+      VideoPlayerCardView(assetIdentifier: photo.assetIdentifier)
+        .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
+    } else {
+      AdaptiveAssetImage(photo: photo, fitWithin: maxSize)
+    }
   }
 }

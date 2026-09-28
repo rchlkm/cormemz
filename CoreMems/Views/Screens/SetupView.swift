@@ -181,15 +181,13 @@ struct SetupView: View {
     .buttonStyle(CardButtonStyle(isSelected: isSelected))
   }
 
-  // MARK: - Media type filter ("Videos" and "Timelapses" aren't wired up yet)
+  // MARK: - Media type filter
   private var typeFilterRow: some View {
     ScrollView(.horizontal, showsIndicators: false) {
       HStack(spacing: 8) {
         ForEach(MediaTypeFilter.allCases, id: \.self) { filter in
-          let isEnabled = filter == .all || filter == .photos || filter == .screenshots
           Button(filter.label) { mediaTypeFilter = filter }
             .buttonStyle(ChipButtonStyle(isSelected: filter == mediaTypeFilter))
-            .disabled(!isEnabled)
         }
       }
     }

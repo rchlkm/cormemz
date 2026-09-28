@@ -86,6 +86,17 @@ struct StartSessionTests {
     #expect(h.library.lastMediaTypeFilter == .screenshots)
   }
 
+  @Test func aVideoAssetProducesAVideoSessionPhoto() async {
+    let library = RecordingPhotoLibrary()
+    library.assets = [FakeAsset(identifier: SessionHarness.assetID(0), isVideo: true)]
+    let h = SessionHarness(library: library)
+    h.vm.eligiblePhotoCount = 1
+
+    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypeFilter: .videos)
+
+    #expect(h.vm.photos.map(\.isVideo) == [true])
+  }
+
   @Test func aNewSessionClearsThePreviousOnesCounts() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)

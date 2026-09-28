@@ -33,15 +33,15 @@ struct AdaptiveAssetImage: View {
           case .success(let image):
             image.resizable().aspectRatio(contentMode: fitWithin != nil ? .fit : contentMode)
           case .failure:
-            failurePlaceholder
+            AssetPlaceholderView(state: .failed(icon: "photo"))
           default:
-            loadingPlaceholder
+            AssetPlaceholderView(state: .loading)
           }
         }
       } else if loadFailed {
-        failurePlaceholder
+        AssetPlaceholderView(state: .failed(icon: "photo"))
       } else {
-        loadingPlaceholder
+        AssetPlaceholderView(state: .loading)
       }
     }
     .modifier(SizingModifier(fitWithin: fitWithin, targetSize: targetSize))
@@ -61,21 +61,6 @@ struct AdaptiveAssetImage: View {
       } else {
         loadFailed = true
       }
-    }
-  }
-
-  private var loadingPlaceholder: some View {
-    ZStack {
-      Color(.tertiarySystemFill)
-      ProgressView()
-    }
-  }
-
-  private var failurePlaceholder: some View {
-    ZStack {
-      Color(.tertiarySystemFill)
-      Image(systemName: "photo")
-        .foregroundStyle(.tertiary)
     }
   }
 }

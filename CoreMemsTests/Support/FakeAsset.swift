@@ -3,19 +3,22 @@ import Photos
 
 @testable import CoreMems
 
-/// A `PHAsset` with a chosen identifier and Live Photo flag, for feeding sessions
-/// without a photo library.
+/// A `PHAsset` with a chosen identifier, Live Photo flag, and media type, for
+/// feeding sessions without a photo library.
 final class FakeAsset: PHAsset, @unchecked Sendable {
   private let identifier: String
   private let isLive: Bool
+  private let isVideo: Bool
 
-  init(identifier: String, isLive: Bool = false) {
+  init(identifier: String, isLive: Bool = false, isVideo: Bool = false) {
     self.identifier = identifier
     self.isLive = isLive
+    self.isVideo = isVideo
     super.init()
   }
 
   override var localIdentifier: String { identifier }
+  override var mediaType: PHAssetMediaType { isVideo ? .video : .image }
   override var mediaSubtypes: PHAssetMediaSubtype { isLive ? .photoLive : [] }
   override var isFavorite: Bool { false }
   override var creationDate: Date? { nil }

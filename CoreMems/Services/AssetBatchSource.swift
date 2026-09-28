@@ -71,7 +71,15 @@ actor AssetBatchSource: AssetBatching {
       return NSPredicate(
         format: "mediaType == %d AND (mediaSubtypes & %d) == 0",
         PHAssetMediaType.image.rawValue, PHAssetMediaSubtype.photoScreenshot.rawValue)
-    case .all, .videos, .timelapses:
+    case .videos:
+      return NSPredicate(
+        format: "mediaType == %d AND (mediaSubtypes & %d) == 0",
+        PHAssetMediaType.video.rawValue, PHAssetMediaSubtype.videoTimelapse.rawValue)
+    case .timelapses:
+      return NSPredicate(
+        format: "mediaType == %d AND (mediaSubtypes & %d) != 0",
+        PHAssetMediaType.video.rawValue, PHAssetMediaSubtype.videoTimelapse.rawValue)
+    case .all:
       return NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
     }
   }

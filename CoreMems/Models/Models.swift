@@ -46,6 +46,9 @@ struct SessionPhoto: Identifiable, Equatable {
   var decision: ReviewDecision = .undecided
   var isFavorite: Bool = false
   var isLivePhoto: Bool = false
+  /// PhotoKit videos (including timelapses) are never Live Photos, so this and
+  /// `isLivePhoto` are mutually exclusive.
+  var isVideo: Bool = false
   /// Held photos aren't remembered as reviewed, so later sessions offer them again.
   var isHeldForLater: Bool = false
   var dateLabel: String = ""

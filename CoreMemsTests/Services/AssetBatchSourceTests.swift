@@ -36,8 +36,19 @@ struct AssetBatchSourceMediaTypePredicateTests {
     #expect(format.contains("== 0"))
   }
 
-  @Test(arguments: [MediaTypeFilter.all, .videos, .timelapses])
-  func otherFiltersDoNotRestrictBySubtype(_ filter: MediaTypeFilter) {
-    #expect(!AssetBatchSource.mediaTypePredicate(filter).predicateFormat.contains("mediaSubtypes"))
+  @Test func allFilterDoesNotRestrictBySubtype() {
+    #expect(!AssetBatchSource.mediaTypePredicate(.all).predicateFormat.contains("mediaSubtypes"))
+  }
+
+  @Test func videosFilterExcludesTheTimelapseSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate(.videos).predicateFormat
+    #expect(format.contains("mediaSubtypes"))
+    #expect(format.contains("== 0"))
+  }
+
+  @Test func timelapsesFilterRestrictsToTheTimelapseSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate(.timelapses).predicateFormat
+    #expect(format.contains("mediaSubtypes"))
+    #expect(format.contains("!= 0"))
   }
 }

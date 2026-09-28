@@ -290,6 +290,7 @@ final class SessionViewModel: ObservableObject {
         previewURL: nil,
         isFavorite: asset.isFavorite,
         isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
+        isVideo: asset.mediaType == .video,
         dateLabel: asset.creationDate.map(cardDateFormatter.string) ?? ""
       )
     }
