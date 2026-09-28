@@ -9,6 +9,11 @@ actor LivePhotoLoader {
   static let shared = LivePhotoLoader()
 
   private let manager = PHCachingImageManager()
+  private let networkAccess: NetworkAccessProviding
+
+  init(networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
+    self.networkAccess = networkAccess
+  }
 
   func livePhoto(for identifier: String, targetSize: CGSize) async -> PHLivePhoto? {
     guard
@@ -19,7 +24,7 @@ actor LivePhotoLoader {
 
     let options = PHLivePhotoRequestOptions()
     options.deliveryMode = .highQualityFormat
-    options.isNetworkAccessAllowed = true
+    options.isNetworkAccessAllowed = networkAccess.allowsDownloads
 
     return await withCheckedContinuation { continuation in
       manager.requestLivePhoto(

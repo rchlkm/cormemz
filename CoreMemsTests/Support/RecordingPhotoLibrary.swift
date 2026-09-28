@@ -30,6 +30,10 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var createdAlbumIDs: Set<String> = []
   /// Session photo IDs whose still copy the commit fails to produce.
   var photoIDsWithoutStill: Set<String> = []
+  /// Asset identifiers that can't be shown without a download.
+  var assetsNeedingDownload: Set<String> = []
+  /// Asset identifiers whose original isn't on the device.
+  var assetsWithoutLocalOriginal: Set<String> = []
 
   /// The source handed to the most recent session.
   private(set) var lastSource: FakeAssetSource?
@@ -48,6 +52,14 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   }
 
   func totalEligibleAssetCount() -> Int { assets.count }
+
+  func isDisplayableWithoutNetwork(_ asset: PHAsset) async -> Bool {
+    !assetsNeedingDownload.contains(asset.localIdentifier)
+  }
+
+  func hasLocalOriginal(_ asset: PHAsset) -> Bool {
+    !assetsWithoutLocalOriginal.contains(asset.localIdentifier)
+  }
 
   func randomAssetDate() async -> Date? { stubbedRandomDate ?? assets.first?.creationDate }
 

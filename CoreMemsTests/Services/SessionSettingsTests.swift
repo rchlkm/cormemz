@@ -15,6 +15,7 @@ struct SessionSettingsTests {
 
     #expect(settings.checkInInterval == SessionSettings.defaultCheckInInterval)
     #expect(!settings.includesReviewedPhotos)
+    #expect(settings.networkPolicy == .wifiAndCellular)
   }
 
   @Test func settingsPersistAcrossInstances() {
@@ -23,10 +24,12 @@ struct SessionSettingsTests {
 
     settings.checkInInterval = 30
     settings.includesReviewedPhotos = true
+    settings.networkPolicy = .wifiOnly
 
     let reloaded = SessionSettings(defaults: defaults)
     #expect(reloaded.checkInInterval == 30)
     #expect(reloaded.includesReviewedPhotos)
+    #expect(reloaded.networkPolicy == .wifiOnly)
   }
 
   @Test func aStoredIntervalOutsideTheRangeIsClamped() {

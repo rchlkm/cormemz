@@ -70,6 +70,10 @@ protocol AssetLibrary {
   /// order, plus that asset itself — true library neighbors, independent of any
   /// session's fetch order. Empty if the asset can't be found.
   func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset]
+  /// Whether a review-sized image of `asset` can be produced without downloading anything.
+  func isDisplayableWithoutNetwork(_ asset: PHAsset) async -> Bool
+  /// Whether the file a Live Photo conversion reads is on the device.
+  func hasLocalOriginal(_ asset: PHAsset) -> Bool
 }
 
 /// User album lookup and creation.

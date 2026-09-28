@@ -4,7 +4,7 @@ import Photos
 /// A stream of assets handed out a batch at a time.
 protocol AssetBatching: Actor {
   /// Returns up to `count` more assets; fewer than `count` means the source is exhausted.
-  func nextBatch(count: Int) -> [PHAsset]
+  func nextBatch(count: Int) async -> [PHAsset]
 }
 
 /// Walks the library's eligible (image-only) assets in a session's order, handing them out a
@@ -63,6 +63,46 @@ actor AssetBatchSource: AssetBatching {
       cursor += 1
       guard !excluding.contains(asset.localIdentifier) else { continue }
       batch.append(asset)
+    }
+    return batch
+  }
+}
+
+/// Hands out only the assets of `base` that pass `admits`, refilling each batch from
+/// `base` until it is full or `base` runs dry.
+actor FilteringAssetSource: AssetBatching {
+  private let base: any AssetBatching
+  private let admits: @Sendable (PHAsset) async -> Bool
+  private var isExhausted = false
+
+  init(base: any AssetBatching, admits: @escaping @Sendable (PHAsset) async -> Bool) {
+    self.base = base
+    self.admits = admits
+  }
+
+  func nextBatch(count: Int) async -> [PHAsset] {
+    var batch: [PHAsset] = []
+    let admits = admits
+    while batch.count < count, !isExhausted {
+      let wanted = count - batch.count
+      let candidates = await base.nextBatch(count: wanted)
+      if candidates.count < wanted { isExhausted = true }
+      // Each candidate's admission is an independent PHImageManager probe, so
+      // running them concurrently avoids paying that latency once per photo
+      // in a row when a batch has many cloud-only assets to reject.
+      let isAdmitted = await withTaskGroup(of: (Int, Bool).self) { group in
+        for (index, asset) in candidates.enumerated() {
+          group.addTask { (index, await admits(asset)) }
+        }
+        var results = [Bool](repeating: false, count: candidates.count)
+        for await (index, admitted) in group {
+          results[index] = admitted
+        }
+        return results
+      }
+      for (index, asset) in candidates.enumerated() where isAdmitted[index] {
+        batch.append(asset)
+      }
     }
     return batch
   }

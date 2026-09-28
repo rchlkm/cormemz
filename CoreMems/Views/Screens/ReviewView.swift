@@ -76,6 +76,11 @@ struct ReviewView: View {
               .font(.caption2)
               .foregroundStyle(.tertiary)
           }
+          if !vm.allowsDownloads {
+            Label("Downloaded photos only", systemImage: "icloud.slash")
+              .font(.caption2)
+              .foregroundStyle(.tertiary)
+          }
         }
         .padding(.bottom, 4)
 

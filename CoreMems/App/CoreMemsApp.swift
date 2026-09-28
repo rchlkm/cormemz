@@ -42,6 +42,8 @@ struct RootView: View {
     SettingsView(
       checkInInterval: $vm.checkInInterval,
       includesReviewedPhotos: $vm.includesReviewedPhotos,
+      networkPolicy: $vm.networkPolicy,
+      isLowDataModeActive: vm.isLowDataModeActive,
       reviewedPhotoCount: vm.reviewedPhotoCount,
       libraryPhotoCount: vm.eligiblePhotoCount,
       onResetReviewedPhotos: { vm.resetReviewedPhotos() },

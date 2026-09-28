@@ -9,6 +9,7 @@ struct SessionSettings {
   static let maxPhotosPerSession = 200
   private static let checkInIntervalKey = "cm_checkInInterval"
   private static let includesReviewedKey = "cm_includesReviewedPhotos"
+  private static let networkPolicyKey = "cm_networkPolicy"
 
   private let defaults: UserDefaults
 
@@ -22,6 +23,11 @@ struct SessionSettings {
     didSet { defaults.set(includesReviewedPhotos, forKey: Self.includesReviewedKey) }
   }
 
+  /// Where photos missing from the device may be downloaded from.
+  var networkPolicy: NetworkPolicy {
+    didSet { defaults.set(networkPolicy.rawValue, forKey: Self.networkPolicyKey) }
+  }
+
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let range = Self.checkInIntervalRange
@@ -30,5 +36,8 @@ struct SessionSettings {
         min(max($0, range.lowerBound), range.upperBound)
       } ?? Self.defaultCheckInInterval
     includesReviewedPhotos = defaults.bool(forKey: Self.includesReviewedKey)
+    networkPolicy =
+      defaults.string(forKey: Self.networkPolicyKey).flatMap(NetworkPolicy.init(rawValue:))
+      ?? .wifiAndCellular
   }
 }

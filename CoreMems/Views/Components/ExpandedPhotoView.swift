@@ -60,6 +60,7 @@ struct ExpandedPhotoView: View {
               targetSize: UIScreen.main.bounds.size,
               inlineLivePhoto: $inlineLivePhoto,
               isShowingLivePhoto: $isShowingLivePhoto,
+              canConvertToStill: vm.canConvertToStill(photo),
               onConvertToStill: convertToStill,
               style: .pill
             )

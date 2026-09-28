@@ -28,6 +28,10 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset] { [] }
 
+  func isDisplayableWithoutNetwork(_ asset: PHAsset) async -> Bool { true }
+
+  func hasLocalOriginal(_ asset: PHAsset) -> Bool { true }
+
   func storageSize(of assets: [PHAsset]) async -> Int64? { 0 }
 
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error> { .success(()) }
