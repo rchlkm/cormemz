@@ -630,11 +630,22 @@ final class SessionViewModel: ObservableObject {
       .filter { $0.decision == .undecided }
       .compactMap { photo in pickedAssets[photo.id].map { (id: photo.id, asset: $0) } }
     guard !candidates.isEmpty else { return }
+    let library = library
     Task {
-      var unavailable = Set<String>()
-      for candidate in candidates
-      where await !library.isDisplayableWithoutNetwork(candidate.asset) {
-        unavailable.insert(candidate.id)
+      // Concurrent, matching FilteringAssetSource's own admission probing — each candidate
+      // is an independent PHImageManager lookup, so probing serially pays that latency once
+      // per photo in a row.
+      let unavailable = await withTaskGroup(of: (id: String, isUnavailable: Bool).self) { group in
+        for candidate in candidates {
+          group.addTask {
+            (candidate.id, await !library.isDisplayableWithoutNetwork(candidate.asset))
+          }
+        }
+        var unavailable = Set<String>()
+        for await result in group where result.isUnavailable {
+          unavailable.insert(result.id)
+        }
+        return unavailable
       }
       guard !allowsDownloads, !unavailable.isEmpty else { return }
       let boundary = currentIndex

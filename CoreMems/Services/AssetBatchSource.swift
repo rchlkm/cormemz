@@ -89,20 +89,19 @@ actor FilteringAssetSource: AssetBatching {
       if candidates.count < wanted { isExhausted = true }
       // Each candidate's admission is an independent PHImageManager probe, so
       // running them concurrently avoids paying that latency once per photo
-      // in a row when a batch has many cloud-only assets to reject.
-      let isAdmitted = await withTaskGroup(of: (Int, Bool).self) { group in
+      // in a row when a batch has many cloud-only assets to reject. Indexed
+      // so the admitted assets stay in `candidates`' order, not completion order.
+      let admitted = await withTaskGroup(of: (Int, PHAsset?).self) { group in
         for (index, asset) in candidates.enumerated() {
-          group.addTask { (index, await admits(asset)) }
+          group.addTask { (index, await admits(asset) ? asset : nil) }
         }
-        var results = [Bool](repeating: false, count: candidates.count)
-        for await (index, admitted) in group {
-          results[index] = admitted
+        var results = [PHAsset?](repeating: nil, count: candidates.count)
+        for await (index, asset) in group {
+          results[index] = asset
         }
-        return results
+        return results.compactMap { $0 }
       }
-      for (index, asset) in candidates.enumerated() where isAdmitted[index] {
-        batch.append(asset)
-      }
+      batch.append(contentsOf: admitted)
     }
     return batch
   }

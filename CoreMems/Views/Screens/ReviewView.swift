@@ -221,10 +221,14 @@ struct ReviewView: View {
   }
 }
 
-private struct CheckInOverlayView: View {
-  let reviewedCount: Int
-  let onContinue: () -> Void
-  let onDone: () -> Void
+/// Shared modal chrome for review-screen overlays: dimmed background, an icon, a title,
+/// a message, then whatever actions the caller supplies — factored out of the check-in and
+/// network-notice overlays, which were otherwise identical but for their content.
+private struct ReviewOverlayCardView<Icon: View, Actions: View>: View {
+  let title: String
+  let message: String
+  @ViewBuilder let icon: () -> Icon
+  @ViewBuilder let actions: () -> Actions
 
   var body: some View {
     ZStack {
@@ -232,25 +236,39 @@ private struct CheckInOverlayView: View {
         .ignoresSafeArea()
 
       VStack(spacing: 14) {
-        Text("👀")
-          .font(.system(size: 30))
-        Text("\(reviewedCount) photos reviewed")
+        icon()
+        Text(title)
           .font(.system(size: 18, weight: .bold))
-        Text("Keep going, or call it here for now — your decisions are already saved.")
+        Text(message)
           .font(.system(size: 13.5))
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
-
-        Button("Keep going", action: onContinue)
-          .buttonStyle(ActionButtonStyle(role: .primary))
-
-        Button("I'm done for now", action: onDone)
-          .buttonStyle(ActionButtonStyle(role: .secondary))
+        actions()
       }
       .padding(24)
       .frame(maxWidth: 300)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
       .shadow(radius: 24)
+    }
+  }
+}
+
+private struct CheckInOverlayView: View {
+  let reviewedCount: Int
+  let onContinue: () -> Void
+  let onDone: () -> Void
+
+  var body: some View {
+    ReviewOverlayCardView(
+      title: "\(reviewedCount) photos reviewed",
+      message: "Keep going, or call it here for now — your decisions are already saved."
+    ) {
+      Text("👀").font(.system(size: 30))
+    } actions: {
+      Button("Keep going", action: onContinue)
+        .buttonStyle(ActionButtonStyle(role: .primary))
+      Button("I'm done for now", action: onDone)
+        .buttonStyle(ActionButtonStyle(role: .secondary))
     }
   }
 }
@@ -262,35 +280,19 @@ private struct NetworkNoticeOverlayView: View {
   let onDismiss: () -> Void
 
   private var explanation: String {
-    isLowDataMode
-      ? "Low Data Mode is on for this network, so downloads are paused."
-      : "You're offline, or your download setting rules out this connection."
+    "\(isLowDataMode ? NetworkPauseReason.lowDataMode : NetworkPauseReason.notAllowed)."
   }
 
   var body: some View {
-    ZStack {
-      Color.black.opacity(0.42)
-        .ignoresSafeArea()
-
-      VStack(spacing: 14) {
-        Image(systemName: "icloud.slash")
-          .font(.system(size: 30))
-        Text("Downloads are paused")
-          .font(.system(size: 18, weight: .bold))
-        Text(
-          "\(explanation) Photos already cached still show; anything with nothing cached is skipped and offered again later. Flag a photo to come back to it once you're reconnected."
-        )
-        .font(.system(size: 13.5))
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-
-        Button("Got it", action: onDismiss)
-          .buttonStyle(ActionButtonStyle(role: .primary))
-      }
-      .padding(24)
-      .frame(maxWidth: 300)
-      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
-      .shadow(radius: 24)
+    ReviewOverlayCardView(
+      title: "Downloads are paused",
+      message:
+        "\(explanation) Photos already cached still show; anything with nothing cached is skipped and offered again later. Flag a photo to come back to it once you're reconnected."
+    ) {
+      Image(systemName: "icloud.slash").font(.system(size: 30))
+    } actions: {
+      Button("Got it", action: onDismiss)
+        .buttonStyle(ActionButtonStyle(role: .primary))
     }
   }
 }

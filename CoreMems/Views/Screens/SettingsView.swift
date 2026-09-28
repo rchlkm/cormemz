@@ -96,7 +96,7 @@ struct SettingsView: View {
   private var dataUsageSection: some View {
     Section {
       if isLowDataModeActive {
-        Label("Low Data Mode is on for this network", systemImage: "bolt.slash")
+        Label(NetworkPauseReason.lowDataMode, systemImage: "bolt.slash")
           .foregroundStyle(.secondary)
       }
       Picker("iCloud downloads", selection: $networkPolicy) {
@@ -111,7 +111,7 @@ struct SettingsView: View {
     } footer: {
       Text(
         isLowDataModeActive
-          ? "Low Data Mode is on for this network, so downloads stay paused no matter what's picked above. Turn it off in the network's Wi-Fi or Cellular settings to allow downloads again."
+          ? "Downloads stay paused no matter what's picked above. Turn it off in the network's Wi-Fi or Cellular settings to allow downloads again."
           : "Photos stored only in iCloud need a download for full quality. Without one, the session shows what's already cached and skips a photo only if nothing is. Offline and Low Data Mode always skip downloads."
       )
     }

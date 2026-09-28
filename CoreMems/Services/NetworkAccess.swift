@@ -23,6 +23,13 @@ nonisolated struct NetworkConditions: Equatable {
   }
 }
 
+/// Shared copy for why downloads might be paused, so Settings and the in-review notice
+/// don't drift out of sync describing the same underlying reason.
+nonisolated enum NetworkPauseReason {
+  static let lowDataMode = "Low Data Mode is on for this network"
+  static let notAllowed = "You're offline, or your download setting rules out this connection"
+}
+
 /// Where the app may download photos from iCloud. Low Data Mode always blocks downloads.
 nonisolated enum NetworkPolicy: String, CaseIterable {
   case wifiAndCellular
@@ -92,15 +99,23 @@ nonisolated final class NetworkMonitor: NetworkAccessProviding, @unchecked Senda
   }
 
   /// Sends inside the lock so updates from different threads reach subscribers in order.
+  /// No-ops (and skips the log) when neither the policy nor the conditions actually changed —
+  /// `NWPathMonitor` fires on plenty of network churn that doesn't affect either.
   private func publish(_ change: (inout State) -> Void) {
-    let (policy, conditions, allowsDownloads) = state.withLockUnchecked {
-      state -> (NetworkPolicy, NetworkConditions, Bool) in
-      change(&state)
-      subject.send(state.allowsDownloads)
-      return (state.policy, state.conditions, state.allowsDownloads)
-    }
+    let changed: (policy: NetworkPolicy, conditions: NetworkConditions, allowsDownloads: Bool)? =
+      state.withLockUnchecked { state in
+        let previousPolicy = state.policy
+        let previousConditions = state.conditions
+        change(&state)
+        guard state.policy != previousPolicy || state.conditions != previousConditions else {
+          return nil
+        }
+        subject.send(state.allowsDownloads)
+        return (state.policy, state.conditions, state.allowsDownloads)
+      }
+    guard let changed else { return }
     Self.logger.debug(
-      "policy=\(String(describing: policy), privacy: .public) connected=\(conditions.isConnected, privacy: .public) expensive=\(conditions.isExpensive, privacy: .public) constrained=\(conditions.isConstrained, privacy: .public) allowsDownloads=\(allowsDownloads, privacy: .public)"
+      "policy=\(String(describing: changed.policy), privacy: .public) connected=\(changed.conditions.isConnected, privacy: .public) expensive=\(changed.conditions.isExpensive, privacy: .public) constrained=\(changed.conditions.isConstrained, privacy: .public) allowsDownloads=\(changed.allowsDownloads, privacy: .public)"
     )
   }
 }
