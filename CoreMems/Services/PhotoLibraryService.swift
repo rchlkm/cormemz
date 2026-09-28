@@ -106,6 +106,9 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     return (resource.value(forKey: Self.locallyAvailableKey) as? Bool) ?? false
   }
 
+  /// Accepts a lower-quality cached preview, not just a full-quality local image — reviewing
+  /// a photo at reduced quality beats skipping it outright, and `PhotoImageLoader`'s own
+  /// request already renders whatever quality this same lookup finds.
   private nonisolated static func probeDisplayable(_ asset: PHAsset) async -> Bool {
     let options = PHImageRequestOptions()
     options.deliveryMode = .highQualityFormat
@@ -114,9 +117,8 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     return await withCheckedContinuation { continuation in
       PHImageManager.default().requestImage(
         for: asset, targetSize: reviewProbeSize, contentMode: .aspectFit, options: options
-      ) { image, info in
-        let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-        continuation.resume(returning: image != nil && !isDegraded)
+      ) { image, _ in
+        continuation.resume(returning: image != nil)
       }
     }
   }

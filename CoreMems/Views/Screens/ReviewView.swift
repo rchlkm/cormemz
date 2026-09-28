@@ -77,7 +77,7 @@ struct ReviewView: View {
               .foregroundStyle(.tertiary)
           }
           if !vm.allowsDownloads {
-            Label("Downloaded photos only", systemImage: "icloud.slash")
+            Label("No downloads — showing what's cached", systemImage: "icloud.slash")
               .font(.caption2)
               .foregroundStyle(.tertiary)
           }

@@ -54,7 +54,7 @@ Review one item at a time in full screen.
 
 ## Offline and Limited Connections
 
-- Offline, on a connection your setting rules out, or in Low Data Mode, sessions switch to photos already on the device and skip the rest, which stay unreviewed for later
+- Offline, on a connection your setting rules out, or in Low Data Mode, sessions show photos at whatever quality is already cached, and only skip a photo when nothing is cached for it — it stays unreviewed for later
 - Converting a Live Photo to a still needs its original on the device unless downloads are allowed
 - Settings shows when Low Data Mode is why downloads are paused, regardless of the download setting chosen
 

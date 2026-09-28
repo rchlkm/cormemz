@@ -112,7 +112,7 @@ struct SettingsView: View {
       Text(
         isLowDataModeActive
           ? "Low Data Mode is on for this network, so downloads stay paused no matter what's picked above. Turn it off in the network's Wi-Fi or Cellular settings to allow downloads again."
-          : "Photos stored only in iCloud need a download to review. Without one, the session skips them and offers them again later. Offline and Low Data Mode always skip downloads."
+          : "Photos stored only in iCloud need a download for full quality. Without one, the session shows what's already cached and skips a photo only if nothing is. Offline and Low Data Mode always skip downloads."
       )
     }
   }
