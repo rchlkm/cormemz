@@ -8,6 +8,8 @@ struct ReviewView: View {
   @State private var expandedPhoto: SessionPhoto?
   @State private var showCheckIn = false
   @State private var lastCheckInIndex = -1
+  @State private var showNetworkNotice = false
+  @State private var hasShownNetworkNotice = false
   @State private var showAlbumPicker = false
   @State private var showUnconfirmedChanges = false
   @AppStorage("cm_albumStripExpanded") private var isAlbumStripExpanded = true
@@ -186,6 +188,14 @@ struct ReviewView: View {
         )
         .zIndex(2)
       }
+
+      if showNetworkNotice {
+        NetworkNoticeOverlayView(
+          isLowDataMode: vm.isLowDataModeActive,
+          onDismiss: { showNetworkNotice = false }
+        )
+        .zIndex(3)
+      }
     }
     .task {
       await vm.preloadLibraryAlbums()
@@ -202,6 +212,11 @@ struct ReviewView: View {
       else { return }
       lastCheckInIndex = newIndex
       showCheckIn = true
+    }
+    .onChange(of: vm.allowsDownloads, initial: true) { _, allowed in
+      guard !allowed, !hasShownNetworkNotice else { return }
+      hasShownNetworkNotice = true
+      showNetworkNotice = true
     }
   }
 }
@@ -231,6 +246,46 @@ private struct CheckInOverlayView: View {
 
         Button("I'm done for now", action: onDone)
           .buttonStyle(ActionButtonStyle(role: .secondary))
+      }
+      .padding(24)
+      .frame(maxWidth: 300)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+      .shadow(radius: 24)
+    }
+  }
+}
+
+/// Shown once per session, the first time downloads are paused (at start, or on going
+/// offline mid-session), so a blank or lower-quality card doesn't read as broken.
+private struct NetworkNoticeOverlayView: View {
+  let isLowDataMode: Bool
+  let onDismiss: () -> Void
+
+  private var explanation: String {
+    isLowDataMode
+      ? "Low Data Mode is on for this network, so downloads are paused."
+      : "You're offline, or your download setting rules out this connection."
+  }
+
+  var body: some View {
+    ZStack {
+      Color.black.opacity(0.42)
+        .ignoresSafeArea()
+
+      VStack(spacing: 14) {
+        Image(systemName: "icloud.slash")
+          .font(.system(size: 30))
+        Text("Downloads are paused")
+          .font(.system(size: 18, weight: .bold))
+        Text(
+          "\(explanation) Photos already cached still show; anything with nothing cached is skipped and offered again later. Flag a photo to come back to it once you're reconnected."
+        )
+        .font(.system(size: 13.5))
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+
+        Button("Got it", action: onDismiss)
+          .buttonStyle(ActionButtonStyle(role: .primary))
       }
       .padding(24)
       .frame(maxWidth: 300)
