@@ -50,6 +50,11 @@ final class SessionViewModel: ObservableObject {
     get { settings.includesReviewedPhotos }
     set { settings.includesReviewedPhotos = newValue }
   }
+  /// Which mode Setup opens with.
+  var defaultSessionMode: SelectionMode {
+    get { settings.defaultSessionMode }
+    set { settings.defaultSessionMode = newValue }
+  }
   @Published private(set) var reviewedPhotoCount: Int = 0
 
   /// Where photos missing from the device may be downloaded from.
@@ -192,7 +197,7 @@ final class SessionViewModel: ObservableObject {
   /// assets in `mode`'s order, or fall back to mock data when running in
   /// previews/simulator without a populated library. A batch is
   /// `checkInInterval` photos; later batches load as the user reviews.
-  func startSession(mode: SelectionMode, startDate: Date?) async {
+  func startSession(mode: SelectionMode, startDate: Date?, album: AlbumOption? = nil) async {
     guard !isStartingSession else { return }
     isStartingSession = true
     defer { isStartingSession = false }
@@ -210,7 +215,8 @@ final class SessionViewModel: ObservableObject {
     let batchSize = checkInInterval
     let initialCount = Self.lookaheadBatches * batchSize
     let (source, assets) = await loadInitialAssets(
-      mode: mode, startDate: startDate, count: initialCount, limit: limit)
+      mode: mode, startDate: startDate, albumIdentifier: album?.ref.identifier, count: initialCount,
+      limit: limit)
 
     if !assets.isEmpty {
       deck = SessionDeck(photos: registerPhotos(from: assets))
@@ -226,7 +232,7 @@ final class SessionViewModel: ObservableObject {
     sessionBatchSize = batchSize
     isLoadingBatch = false
     sessionLabel = mode.sessionLabel(
-      startDateText: startDate.map(Self.cardDateFormatter.string(from:)))
+      startDateText: startDate.map(Self.cardDateFormatter.string(from:)), albumName: album?.name)
     resetSessionTotals()
     screen = .review
     showPendingReviewIfDeckEmpty()
@@ -237,14 +243,16 @@ final class SessionViewModel: ObservableObject {
   /// Loads the first batch, skipping photos kept in earlier sessions. If that leaves nothing
   /// while the library has photos, loads without the skip rather than start an empty session.
   private func loadInitialAssets(
-    mode: SelectionMode, startDate: Date?, count: Int, limit: Int
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, count: Int, limit: Int
   ) async -> (source: any AssetBatching, assets: [PHAsset]) {
     let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
-    let source = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: reviewed)
+    let source = await library.makeAssetSource(
+      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier, excluding: reviewed)
     let assets = await source.nextBatch(count: count)
     guard assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
     else { return (source, assets) }
-    let unfiltered = await library.makeAssetSource(mode: mode, startDate: startDate, excluding: [])
+    let unfiltered = await library.makeAssetSource(
+      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier, excluding: [])
     return (unfiltered, await unfiltered.nextBatch(count: count))
   }
 

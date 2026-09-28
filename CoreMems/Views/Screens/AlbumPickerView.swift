@@ -3,7 +3,7 @@ import SwiftUI
 
 struct AlbumPickerView: View {
   let albums: [AlbumOption]
-  let assignedRefs: Set<AlbumRef>
+  var assignedRefs: Set<AlbumRef> = []
 
   /// The whole library, nil until loaded. Listed on search or "Show all albums".
   var libraryAlbums: [AlbumOption]? = []
@@ -12,14 +12,21 @@ struct AlbumPickerView: View {
   /// Recently used album IDs, newest first.
   var recentAlbumIDs: [String] = []
   @ObservedObject var pinnedAlbums: PinnedAlbumsViewModel
+  /// True to pick one album and dismiss, rather than toggle a photo's memberships and stay
+  /// open; also hides "create album", since there's no photo yet to put a new one in.
+  var isSingleSelect: Bool = false
   let onToggle: (AlbumRef) -> Void
-  let onCreate: (String) -> Void
+  var onCreate: (String) -> Void = { _ in }
+  var title: String = "Albums"
 
   @State private var showAllAlbums = false
   @State private var openedGroup: AlbumGroup?
   /// Membership when the sheet opened; rows keep their section while it is open, only the checkmark changes.
   @State private var openingAssignedRefs: Set<AlbumRef>?
   @Environment(\.dismiss) private var dismiss
+
+  /// No photo exists yet to put a newly created album in, while picking just one.
+  private var allowsCreate: Bool { !isSingleSelect }
 
   private struct Results {
     var alreadyIn: [AlbumOption] = []
@@ -84,6 +91,7 @@ struct AlbumPickerView: View {
         libraryAlbums: libraryAlbums,
         isLoading: libraryAlbums == nil && albums.isEmpty,
         onCreate: onCreate,
+        allowsCreate: allowsCreate,
         isReorderable: pinnedAlbums.sort == .myOrder
       ) { search in
         let results = computeResults(for: search)
@@ -127,7 +135,7 @@ struct AlbumPickerView: View {
         } else if !search.isSearching && results.alreadyIn.isEmpty && results.new.isEmpty
           && results.pinned.isEmpty && results.recent.isEmpty
         {
-          Section { AlbumSearchHint() }
+          Section { AlbumSearchHint(allowsCreate: allowsCreate) }
         }
 
         if libraryAlbums != nil && !showAllAlbums && !search.isSearching {
@@ -144,11 +152,11 @@ struct AlbumPickerView: View {
       .navigationDestination(item: $openedGroup) {
         PinnedGroupView(
           group: $0, albums: libraryAlbums ?? albums, groups: groups, pinnedAlbums: pinnedAlbums,
-          recentAlbumIDs: recentAlbumIDs, onSelectAlbum: { onToggle($0.ref) },
+          recentAlbumIDs: recentAlbumIDs, onSelectAlbum: { select($0.ref) },
           isSelected: { assignedRefs.contains($0.ref) })
       }
       .onAppear { openingAssignedRefs = openingAssignedRefs ?? assignedRefs }
-      .navigationTitle("Albums")
+      .navigationTitle(title)
       .navigationBarTitleDisplayMode(.inline)
       .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
@@ -164,6 +172,11 @@ struct AlbumPickerView: View {
   {
     PinnedEntryRow(
       entry: entry, folderPath: folderPath, pinnedIDs: pinnedIDs, pinnedAlbums: pinnedAlbums,
-      onSelectAlbum: { onToggle($0.ref) }, isSelected: { assignedRefs.contains($0.ref) })
+      onSelectAlbum: { select($0.ref) }, isSelected: { assignedRefs.contains($0.ref) })
+  }
+
+  private func select(_ ref: AlbumRef) {
+    onToggle(ref)
+    if isSingleSelect { dismiss() }
   }
 }

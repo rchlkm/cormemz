@@ -27,12 +27,18 @@ struct AlbumSearchQuery {
   }
 }
 
-/// Explains that the search field also creates albums.
+/// Explains what the search field does.
 struct AlbumSearchHint: View {
+  var allowsCreate: Bool = true
+
   var body: some View {
-    Text("Search for an album, or type a new name to create one.")
-      .font(.footnote)
-      .foregroundStyle(.secondary)
+    Text(
+      allowsCreate
+        ? "Search for an album, or type a new name to create one."
+        : "Search for an album."
+    )
+    .font(.footnote)
+    .foregroundStyle(.secondary)
   }
 }
 
@@ -67,6 +73,9 @@ struct AlbumSearchList<Content: View>: View {
   /// Disables the create row while a create is in flight.
   let isCreating: Bool
   let onCreate: (String) -> Void
+  /// False hides the create-a-new-album affordance entirely, e.g. when there's no photo yet
+  /// to put in a newly created album.
+  let allowsCreate: Bool
   /// Puts the list in edit mode so `reorderable` rows show handles; off while searching.
   let isReorderable: Bool
   let content: (AlbumSearchQuery) -> Content
@@ -79,6 +88,7 @@ struct AlbumSearchList<Content: View>: View {
     isLoading: Bool = false,
     isCreating: Bool = false,
     onCreate: @escaping (String) -> Void,
+    allowsCreate: Bool = true,
     isReorderable: Bool = false,
     @ViewBuilder content: @escaping (AlbumSearchQuery) -> Content
   ) {
@@ -87,13 +97,14 @@ struct AlbumSearchList<Content: View>: View {
     self.isLoading = isLoading
     self.isCreating = isCreating
     self.onCreate = onCreate
+    self.allowsCreate = allowsCreate
     self.isReorderable = isReorderable
     self.content = content
   }
 
   /// A typed name is creatable when the library is known and no album has that name.
   private func canCreate(_ query: AlbumSearchQuery) -> Bool {
-    guard !query.trimmed.isEmpty, let libraryAlbums else { return false }
+    guard allowsCreate, !query.trimmed.isEmpty, let libraryAlbums else { return false }
     return !albums.contains(where: query.isExactMatch)
       && !libraryAlbums.contains(where: query.isExactMatch)
   }
@@ -103,7 +114,7 @@ struct AlbumSearchList<Content: View>: View {
     return PullDownToCloseSearch { list(for: query) }
       .searchable(
         text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
-        prompt: "Search or create album"
+        prompt: allowsCreate ? "Search or create album" : "Search album"
       )
   }
 

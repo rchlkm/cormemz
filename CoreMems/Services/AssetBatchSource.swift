@@ -15,24 +15,39 @@ actor AssetBatchSource: AssetBatching {
   private let excluding: Set<String>
   private var cursor = 0
 
-  /// Skips the local identifiers in `excluding`.
-  init(mode: SelectionMode, startDate: Date?, excluding: Set<String>) {
+  /// Skips the local identifiers in `excluding`. `albumIdentifier` applies to `.album`.
+  init(mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>) {
     let options = PHFetchOptions()
     let image = PHAssetMediaType.image.rawValue
+    let result: PHFetchResult<PHAsset>
     switch mode {
     case .shuffle:
       options.predicate = NSPredicate(format: "mediaType == %d", image)
+      result = PHAsset.fetchAssets(with: options)
     case .recent:
       options.predicate = NSPredicate(format: "mediaType == %d", image)
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+      result = PHAsset.fetchAssets(with: options)
     case .date:
       options.predicate = NSPredicate(
         format: "mediaType == %d AND creationDate < %@",
         image, Self.dateCeiling(for: startDate) as NSDate)
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+      result = PHAsset.fetchAssets(with: options)
+    case .album:
+      options.predicate = NSPredicate(format: "mediaType == %d", image)
+      options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+      if let albumIdentifier,
+        let collection = PHAssetCollection.fetchAssetCollections(
+          withLocalIdentifiers: [albumIdentifier], options: nil
+        ).firstObject
+      {
+        result = PHAsset.fetchAssets(in: collection, options: options)
+      } else {
+        result = PHAsset.fetchAssets(withLocalIdentifiers: [], options: nil)
+      }
     }
 
-    let result = PHAsset.fetchAssets(with: options)
     var positions = Array(0..<result.count)
     if case .shuffle = mode { positions.shuffle() }
     self.result = result

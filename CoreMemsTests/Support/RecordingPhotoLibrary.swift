@@ -44,7 +44,7 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   func currentAuthorizationStatus() -> PHAuthorizationStatus { authorizationStatus }
 
   func makeAssetSource(
-    mode: SelectionMode, startDate: Date?, excluding: Set<String>
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>
   ) async -> any AssetBatching {
     let source = FakeAssetSource(assets: assets.filter { !excluding.contains($0.localIdentifier) })
     lastSource = source

@@ -15,7 +15,7 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
   func currentAuthorizationStatus() -> PHAuthorizationStatus { mockAuthStatus }
 
   func makeAssetSource(
-    mode: SelectionMode, startDate: Date?, excluding: Set<String>
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>
   ) async -> any AssetBatching {
     // Previews/mocks never touch real PHAssets — callers should
     // prefer 'SessionViewModel''s mock photo generator instead.

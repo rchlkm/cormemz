@@ -10,6 +10,7 @@ struct SessionSettings {
   private static let checkInIntervalKey = "cm_checkInInterval"
   private static let includesReviewedKey = "cm_includesReviewedPhotos"
   private static let networkPolicyKey = "cm_networkPolicy"
+  private static let defaultSessionModeKey = "cm_defaultSessionMode"
 
   private let defaults: UserDefaults
 
@@ -28,6 +29,11 @@ struct SessionSettings {
     didSet { defaults.set(networkPolicy.rawValue, forKey: Self.networkPolicyKey) }
   }
 
+  /// Which mode Setup opens with.
+  var defaultSessionMode: SelectionMode {
+    didSet { defaults.set(defaultSessionMode.rawValue, forKey: Self.defaultSessionModeKey) }
+  }
+
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let range = Self.checkInIntervalRange
@@ -39,5 +45,8 @@ struct SessionSettings {
     networkPolicy =
       defaults.string(forKey: Self.networkPolicyKey).flatMap(NetworkPolicy.init(rawValue:))
       ?? .wifiAndCellular
+    defaultSessionMode =
+      defaults.string(forKey: Self.defaultSessionModeKey).flatMap(SelectionMode.init)
+      ?? .shuffle
   }
 }

@@ -62,6 +62,7 @@ import SwiftUI
         includesReviewedPhotos: $vm.includesReviewedPhotos,
         networkPolicy: $vm.networkPolicy,
         isLowDataModeActive: vm.isLowDataModeActive,
+        defaultSessionMode: $vm.defaultSessionMode,
         reviewedPhotoCount: vm.reviewedPhotoCount,
         libraryPhotoCount: vm.eligiblePhotoCount,
         onResetReviewedPhotos: { vm.resetReviewedPhotos() },
@@ -95,15 +96,23 @@ import SwiftUI
               SetupView(
                 maxAvailable: vm.maxAvailable,
                 isStarting: vm.isStartingSession,
+                defaultMode: vm.defaultSessionMode,
                 onPickRandomDate: { await vm.randomAssetDate() },
-                onOpenSettings: { showSettings = true }
-              ) {
-                mode, startDate in
-                Task { await vm.startSession(mode: mode, startDate: startDate) }
-              } onRefresh: {
-                vm.screen = .home
-                Task { await vm.refreshLibrary() }
-              }
+                onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
+                onOpenSettings: { showSettings = true },
+                onStart: { mode, startDate, album in
+                  Task { await vm.startSession(mode: mode, startDate: startDate, album: album) }
+                },
+                onRefresh: {
+                  vm.screen = .home
+                  Task { await vm.refreshLibrary() }
+                },
+                quickAccessAlbums: vm.quickAccessAlbums,
+                libraryAlbums: vm.libraryAlbums,
+                libraryAlbumGroups: vm.libraryAlbumGroups,
+                recentAlbumIDs: vm.recentAlbumIDs,
+                pinnedAlbums: vm.pinnedAlbums
+              )
               .toolbar(.hidden, for: .navigationBar)
               .navigationDestination(isPresented: $showSettings) { settingsView }
             }

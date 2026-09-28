@@ -7,6 +7,7 @@ See [README.md](README.md) for the overview.
 - **Shuffle** — random media from your library
 - **Most Recent** — newest first
 - **From a Date** — start from a specific date and work backward
+- **Album** — pick one Photos album and review it, newest first
 - Periodic check-ins and a final review after 200 items
 - Previously reviewed items can be skipped in future sessions
 
@@ -51,6 +52,7 @@ Review one item at a time in full screen.
 - Reviewed-media tracking
 - Pinned albums: browse folders and subfolders to pin albums, drag to reorder
 - Choose where iCloud photos may download: Wi-Fi and cellular, Wi-Fi only, or downloaded photos only
+- Default session mode: choose which mode Setup opens with
 
 ## Offline and Limited Connections
 
@@ -80,7 +82,6 @@ Review one item at a time in full screen.
 
 - **Album grouping threshold** — choose how many pinned albums from one Photos folder collapse into a single folder chip in the album strip
 - **Session length** — choose how many photos a session loads before final review, up to the current 200
-- **Default session mode** — choose which mode (Shuffle, Most Recent, From a Date) Setup opens with
 - **Default pinned album sort** — choose whether the album picker opens on **My order** or **Recently used**
 - **Recent albums length** — choose how many recently used albums are remembered
 - **Browse nearby range** — choose how many neighboring photos load on each side when swiping up

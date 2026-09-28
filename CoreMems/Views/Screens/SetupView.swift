@@ -5,22 +5,71 @@ struct SetupView: View {
   let maxAvailable: Int
   var isStarting: Bool = false
   var onPickRandomDate: () async -> Date? = { nil }
+  /// Loads the album catalog; deferred until "Album" is actually chosen, since most
+  /// sessions never touch it.
+  var onPrepareAlbumPicker: () async -> Void = {}
   let onOpenSettings: () -> Void
-  let onStart: (SelectionMode, Date?) -> Void
+  let onStart: (SelectionMode, Date?, AlbumOption?) -> Void
   let onRefresh: () -> Void
+  /// Pinned albums, then unpinned recents, for the album picker's quick-access sections.
+  var quickAccessAlbums: [AlbumOption] = []
+  /// The whole library, nil until loaded.
+  var libraryAlbums: [AlbumOption]? = []
+  var libraryAlbumGroups: [AlbumGroup] = []
+  var recentAlbumIDs: [String] = []
+  var pinnedAlbums: PinnedAlbumsViewModel
 
-  @State private var mode: SelectionMode = .shuffle
+  @State private var mode: SelectionMode
   @State private var selectedDate: Date?
+  @State private var selectedAlbum: AlbumOption?
+  @State private var showAlbumPicker = false
 
-  private var canStart: Bool { mode != .date || selectedDate != nil }
+  init(
+    maxAvailable: Int, isStarting: Bool = false, defaultMode: SelectionMode = .shuffle,
+    onPickRandomDate: @escaping () async -> Date? = { nil },
+    onPrepareAlbumPicker: @escaping () async -> Void = {},
+    onOpenSettings: @escaping () -> Void,
+    onStart: @escaping (SelectionMode, Date?, AlbumOption?) -> Void,
+    onRefresh: @escaping () -> Void,
+    quickAccessAlbums: [AlbumOption] = [],
+    libraryAlbums: [AlbumOption]? = [],
+    libraryAlbumGroups: [AlbumGroup] = [],
+    recentAlbumIDs: [String] = [],
+    pinnedAlbums: PinnedAlbumsViewModel
+  ) {
+    self.maxAvailable = maxAvailable
+    self.isStarting = isStarting
+    self.onPickRandomDate = onPickRandomDate
+    self.onPrepareAlbumPicker = onPrepareAlbumPicker
+    self.onOpenSettings = onOpenSettings
+    self.onStart = onStart
+    self.onRefresh = onRefresh
+    self.quickAccessAlbums = quickAccessAlbums
+    self.libraryAlbums = libraryAlbums
+    self.libraryAlbumGroups = libraryAlbumGroups
+    self.recentAlbumIDs = recentAlbumIDs
+    self.pinnedAlbums = pinnedAlbums
+    _mode = State(initialValue: defaultMode)
+  }
+
+  private var canStart: Bool {
+    (mode != .date || selectedDate != nil) && (mode != .album || selectedAlbum != nil)
+  }
 
   private var startButtonTitle: String {
-    mode == .date && selectedDate == nil ? "Pick a date to start" : "Start"
+    if mode == .date && selectedDate == nil { return "Pick a date to start" }
+    if mode == .album && selectedAlbum == nil { return "Choose an album to start" }
+    return "Start"
   }
 
   /// Fills in a fresh random date each time "From a Date" is chosen; the user can change it.
   private func prefillRandomDate() async {
     if let date = await onPickRandomDate() { selectedDate = date }
+  }
+
+  /// Resolves a picked album's full details from the catalog the picker drew it from.
+  private func resolveAlbum(_ ref: AlbumRef) -> AlbumOption? {
+    pinnedAlbums.albums(withIdentifiers: [ref.identifier]).first
   }
 
   var body: some View {
@@ -37,15 +86,20 @@ struct SetupView: View {
           modeList
           if mode == .date {
             datePicker
+          } else if mode == .album {
+            albumChooser
           }
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
-        .task(id: mode) { if mode == .date { await prefillRandomDate() } }
+        .task(id: mode) {
+          if mode == .date { await prefillRandomDate() }
+          else if mode == .album { await onPrepareAlbumPicker() }
+        }
       }
 
       Button {
-        onStart(mode, mode == .date ? selectedDate : nil)
+        onStart(mode, mode == .date ? selectedDate : nil, mode == .album ? selectedAlbum : nil)
       } label: {
         if isStarting {
           ProgressView()
@@ -58,6 +112,18 @@ struct SetupView: View {
       .disabled(!canStart || isStarting)
       .padding(.horizontal, 32)
       .padding(.bottom, 26)
+    }
+    .sheet(isPresented: $showAlbumPicker) {
+      AlbumPickerView(
+        albums: quickAccessAlbums,
+        libraryAlbums: libraryAlbums,
+        groups: libraryAlbumGroups,
+        recentAlbumIDs: recentAlbumIDs,
+        pinnedAlbums: pinnedAlbums,
+        isSingleSelect: true,
+        onToggle: { ref in selectedAlbum = resolveAlbum(ref) },
+        title: "Choose an Album"
+      )
     }
   }
 
@@ -147,6 +213,38 @@ struct SetupView: View {
       }
     }
   }
+
+  // MARK: - Album chooser ("Album" mode)
+  private var albumChooser: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("ALBUM")
+        .font(.system(size: 12, weight: .bold))
+        .foregroundColor(.secondary)
+
+      Button {
+        showAlbumPicker = true
+      } label: {
+        HStack {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(selectedAlbum?.name ?? "Choose an Album")
+              .foregroundStyle(selectedAlbum == nil ? Color.accentColor : Color.primary)
+            if let count = selectedAlbum?.countLabel {
+              Text(count)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+          }
+          Spacer(minLength: 0)
+          Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Color(.tertiaryLabel))
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+      }
+      .buttonStyle(.plain)
+    }
+  }
 }
 
 /// Media types a session can be limited to. Only `.all` filters anything today —
@@ -165,25 +263,28 @@ private enum MediaTypeFilter: String, CaseIterable {
   }
 }
 
-/// Setup-screen display text for each selection mode.
+/// Display text for each selection mode; shared by Setup's mode picker and the
+/// default-session-mode setting.
 extension SelectionMode {
-  fileprivate var icon: String {
+  var icon: String {
     switch self {
     case .shuffle: return "shuffle"
     case .recent: return "clock"
     case .date: return "calendar"
+    case .album: return "photo.stack"
     }
   }
 
-  fileprivate var label: String {
+  var label: String {
     switch self {
     case .shuffle: return "Shuffle"
     case .recent: return "Most Recent"
     case .date: return "From a Date"
+    case .album: return "Album"
     }
   }
 
-  fileprivate var blurb: String {
+  var blurb: String {
     switch self {
     case .shuffle:
       return "Random photos from your whole library, one at a time."
@@ -191,16 +292,24 @@ extension SelectionMode {
       return "Starts with today and works backward."
     case .date:
       return "Starts on that day and works backward. Picks a random day unless you choose one."
+    case .album:
+      return "Review one album's photos, newest first."
     }
   }
 }
 
 #Preview("Light Mode") {
-  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onRefresh: {})
-    .preferredColorScheme(.light)
+  SetupView(
+    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _ in }, onRefresh: {},
+    pinnedAlbums: .mock()
+  )
+  .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
-  SetupView(maxAvailable: 200, onOpenSettings: {}, onStart: { _, _ in }, onRefresh: {})
-    .preferredColorScheme(.dark)
+  SetupView(
+    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _ in }, onRefresh: {},
+    pinnedAlbums: .mock()
+  )
+  .preferredColorScheme(.dark)
 }

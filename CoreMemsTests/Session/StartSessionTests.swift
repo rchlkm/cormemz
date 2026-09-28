@@ -72,6 +72,10 @@ struct StartSessionTests {
 
     await h.vm.startSession(mode: .date, startDate: date)
     #expect(h.vm.sessionLabel == "From \(SessionViewModel.cardDateFormatter.string(from: date))")
+
+    let album = AlbumOption(ref: .existing(localIdentifier: "album-1"), name: "Road Trip")
+    await h.vm.startSession(mode: .album, startDate: nil, album: album)
+    #expect(h.vm.sessionLabel == "Road Trip")
   }
 
   @Test func aNewSessionClearsThePreviousOnesCounts() async {

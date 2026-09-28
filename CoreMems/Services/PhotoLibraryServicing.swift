@@ -58,9 +58,10 @@ protocol PhotoAuthorization {
 /// Read access to the library's eligible (image-only) assets.
 protocol AssetLibrary {
   /// Opens the eligible (image-only) assets for `mode` as a lazily loaded stream,
-  /// skipping the local identifiers in 'excluding'. `startDate` applies to `.date`.
+  /// skipping the local identifiers in 'excluding'. `startDate` applies to `.date`,
+  /// `albumIdentifier` to `.album`.
   func makeAssetSource(
-    mode: SelectionMode, startDate: Date?, excluding: Set<String>
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>
   ) async -> any AssetBatching
   func totalEligibleAssetCount() -> Int
   /// A random eligible asset's creation date; `nil` if the library has no eligible assets.

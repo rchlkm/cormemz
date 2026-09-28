@@ -7,6 +7,7 @@ struct SettingsView: View {
   @Binding var includesReviewedPhotos: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
+  @Binding var defaultSessionMode: SelectionMode
   let reviewedPhotoCount: Int
   let libraryPhotoCount: Int
   let onResetReviewedPhotos: () -> Void
@@ -27,6 +28,7 @@ struct SettingsView: View {
     Form {
       statsSection
       pinnedAlbumsSection
+      defaultSessionModeSection
       checkInSection
       reviewedPhotosSection
       dataUsageSection
@@ -117,6 +119,20 @@ struct SettingsView: View {
     }
   }
 
+  private var defaultSessionModeSection: some View {
+    Section {
+      Picker("Opens with", selection: $defaultSessionMode) {
+        ForEach(SelectionMode.allCases, id: \.self) { mode in
+          Text(mode.label).tag(mode)
+        }
+      }
+    } header: {
+      Text("Default session mode")
+    } footer: {
+      Text("Setup opens on this mode. \"From a Date\" and \"Album\" still need one more choice before starting.")
+    }
+  }
+
   private var pinnedAlbumsSection: some View {
     Section {
       NavigationLink {
@@ -178,6 +194,7 @@ extension NetworkPolicy {
       includesReviewedPhotos: .constant(false),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,
+      defaultSessionMode: .constant(.shuffle),
       reviewedPhotoCount: 128,
       libraryPhotoCount: 3_100,
       onResetReviewedPhotos: {},
