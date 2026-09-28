@@ -100,8 +100,11 @@ import SwiftUI
                 onPickRandomDate: { await vm.randomAssetDate() },
                 onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
                 onOpenSettings: { showSettings = true },
-                onStart: { mode, startDate, album in
-                  Task { await vm.startSession(mode: mode, startDate: startDate, album: album) }
+                onStart: { mode, startDate, album, mediaTypeFilter in
+                  Task {
+                    await vm.startSession(
+                      mode: mode, startDate: startDate, album: album, mediaTypeFilter: mediaTypeFilter)
+                  }
                 },
                 onRefresh: {
                   vm.screen = .home

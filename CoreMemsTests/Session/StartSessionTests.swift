@@ -78,6 +78,14 @@ struct StartSessionTests {
     #expect(h.vm.sessionLabel == "Road Trip")
   }
 
+  @Test func mediaTypeFilterReachesTheLibrary() async {
+    let h = harness(assetCount: 3)
+
+    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypeFilter: .screenshots)
+
+    #expect(h.library.lastMediaTypeFilter == .screenshots)
+  }
+
   @Test func aNewSessionClearsThePreviousOnesCounts() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)

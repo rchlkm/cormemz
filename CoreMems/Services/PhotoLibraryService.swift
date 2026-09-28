@@ -81,13 +81,15 @@ final class PhotoLibraryService: PhotoLibraryServicing {
   }
 
   func makeAssetSource(
-    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
+    mediaTypeFilter: MediaTypeFilter, excluding: Set<String>
   ) async -> any AssetBatching {
     await chronologicalImages.invalidate()
     let networkAccess = networkAccess
     let base = await Task.detached(priority: .userInitiated) {
       AssetBatchSource(
-        mode: mode, startDate: startDate, albumIdentifier: albumIdentifier, excluding: excluding)
+        mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
+        mediaTypeFilter: mediaTypeFilter, excluding: excluding)
     }.value
     return FilteringAssetSource(base: base) { asset in
       if networkAccess.allowsDownloads { return true }

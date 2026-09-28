@@ -197,7 +197,10 @@ final class SessionViewModel: ObservableObject {
   /// assets in `mode`'s order, or fall back to mock data when running in
   /// previews/simulator without a populated library. A batch is
   /// `checkInInterval` photos; later batches load as the user reviews.
-  func startSession(mode: SelectionMode, startDate: Date?, album: AlbumOption? = nil) async {
+  func startSession(
+    mode: SelectionMode, startDate: Date?, album: AlbumOption? = nil,
+    mediaTypeFilter: MediaTypeFilter = .all
+  ) async {
     guard !isStartingSession else { return }
     isStartingSession = true
     defer { isStartingSession = false }
@@ -215,8 +218,8 @@ final class SessionViewModel: ObservableObject {
     let batchSize = checkInInterval
     let initialCount = Self.lookaheadBatches * batchSize
     let (source, assets) = await loadInitialAssets(
-      mode: mode, startDate: startDate, albumIdentifier: album?.ref.identifier, count: initialCount,
-      limit: limit)
+      mode: mode, startDate: startDate, albumIdentifier: album?.ref.identifier,
+      mediaTypeFilter: mediaTypeFilter, count: initialCount, limit: limit)
 
     if !assets.isEmpty {
       deck = SessionDeck(photos: registerPhotos(from: assets))
@@ -243,16 +246,19 @@ final class SessionViewModel: ObservableObject {
   /// Loads the first batch, skipping photos kept in earlier sessions. If that leaves nothing
   /// while the library has photos, loads without the skip rather than start an empty session.
   private func loadInitialAssets(
-    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, count: Int, limit: Int
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
+    mediaTypeFilter: MediaTypeFilter = .all, count: Int, limit: Int
   ) async -> (source: any AssetBatching, assets: [PHAsset]) {
     let reviewed = includesReviewedPhotos ? [] : reviewedPhotosStore.reviewedIdentifiers()
     let source = await library.makeAssetSource(
-      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier, excluding: reviewed)
+      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
+      mediaTypeFilter: mediaTypeFilter, excluding: reviewed)
     let assets = await source.nextBatch(count: count)
     guard assets.isEmpty, !reviewed.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
     else { return (source, assets) }
     let unfiltered = await library.makeAssetSource(
-      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier, excluding: [])
+      mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
+      mediaTypeFilter: mediaTypeFilter, excluding: [])
     return (unfiltered, await unfiltered.nextBatch(count: count))
   }
 

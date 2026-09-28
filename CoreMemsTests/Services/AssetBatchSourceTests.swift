@@ -21,3 +21,23 @@ struct AssetBatchSourceTests {
     #expect(AssetBatchSource.dateCeiling(for: nil) == .distantFuture)
   }
 }
+
+@Suite("Asset batch source media type predicate")
+struct AssetBatchSourceMediaTypePredicateTests {
+  @Test func screenshotsFilterRestrictsToTheScreenshotSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate(.screenshots).predicateFormat
+    #expect(format.contains("mediaSubtypes"))
+    #expect(format.contains("!= 0"))
+  }
+
+  @Test func photosFilterExcludesTheScreenshotSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate(.photos).predicateFormat
+    #expect(format.contains("mediaSubtypes"))
+    #expect(format.contains("== 0"))
+  }
+
+  @Test(arguments: [MediaTypeFilter.all, .videos, .timelapses])
+  func otherFiltersDoNotRestrictBySubtype(_ filter: MediaTypeFilter) {
+    #expect(!AssetBatchSource.mediaTypePredicate(filter).predicateFormat.contains("mediaSubtypes"))
+  }
+}

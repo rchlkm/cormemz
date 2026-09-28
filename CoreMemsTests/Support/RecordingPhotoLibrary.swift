@@ -37,6 +37,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
 
   /// The source handed to the most recent session.
   private(set) var lastSource: FakeAssetSource?
+  /// The media type filter passed to the most recent `makeAssetSource` call.
+  private(set) var lastMediaTypeFilter: MediaTypeFilter?
   private(set) var events: [Event] = []
   private(set) var committedChanges: [SessionLibraryChanges] = []
 
@@ -44,10 +46,12 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   func currentAuthorizationStatus() -> PHAuthorizationStatus { authorizationStatus }
 
   func makeAssetSource(
-    mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
+    mediaTypeFilter: MediaTypeFilter, excluding: Set<String>
   ) async -> any AssetBatching {
     let source = FakeAssetSource(assets: assets.filter { !excluding.contains($0.localIdentifier) })
     lastSource = source
+    lastMediaTypeFilter = mediaTypeFilter
     return source
   }
 

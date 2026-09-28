@@ -9,7 +9,7 @@ struct SetupView: View {
   /// sessions never touch it.
   var onPrepareAlbumPicker: () async -> Void = {}
   let onOpenSettings: () -> Void
-  let onStart: (SelectionMode, Date?, AlbumOption?) -> Void
+  let onStart: (SelectionMode, Date?, AlbumOption?, MediaTypeFilter) -> Void
   let onRefresh: () -> Void
   /// Pinned albums, then unpinned recents, for the album picker's quick-access sections.
   var quickAccessAlbums: [AlbumOption] = []
@@ -23,13 +23,14 @@ struct SetupView: View {
   @State private var selectedDate: Date?
   @State private var selectedAlbum: AlbumOption?
   @State private var showAlbumPicker = false
+  @State private var mediaTypeFilter: MediaTypeFilter = .all
 
   init(
     maxAvailable: Int, isStarting: Bool = false, defaultMode: SelectionMode = .shuffle,
     onPickRandomDate: @escaping () async -> Date? = { nil },
     onPrepareAlbumPicker: @escaping () async -> Void = {},
     onOpenSettings: @escaping () -> Void,
-    onStart: @escaping (SelectionMode, Date?, AlbumOption?) -> Void,
+    onStart: @escaping (SelectionMode, Date?, AlbumOption?, MediaTypeFilter) -> Void,
     onRefresh: @escaping () -> Void,
     quickAccessAlbums: [AlbumOption] = [],
     libraryAlbums: [AlbumOption]? = [],
@@ -99,7 +100,9 @@ struct SetupView: View {
       }
 
       Button {
-        onStart(mode, mode == .date ? selectedDate : nil, mode == .album ? selectedAlbum : nil)
+        onStart(
+          mode, mode == .date ? selectedDate : nil, mode == .album ? selectedAlbum : nil,
+          mediaTypeFilter)
       } label: {
         if isStarting {
           ProgressView()
@@ -178,14 +181,15 @@ struct SetupView: View {
     .buttonStyle(CardButtonStyle(isSelected: isSelected))
   }
 
-  // MARK: - Media type filter (only "All" is wired up so far)
+  // MARK: - Media type filter ("Videos" and "Timelapses" aren't wired up yet)
   private var typeFilterRow: some View {
     ScrollView(.horizontal, showsIndicators: false) {
       HStack(spacing: 8) {
         ForEach(MediaTypeFilter.allCases, id: \.self) { filter in
-          Button(filter.label) {}
-            .buttonStyle(ChipButtonStyle(isSelected: filter == .all))
-            .disabled(filter != .all)
+          let isEnabled = filter == .all || filter == .photos || filter == .screenshots
+          Button(filter.label) { mediaTypeFilter = filter }
+            .buttonStyle(ChipButtonStyle(isSelected: filter == mediaTypeFilter))
+            .disabled(!isEnabled)
         }
       }
     }
@@ -247,11 +251,8 @@ struct SetupView: View {
   }
 }
 
-/// Media types a session can be limited to. Only `.all` filters anything today —
-/// the rest are shown disabled until asset-type filtering is implemented.
-private enum MediaTypeFilter: String, CaseIterable {
-  case all, photos, screenshots, videos, timelapses
-
+/// Display text for each media type filter; shared by Setup's filter chip row.
+extension MediaTypeFilter {
   var label: String {
     switch self {
     case .all: return "All"
@@ -300,7 +301,7 @@ extension SelectionMode {
 
 #Preview("Light Mode") {
   SetupView(
-    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _ in }, onRefresh: {},
+    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _, _ in }, onRefresh: {},
     pinnedAlbums: .mock()
   )
   .preferredColorScheme(.light)
@@ -308,7 +309,7 @@ extension SelectionMode {
 
 #Preview("Dark Mode") {
   SetupView(
-    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _ in }, onRefresh: {},
+    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _, _ in }, onRefresh: {},
     pinnedAlbums: .mock()
   )
   .preferredColorScheme(.dark)

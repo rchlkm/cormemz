@@ -8,6 +8,7 @@ See [README.md](README.md) for the overview.
 - **Most Recent** — newest first
 - **From a Date** — start from a specific date and work backward
 - **Album** — pick one Photos album and review it, newest first
+- Limit a session to screenshots only, or to photos excluding screenshots, independent of the mode chosen
 - Periodic check-ins and a final review after 200 items
 - Previously reviewed items can be skipped in future sessions
 
@@ -62,10 +63,6 @@ Review one item at a time in full screen.
 - The first time a session pauses downloads, a one-time notice explains why and points at flagging a photo to revisit later
 
 # What's Next
-
-### Review Modes
-
-- **Screenshots** — review screenshots separately
 
 ### Organization
 

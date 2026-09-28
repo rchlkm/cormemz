@@ -31,6 +31,11 @@ enum SelectionMode: String, Equatable, CaseIterable {
   }
 }
 
+/// Limits a session to a subset of media types, independent of `SelectionMode`.
+enum MediaTypeFilter: String, Equatable, CaseIterable {
+  case all, photos, screenshots, videos, timelapses
+}
+
 /// A single photo in a review session. In production `assetIdentifier`
 /// maps to a `PHAsset.localIdentifier`; `previewImageName`/`previewURL`
 /// stand in for whatever thumbnail source you're using in the prototype.

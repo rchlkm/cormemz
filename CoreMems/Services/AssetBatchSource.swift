@@ -16,26 +16,32 @@ actor AssetBatchSource: AssetBatching {
   private var cursor = 0
 
   /// Skips the local identifiers in `excluding`. `albumIdentifier` applies to `.album`.
-  init(mode: SelectionMode, startDate: Date?, albumIdentifier: String?, excluding: Set<String>) {
+  init(
+    mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
+    mediaTypeFilter: MediaTypeFilter = .all, excluding: Set<String>
+  ) {
     let options = PHFetchOptions()
-    let image = PHAssetMediaType.image.rawValue
+    let basePredicate = Self.mediaTypePredicate(mediaTypeFilter)
     let result: PHFetchResult<PHAsset>
     switch mode {
     case .shuffle:
-      options.predicate = NSPredicate(format: "mediaType == %d", image)
+      options.predicate = basePredicate
       result = PHAsset.fetchAssets(with: options)
     case .recent:
-      options.predicate = NSPredicate(format: "mediaType == %d", image)
+      options.predicate = basePredicate
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
       result = PHAsset.fetchAssets(with: options)
     case .date:
-      options.predicate = NSPredicate(
-        format: "mediaType == %d AND creationDate < %@",
-        image, Self.dateCeiling(for: startDate) as NSDate)
+      options.predicate = NSCompoundPredicate(
+        andPredicateWithSubpredicates: [
+          basePredicate,
+          NSPredicate(
+            format: "creationDate < %@", Self.dateCeiling(for: startDate) as NSDate),
+        ])
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
       result = PHAsset.fetchAssets(with: options)
     case .album:
-      options.predicate = NSPredicate(format: "mediaType == %d", image)
+      options.predicate = basePredicate
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
       if let albumIdentifier,
         let collection = PHAssetCollection.fetchAssetCollections(
@@ -53,6 +59,21 @@ actor AssetBatchSource: AssetBatching {
     self.result = result
     self.order = positions
     self.excluding = excluding
+  }
+
+  static func mediaTypePredicate(_ filter: MediaTypeFilter) -> NSPredicate {
+    switch filter {
+    case .screenshots:
+      return NSPredicate(
+        format: "mediaType == %d AND (mediaSubtypes & %d) != 0",
+        PHAssetMediaType.image.rawValue, PHAssetMediaSubtype.photoScreenshot.rawValue)
+    case .photos:
+      return NSPredicate(
+        format: "mediaType == %d AND (mediaSubtypes & %d) == 0",
+        PHAssetMediaType.image.rawValue, PHAssetMediaSubtype.photoScreenshot.rawValue)
+    case .all, .videos, .timelapses:
+      return NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+    }
   }
 
   /// Exclusive upper bound that includes all of the chosen day, whatever time of day the
