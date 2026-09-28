@@ -50,6 +50,14 @@ Review one item at a time in full screen.
 - Check-in frequency
 - Reviewed-media tracking
 - Pinned albums: browse folders and subfolders to pin albums, drag to reorder
+- Choose where iCloud photos may download: Wi-Fi and cellular, Wi-Fi only, or downloaded photos only
+
+## Offline and Limited Connections
+
+- Offline, on a connection your setting rules out, or in Low Data Mode, sessions show photos at whatever quality is already cached, and only skip a photo when nothing is cached for it — it stays unreviewed for later
+- Converting a Live Photo to a still needs its original on the device unless downloads are allowed
+- Settings shows when Low Data Mode is why downloads are paused, regardless of the download setting chosen
+- The first time a session pauses downloads, a one-time notice explains why and points at flagging a photo to revisit later
 
 # What's Next
 

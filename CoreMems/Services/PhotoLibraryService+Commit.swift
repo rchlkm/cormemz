@@ -7,13 +7,14 @@ extension PhotoLibraryService {
   {
     guard !changes.isEmpty else { return .success(SessionLibraryResult()) }
 
+    let allowsNetwork = networkAccess.allowsDownloads
     var stillData: [String: Data] = [:]
     do {
       for (photoID, asset) in changes.conversions {
         guard let resource = Self.stillResource(for: asset) else {
           return .failure(PhotoLibraryError.missingStillResource)
         }
-        stillData[photoID] = try await Self.data(for: resource)
+        stillData[photoID] = try await Self.data(for: resource, allowsNetwork: allowsNetwork)
       }
     } catch {
       return .failure(error)
@@ -123,7 +124,7 @@ extension PhotoLibraryService {
   }
 
   /// The edited render when the Live Photo has adjustments, else its original still.
-  private static func stillResource(for asset: PHAsset) -> PHAssetResource? {
+  static func stillResource(for asset: PHAsset) -> PHAssetResource? {
     let resources = PHAssetResource.assetResources(for: asset)
     return resources.first { $0.type == .fullSizePhoto } ?? resources.first { $0.type == .photo }
   }
@@ -142,14 +143,15 @@ extension PhotoLibraryService {
     return ids
   }
 
-  /// Downloads a `PHAssetResource`'s raw bytes (pulling from iCloud if
-  /// the original isn't on-device), used here to carry a Live Photo's
-  /// still component over as-is so its embedded EXIF survives untouched.
-  private static func data(for resource: PHAssetResource) async throws -> Data {
+  /// Reads a `PHAssetResource`'s raw bytes (pulling from iCloud if the original isn't
+  /// on-device and `allowsNetwork`), used here to carry a Live Photo's still component
+  /// over as-is so its embedded EXIF survives untouched.
+  private static func data(for resource: PHAssetResource, allowsNetwork: Bool) async throws -> Data
+  {
     try await withCheckedThrowingContinuation { continuation in
       var data = Data()
       let options = PHAssetResourceRequestOptions()
-      options.isNetworkAccessAllowed = true
+      options.isNetworkAccessAllowed = allowsNetwork
       PHAssetResourceManager.default().requestData(
         for: resource,
         options: options,

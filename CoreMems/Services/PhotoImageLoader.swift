@@ -47,13 +47,14 @@ actor PhotoImageLoader {
   private var prefetchTask: Task<Void, Never>?
   private var inFlight: [String: InFlightLoad] = [:]
 
-  init(fetch: ImageFetch? = nil) {
+  init(fetch: ImageFetch? = nil, networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
     let manager = PHCachingImageManager()
     let knownAssets = knownAssets
     self.manager = manager
     self.fetch = fetch ?? { identifier, targetSize in
       await Self.requestImage(
-        using: manager, knownAssets: knownAssets, identifier: identifier, targetSize: targetSize)
+        using: manager, knownAssets: knownAssets, identifier: identifier, targetSize: targetSize,
+        allowsDownloads: networkAccess.allowsDownloads)
     }
     cache.delegate = evictionLogger
   }
@@ -126,7 +127,7 @@ actor PhotoImageLoader {
 
   private static func requestImage(
     using manager: PHCachingImageManager, knownAssets: NSCache<NSString, PHAsset>,
-    identifier: String, targetSize: CGSize
+    identifier: String, targetSize: CGSize, allowsDownloads: Bool
   ) async -> UIImage? {
     guard
       let asset = knownAssets.object(forKey: identifier as NSString)
@@ -138,7 +139,7 @@ actor PhotoImageLoader {
     let options = PHImageRequestOptions()
     options.deliveryMode = .highQualityFormat
     options.resizeMode = .fast
-    options.isNetworkAccessAllowed = true
+    options.isNetworkAccessAllowed = allowsDownloads
     options.isSynchronous = false
     #if DEBUG
       let transfer = NetworkTransferProbe()

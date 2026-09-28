@@ -121,6 +121,7 @@ struct ReviewCardView: View {
           targetSize: livePhotoTargetSize,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto,
+          canConvertToStill: vm.canConvertToStill(subject),
           onConvertToStill: { vm.decide(photoID: subject.id, decision: .convertToStill) }
         )
         .accessibilityIdentifier(AccessibilityID.liveBadge)

@@ -13,12 +13,13 @@ enum LivePhotoBadgeStyle {
 /// Live Photo playback toggle shared by every surface that shows the badge
 /// (`ReviewCardView`, `ExpandedPhotoView`). Tap plays in place; tap again reverts.
 ///
-/// Long-press offers `onConvertToStill`, supplied by the caller.
+/// Long-press offers `onConvertToStill`, supplied by the caller and enabled by `canConvertToStill`.
 struct LivePhotoBadgeView: View {
   let assetIdentifier: String
   let targetSize: CGSize
   @Binding var inlineLivePhoto: PHLivePhoto?
   @Binding var isShowingLivePhoto: Bool
+  let canConvertToStill: Bool
   let onConvertToStill: () -> Void
   var style: LivePhotoBadgeStyle = .icon
 
@@ -41,6 +42,7 @@ struct LivePhotoBadgeView: View {
       Button(action: onConvertToStill) {
         Label("Convert to Still Photo", systemImage: "photo")
       }
+      .disabled(!canConvertToStill)
     }
   }
 

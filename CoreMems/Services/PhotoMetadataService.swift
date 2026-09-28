@@ -13,6 +13,11 @@ protocol PhotoMetadataServicing {
 /// file size, format), and the image's embedded EXIF/TIFF/GPS
 /// dictionaries (camera, lens, exposure) via a content-editing input.
 final class PhotoMetadataService: PhotoMetadataServicing {
+  private let networkAccess: NetworkAccessProviding
+
+  init(networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
+    self.networkAccess = networkAccess
+  }
 
   func fetchMetadata(for asset: PHAsset) async -> PhotoMetadata {
     var metadata = PhotoMetadata(
@@ -57,11 +62,11 @@ final class PhotoMetadataService: PhotoMetadataServicing {
 
   /// EXIF/TIFF/GPS live on the *image file*, not on PHAsset directly —
   /// a content-editing input is the supported way to get at the
-  /// original file URL (and will pull it down from iCloud if needed).
+  /// original file URL (and will pull it down from iCloud if needed and allowed).
   private func fetchImageProperties(for asset: PHAsset) async -> [String: Any]? {
     await withCheckedContinuation { continuation in
       let options = PHContentEditingInputRequestOptions()
-      options.isNetworkAccessAllowed = true
+      options.isNetworkAccessAllowed = networkAccess.allowsDownloads
       asset.requestContentEditingInput(with: options) { input, _ in
         guard
           let url = input?.fullSizeImageURL,

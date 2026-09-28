@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsView: View {
   @Binding var checkInInterval: Int
   @Binding var includesReviewedPhotos: Bool
+  @Binding var networkPolicy: NetworkPolicy
+  let isLowDataModeActive: Bool
   let reviewedPhotoCount: Int
   let libraryPhotoCount: Int
   let onResetReviewedPhotos: () -> Void
@@ -27,6 +29,7 @@ struct SettingsView: View {
       pinnedAlbumsSection
       checkInSection
       reviewedPhotosSection
+      dataUsageSection
       #if DEBUG
         DebugStateDumpSection()
         DebugNetworkStatsSection()
@@ -90,6 +93,30 @@ struct SettingsView: View {
     }
   }
 
+  private var dataUsageSection: some View {
+    Section {
+      if isLowDataModeActive {
+        Label(NetworkPauseReason.lowDataMode, systemImage: "bolt.slash")
+          .foregroundStyle(.secondary)
+      }
+      Picker("iCloud downloads", selection: $networkPolicy) {
+        ForEach(NetworkPolicy.allCases, id: \.self) { policy in
+          Text(policy.label).tag(policy)
+        }
+      }
+      .pickerStyle(.inline)
+      .labelsHidden()
+    } header: {
+      Text("Data usage")
+    } footer: {
+      Text(
+        isLowDataModeActive
+          ? "Downloads stay paused no matter what's picked above. Turn it off in the network's Wi-Fi or Cellular settings to allow downloads again."
+          : "Photos stored only in iCloud need a download for full quality. Without one, the session shows what's already cached and skips a photo only if nothing is. Offline and Low Data Mode always skip downloads."
+      )
+    }
+  }
+
   private var pinnedAlbumsSection: some View {
     Section {
       NavigationLink {
@@ -133,11 +160,24 @@ struct SettingsView: View {
   }
 }
 
+/// Settings display text for each network policy.
+extension NetworkPolicy {
+  fileprivate var label: String {
+    switch self {
+    case .wifiAndCellular: return "Wi-Fi and cellular"
+    case .wifiOnly: return "Wi-Fi only"
+    case .downloadedOnly: return "Downloaded photos only"
+    }
+  }
+}
+
 #Preview {
   NavigationStack {
     SettingsView(
       checkInInterval: .constant(12),
       includesReviewedPhotos: .constant(false),
+      networkPolicy: .constant(.wifiAndCellular),
+      isLowDataModeActive: false,
       reviewedPhotoCount: 128,
       libraryPhotoCount: 3_100,
       onResetReviewedPhotos: {},

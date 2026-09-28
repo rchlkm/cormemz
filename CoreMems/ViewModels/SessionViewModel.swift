@@ -52,6 +52,19 @@ final class SessionViewModel: ObservableObject {
   }
   @Published private(set) var reviewedPhotoCount: Int = 0
 
+  /// Where photos missing from the device may be downloaded from.
+  var networkPolicy: NetworkPolicy {
+    get { settings.networkPolicy }
+    set {
+      settings.networkPolicy = newValue
+      networkAccess.policy = newValue
+    }
+  }
+  /// False when the session may only show photos already on the device.
+  @Published private(set) var allowsDownloads: Bool
+  /// True when iOS's Low Data Mode is why downloads are blocked, regardless of `networkPolicy`.
+  @Published private(set) var isLowDataModeActive: Bool
+
   /// Describes how the active session's photos were selected, shown as
   /// a subtitle under the review progress line. `nil` for `.shuffle`.
   @Published var sessionLabel: String?
@@ -94,6 +107,8 @@ final class SessionViewModel: ObservableObject {
   private let statsStore: LifetimeStatsServicing
   private let reviewedPhotosStore: ReviewedPhotosStoring
   private let imageLoader: PhotoImageLoader
+  private let networkAccess: NetworkAccessProviding
+  private var networkSubscription: AnyCancellable?
 
   static let cardDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -114,7 +129,8 @@ final class SessionViewModel: ObservableObject {
     pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore(),
     reviewedPhotosStore: ReviewedPhotosStoring = ReviewedPhotosStore(),
     settings: SessionSettings = SessionSettings(),
-    imageLoader: PhotoImageLoader = .shared
+    imageLoader: PhotoImageLoader = .shared,
+    networkAccess: NetworkAccessProviding = NetworkMonitor.shared
   ) {
     self.library = library
     self.persistence = persistence
@@ -123,10 +139,14 @@ final class SessionViewModel: ObservableObject {
     self.statsStore = statsStore
     self.settings = settings
     self.imageLoader = imageLoader
+    self.networkAccess = networkAccess
     commitService = SessionCommitService(library: library)
     pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
     self.reviewedPhotosStore = reviewedPhotosStore
     self.reviewedPhotoCount = reviewedPhotosStore.reviewedIdentifiers().count
+    networkAccess.policy = settings.networkPolicy
+    self.allowsDownloads = networkAccess.allowsDownloads
+    self.isLowDataModeActive = networkAccess.isConstrained
     pinnedAlbums.onAlbumCreated = { [weak self] in await self?.refreshLibraryAlbumsIfLoaded() }
     libraryChangeObservation = library.observeLibraryChanges { [weak self] in
       Task { @MainActor in await self?.refreshLibraryAlbumsIfLoaded() }
@@ -143,6 +163,9 @@ final class SessionViewModel: ObservableObject {
       self?.objectWillChange.send()
     }
     restoreIfInterrupted()
+    networkSubscription = networkAccess.allowsDownloadsUpdates
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] in self?.networkAccessChanged(allowsDownloads: $0) }
   }
 
   // MARK: Derived state
@@ -189,13 +212,16 @@ final class SessionViewModel: ObservableObject {
     let (source, assets) = await loadInitialAssets(
       mode: mode, startDate: startDate, count: initialCount, limit: limit)
 
-    if assets.isEmpty {
+    if !assets.isEmpty {
+      deck = SessionDeck(photos: registerPhotos(from: assets))
+      assetSource = assets.count < initialCount ? nil : source
+    } else if allowsDownloads {
       // Preview/mock path — generates placeholder SessionPhoto data.
       deck = SessionDeck(photos: Self.mockPhotos(count: limit))
       assetSource = nil
     } else {
-      deck = SessionDeck(photos: registerPhotos(from: assets))
-      assetSource = assets.count < initialCount ? nil : source
+      deck = SessionDeck()
+      assetSource = nil
     }
     sessionBatchSize = batchSize
     isLoadingBatch = false
@@ -203,6 +229,7 @@ final class SessionViewModel: ObservableObject {
       startDateText: startDate.map(Self.cardDateFormatter.string(from:)))
     resetSessionTotals()
     screen = .review
+    showPendingReviewIfDeckEmpty()
     prefetchNextPhoto()
     persistState()
   }
@@ -313,6 +340,7 @@ final class SessionViewModel: ObservableObject {
   @discardableResult
   func decide(index: Int, decision: ReviewDecision) -> Task<Void, Never>? {
     guard markingDecision == nil, deck.accepts(decision, at: index) else { return nil }
+    guard decision != .convertToStill || canConvertToStill(deck.photos[index]) else { return nil }
 
     haptics.decided(decision)
 
@@ -338,9 +366,17 @@ final class SessionViewModel: ObservableObject {
     guard markingDecision == nil,
       decision != .keep || !isPeekedNeighbor(photoID), let photo = photo(withID: photoID),
       photo.canReceive(decision),
+      decision != .convertToStill || canConvertToStill(photo),
       let index = adoptIntoReviewed(photoID)
     else { return nil }
     return decide(index: index, decision: decision)
+  }
+
+  /// A Live Photo can be converted when its original is on the device or may be downloaded.
+  func canConvertToStill(_ photo: SessionPhoto) -> Bool {
+    guard photo.isLivePhoto else { return false }
+    guard !allowsDownloads, let asset = pickedAssets[photo.id] else { return true }
+    return library.hasLocalOriginal(asset)
   }
 
   /// Moves a photo that isn't the active card — an unloaded neighbor or one ahead in the
@@ -576,6 +612,50 @@ final class SessionViewModel: ObservableObject {
     Task {
       await imageLoader.prefetchNext(
         identifier: next.assetIdentifier, targetSize: Self.prefetchTargetSize)
+    }
+  }
+
+  // MARK: Network access
+
+  private func networkAccessChanged(allowsDownloads allowed: Bool) {
+    allowsDownloads = allowed
+    isLowDataModeActive = networkAccess.isConstrained
+    if !allowed { dropPhotosNeedingDownloadAhead() }
+  }
+
+  /// Removes undecided photos from the deck ahead of the current card that can't be
+  /// shown without downloading. They stay unreviewed, so a later session offers them again.
+  private func dropPhotosNeedingDownloadAhead() {
+    let candidates = photos.dropFirst(currentIndex)
+      .filter { $0.decision == .undecided }
+      .compactMap { photo in pickedAssets[photo.id].map { (id: photo.id, asset: $0) } }
+    guard !candidates.isEmpty else { return }
+    let library = library
+    Task {
+      // Concurrent, matching FilteringAssetSource's own admission probing — each candidate
+      // is an independent PHImageManager lookup, so probing serially pays that latency once
+      // per photo in a row.
+      let unavailable = await withTaskGroup(of: (id: String, isUnavailable: Bool).self) { group in
+        for candidate in candidates {
+          group.addTask {
+            (candidate.id, await !library.isDisplayableWithoutNetwork(candidate.asset))
+          }
+        }
+        var unavailable = Set<String>()
+        for await result in group where result.isUnavailable {
+          unavailable.insert(result.id)
+        }
+        return unavailable
+      }
+      guard !allowsDownloads, !unavailable.isEmpty else { return }
+      let boundary = currentIndex
+      photos = photos.enumerated().filter { index, photo in
+        index < boundary || photo.decision != .undecided || !unavailable.contains(photo.id)
+      }.map(\.element)
+      prefetchNextPhoto()
+      loadMoreIfNeeded()
+      showPendingReviewIfDeckEmpty()
+      persistState()
     }
   }
 

@@ -51,6 +51,22 @@ private final class LibraryChangeObserver: NSObject, PHPhotoLibraryChangeObserve
 
 final class PhotoLibraryService: PhotoLibraryServicing {
   private let chronologicalImages = ChronologicalImages()
+  let networkAccess: NetworkAccessProviding
+
+  /// Matches the largest size a photo is ever actually rendered at
+  /// (`ExpandedPhotoView`'s full-screen `AdaptiveAssetImage`), so a photo that
+  /// probes as displayable here is guaranteed to render, not just produce a
+  /// smaller cached preview that the real request then can't match locally.
+  private nonisolated static let reviewProbeSize: CGSize = {
+    let scale = UIScreen.main.scale
+    let bounds = UIScreen.main.bounds.size
+    return CGSize(width: bounds.width * scale, height: bounds.height * scale)
+  }()
+  private static let locallyAvailableKey = "locallyAvailable"
+
+  init(networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
+    self.networkAccess = networkAccess
+  }
 
   func observeLibraryChanges(_ handler: @escaping () -> Void) -> AnyObject {
     LibraryChangeObserver(handler: handler)
@@ -68,9 +84,43 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     mode: SelectionMode, startDate: Date?, excluding: Set<String>
   ) async -> any AssetBatching {
     await chronologicalImages.invalidate()
-    return await Task.detached(priority: .userInitiated) {
+    let networkAccess = networkAccess
+    let base = await Task.detached(priority: .userInitiated) {
       AssetBatchSource(mode: mode, startDate: startDate, excluding: excluding)
     }.value
+    return FilteringAssetSource(base: base) { asset in
+      if networkAccess.allowsDownloads { return true }
+      return await Self.probeDisplayable(asset)
+    }
+  }
+
+  func isDisplayableWithoutNetwork(_ asset: PHAsset) async -> Bool {
+    await Self.probeDisplayable(asset)
+  }
+
+  /// `locallyAvailable` is not public API, so a missing key counts as not local.
+  func hasLocalOriginal(_ asset: PHAsset) -> Bool {
+    guard let resource = Self.stillResource(for: asset),
+      resource.responds(to: NSSelectorFromString(Self.locallyAvailableKey))
+    else { return false }
+    return (resource.value(forKey: Self.locallyAvailableKey) as? Bool) ?? false
+  }
+
+  /// Accepts a lower-quality cached preview, not just a full-quality local image — reviewing
+  /// a photo at reduced quality beats skipping it outright, and `PhotoImageLoader`'s own
+  /// request already renders whatever quality this same lookup finds.
+  private nonisolated static func probeDisplayable(_ asset: PHAsset) async -> Bool {
+    let options = PHImageRequestOptions()
+    options.deliveryMode = .highQualityFormat
+    options.resizeMode = .fast
+    options.isNetworkAccessAllowed = false
+    return await withCheckedContinuation { continuation in
+      PHImageManager.default().requestImage(
+        for: asset, targetSize: reviewProbeSize, contentMode: .aspectFit, options: options
+      ) { image, _ in
+        continuation.resume(returning: image != nil)
+      }
+    }
   }
 
   func totalEligibleAssetCount() -> Int {
