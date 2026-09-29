@@ -13,6 +13,7 @@ enum AccessibilityID {
   static let browseKeep = "browse.keep"
   static let liveBadge = "browse.liveBadge"
   static let browsePeekToggle = "browse.peekToggle"
+  static let browseDecisionModeToggle = "browse.decisionModeToggle"
   static let browsePeekDelete = "browse.peekDelete"
   static let browsePeekRestore = "browse.peekRestore"
   static let expandedPhoto = "expanded.photo"

@@ -13,6 +13,7 @@ struct BrowseView: View {
   @State private var showAlbumPicker = false
   @State private var showUnconfirmedChanges = false
   @AppStorage("cm_albumStripExpanded") private var isAlbumStripExpanded = true
+  @AppStorage("cm_decisionModeIsSwipeOnly") private var isSwipeOnlyMode = false
   @Namespace private var heroNamespace
 
   private static let compactAlbumSheetHeight: CGFloat = 340
@@ -59,6 +60,20 @@ struct BrowseView: View {
           },
           trailing: AnyView(
             HStack(spacing: 12) {
+              Button {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { isSwipeOnlyMode.toggle() }
+              } label: {
+                Image(
+                  systemName: isSwipeOnlyMode
+                    ? "rectangle.bottomthird.inset.filled" : "arrow.up.and.down.and.arrow.left.and.right"
+                )
+              }
+              .buttonStyle(IconButtonStyle(size: .small, surface: .material(.secondary)))
+              .accessibilityIdentifier(AccessibilityID.browseDecisionModeToggle)
+              .accessibilityLabel(
+                isSwipeOnlyMode ? "Show keep and delete buttons" : "Hide keep and delete buttons")
               MarkedPhotosTrayButton(markedCount: vm.markedPhotos.count) { showTray = true }
                 .accessibilityIdentifier(AccessibilityID.browseTray)
               Button("Done") { vm.finishEarly() }
@@ -130,7 +145,7 @@ struct BrowseView: View {
             onToggleDelete: { toggleDeleteOnFocused(peek.focusedID) }
           )
           .padding(.bottom, Self.filmstripBottomPadding)
-        } else {
+        } else if !isSwipeOnlyMode {
           BrowseControlBar(
             canGoBack: vm.canGoBack,
             onGoBack: { vm.goBack() },

@@ -27,6 +27,7 @@ Review one item at a time in full screen.
 - Mark Live Photos for conversion to stills
 - Undo deletion or conversion marks
 - Flag a photo for later so it isn't remembered as browsed and shows up in future sessions
+- Hide the keep/delete/back buttons to browse by swipe alone, freeing up screen space
 
 ## Review & Confirmation
 
