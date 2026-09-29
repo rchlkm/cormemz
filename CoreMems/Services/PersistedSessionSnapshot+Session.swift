@@ -26,7 +26,7 @@ extension PersistedSessionSnapshot {
   private var restoredPhotos: [SessionPhoto] {
     (0..<min(photoIDs.count, decisions.count, assetIdentifiers.count)).map { i in
       var photo = SessionPhoto(id: photoIDs[i], assetIdentifier: assetIdentifiers[i], previewURL: nil)
-      photo.decision = ReviewDecision(rawValue: decisions[i]) ?? .undecided
+      photo.decision = Decision(rawValue: decisions[i]) ?? .undecided
       photo.isHeldForLater = heldPhotoIDs.contains(photoIDs[i])
       return photo
     }
@@ -38,8 +38,8 @@ extension PersistedSessionSnapshot {
     return (0..<count).map { i in
       DecisionHistoryEntry(
         photoIndex: historyPhotoIndices[i],
-        previousDecision: ReviewDecision(rawValue: historyPrevious[i]) ?? .undecided,
-        newDecision: ReviewDecision(rawValue: historyNew[i]) ?? .undecided,
+        previousDecision: Decision(rawValue: historyPrevious[i]) ?? .undecided,
+        newDecision: Decision(rawValue: historyNew[i]) ?? .undecided,
         advancedIndex: historyAdvanced[i]
       )
     }

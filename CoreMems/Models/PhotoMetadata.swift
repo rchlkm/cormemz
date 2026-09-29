@@ -2,7 +2,7 @@ import CoreLocation
 import Foundation
 import UniformTypeIdentifiers
 
-/// Full EXIF-style metadata for a single reviewed photo, shown in the
+/// Full EXIF-style metadata for the currently browsed photo, shown in the
 /// pull-up "Photo Details" sheet. Populated from `PHAsset` +
 /// `PHAssetResource` + the image's embedded EXIF/TIFF/GPS dictionaries
 /// for real photos (see `PhotoMetadataService`), or synthesized from

@@ -47,7 +47,7 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
     []
   }
 
-  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+  func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {
     .success(

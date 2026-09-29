@@ -1,7 +1,7 @@
-// CoreMems/Views/Screens/PendingReviewView.swift
+// CoreMems/Views/Screens/ApplyChangesView.swift
 import SwiftUI
 
-struct PendingReviewView: View {
+struct ApplyChangesView: View {
   @ObservedObject var vm: SessionViewModel
 
   @State private var selected: Set<String> = []
@@ -34,7 +34,7 @@ struct PendingReviewView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      TopBar(title: "Before you go", onBack: { vm.screen = .review })
+      TopBar(title: "Before you go", onBack: { vm.screen = .browse })
 
       if vm.reachedSessionCap {
         Label(
@@ -69,7 +69,7 @@ struct PendingReviewView: View {
       }
 
       Button {
-        Task { await vm.confirmSession() }
+        Task { await vm.applyChanges() }
       } label: {
         if vm.isDeleting {
           ProgressView()
@@ -81,7 +81,7 @@ struct PendingReviewView: View {
         }
       }
       .buttonStyle(ActionButtonStyle(role: hasItems ? .destructive : .primary))
-      .accessibilityIdentifier(AccessibilityID.pendingConfirm)
+      .accessibilityIdentifier(AccessibilityID.applyConfirm)
       .disabled(vm.isDeleting)
       .padding(26)
     }
@@ -158,7 +158,7 @@ struct PendingReviewView: View {
     .pickerStyle(.segmented)
   }
 
-  private func summaryLabel(_ title: String, symbol: String, decision: ReviewDecision)
+  private func summaryLabel(_ title: String, symbol: String, decision: Decision)
     -> some View
   {
     Label {

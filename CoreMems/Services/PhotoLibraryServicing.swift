@@ -72,7 +72,7 @@ protocol AssetLibrary {
   /// order, plus that asset itself — true library neighbors, independent of any
   /// session's fetch order. Empty if the asset can't be found.
   func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset]
-  /// Whether a review-sized image of `asset` can be produced without downloading anything.
+  /// Whether a browse-sized image of `asset` can be produced without downloading anything.
   func isDisplayableWithoutNetwork(_ asset: PHAsset) async -> Bool
   /// Whether the file a Live Photo conversion reads is on the device.
   func hasLocalOriginal(_ asset: PHAsset) -> Bool
@@ -91,8 +91,8 @@ protocol AlbumLibrary {
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String>
   /// Creates a real, empty Photos album with the given title — used by
   /// the Pinned Albums settings screen, where "New album" has no photo
-  /// to attach yet (unlike the review picker's create flow, which always
-  /// creates via `commitSessionChanges` alongside an assignment).
+  /// to attach yet (unlike the browse picker's create flow, which always
+  /// creates via `applySessionChanges` alongside an assignment).
   /// Returns the new album's `PHAssetCollection.localIdentifier`.
   func createAlbum(named name: String) async -> Result<String, Error>
   /// Calls `handler` whenever the Photos library changes (an album added, renamed, or
@@ -116,7 +116,7 @@ protocol LibraryEditing {
   /// copies of converted Live Photos (the originals are deleted), album changes, and
   /// deletions. Deleted photos move to Recently Deleted. The user sees one system
   /// prompt, and either all of it happens or none of it does.
-  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+  func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
 }
 

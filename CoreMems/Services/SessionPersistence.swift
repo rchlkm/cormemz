@@ -5,7 +5,7 @@ import os
 /// Only asset references + decision state, never image data
 struct PersistedSessionSnapshot: Codable {
   var photoIDs: [String]
-  var decisions: [String]  // ReviewDecision.rawValue
+  var decisions: [String]  // Decision.rawValue
   var assetIdentifiers: [String]
   var currentIndex: Int
   var historyPhotoIndices: [Int]
@@ -14,7 +14,7 @@ struct PersistedSessionSnapshot: Codable {
   var historyAdvanced: [Bool]
   var albumAdditions: [String: Set<AlbumRef>] = [:]  // photoID -> albums to add
   var albumRemovals: [String: Set<String>] = [:]  // photoID -> existing album localIdentifiers to remove
-  var heldPhotoIDs: [String] = []  // photos left out of the reviewed history
+  var heldPhotoIDs: [String] = []  // photos left out of the decided history
   var pendingNewAlbumRefs: [AlbumRef] = []  // session-created albums, kept pickable across a restart
 }
 

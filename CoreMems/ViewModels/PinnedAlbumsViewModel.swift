@@ -143,7 +143,7 @@ final class PinnedAlbumsViewModel: ObservableObject {
     store.setOrder(identifiers)
   }
 
-  /// Creates a real, empty Photos album and pins it. Unlike the review picker's pending
+  /// Creates a real, empty Photos album and pins it. Unlike the browse picker's pending
   /// albums, there is no photo to wait on, so it is created right away.
   /// Returns the task that finishes once created, or `nil` if a creation is in flight.
   @discardableResult

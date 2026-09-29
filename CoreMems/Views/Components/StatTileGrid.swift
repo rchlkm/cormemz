@@ -48,9 +48,9 @@ extension View {
 
 #Preview {
   StatTileGrid(items: [
-    StatTileItem(label: "Kept", value: "1,206", systemImage: "checkmark", tint: ReviewDecision.keep.tint),
+    StatTileItem(label: "Kept", value: "1,206", systemImage: "checkmark", tint: Decision.keep.tint),
     StatTileItem(
-      label: "Deleted", value: "274", systemImage: "trash", tint: ReviewDecision.pendingDelete.tint),
+      label: "Deleted", value: "274", systemImage: "trash", tint: Decision.pendingDelete.tint),
   ])
   .padding()
   .background(Color(uiColor: .systemGroupedBackground))

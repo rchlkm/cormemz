@@ -2,7 +2,7 @@
 import XCTest
 
 /// The mock library makes every fifth photo a Live Photo, starting with the third.
-final class ConversionFlowTests: ReviewUITestCase {
+final class ConversionFlowTests: BrowseUITestCase {
   private static let firstLivePhotoPosition = 2
   private static let convertMenuItem = "Convert to Still Photo"
   private static let conversionSummary = "1 to convert"
@@ -10,7 +10,7 @@ final class ConversionFlowTests: ReviewUITestCase {
   private func reachFirstLivePhoto() {
     XCTAssertFalse(element(AccessibilityID.liveBadge).exists)
     for reviewed in 1...Self.firstLivePhotoPosition {
-      element(AccessibilityID.reviewKeep).tap()
+      element(AccessibilityID.browseKeep).tap()
       waitForProgress("\(reviewed) reviewed")
     }
     XCTAssertTrue(element(AccessibilityID.liveBadge).waitForExistence(timeout: Self.uiTimeout))
@@ -24,19 +24,19 @@ final class ConversionFlowTests: ReviewUITestCase {
     waitForProgress("\(Self.firstLivePhotoPosition + 1) reviewed")
   }
 
-  /// Converts the first Live Photo, deletes the next photo, and opens the final review.
-  private func openFinalReviewWithOneOfEach() {
+  /// Converts the first Live Photo, deletes the next photo, and opens the final browse.
+  private func openFinalBrowseWithOneOfEach() {
     reachFirstLivePhoto()
     convertCurrentPhoto()
-    element(AccessibilityID.reviewDelete).tap()
+    element(AccessibilityID.browseDelete).tap()
     waitForProgress("\(Self.firstLivePhotoPosition + 2) reviewed")
-    element(AccessibilityID.reviewDone).tap()
+    element(AccessibilityID.browseDone).tap()
     XCTAssertTrue(
-      element(AccessibilityID.pendingConfirm).waitForExistence(timeout: Self.uiTimeout))
+      element(AccessibilityID.applyConfirm).waitForExistence(timeout: Self.uiTimeout))
   }
 
-  func testSwipingTheFinalReviewMovesBetweenFilters() {
-    openFinalReviewWithOneOfEach()
+  func testSwipingTheFinalBrowseMovesBetweenFilters() {
+    openFinalBrowseWithOneOfEach()
     let filters = app.segmentedControls.firstMatch
     waitUntilSelected(filters.buttons["All 2"])
 
@@ -47,8 +47,8 @@ final class ConversionFlowTests: ReviewUITestCase {
     waitUntilSelected(filters.buttons["Convert 1"])
   }
 
-  func testUndoingFromFullScreenInTheFinalReviewDropsThatPhoto() {
-    openFinalReviewWithOneOfEach()
+  func testUndoingFromFullScreenInTheFinalBrowseDropsThatPhoto() {
+    openFinalBrowseWithOneOfEach()
     app.segmentedControls.firstMatch.buttons["Delete 1"].tap()
 
     element(AccessibilityID.gridPhoto).firstMatch.tap()
@@ -67,14 +67,14 @@ final class ConversionFlowTests: ReviewUITestCase {
     XCTAssertEqual(markedPhotoCount(), 1)
   }
 
-  func testConversionIsListedOnPendingReviewAndCompletesTheSession() {
+  func testConversionIsListedOnPendingChangesAndCompletesTheSession() {
     reachFirstLivePhoto()
     convertCurrentPhoto()
 
-    element(AccessibilityID.reviewDone).tap()
+    element(AccessibilityID.browseDone).tap()
 
     XCTAssertTrue(app.staticTexts[Self.conversionSummary].waitForExistence(timeout: Self.uiTimeout))
-    element(AccessibilityID.pendingConfirm).tap()
+    element(AccessibilityID.applyConfirm).tap()
     XCTAssertTrue(element(AccessibilityID.completion).waitForExistence(timeout: Self.uiTimeout))
   }
 
@@ -82,7 +82,7 @@ final class ConversionFlowTests: ReviewUITestCase {
     reachFirstLivePhoto()
     convertCurrentPhoto()
 
-    element(AccessibilityID.reviewGoBack).tap()
+    element(AccessibilityID.browseGoBack).tap()
 
     waitForProgress("\(Self.firstLivePhotoPosition) reviewed")
     XCTAssertEqual(markedPhotoCount(), 1)

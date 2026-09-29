@@ -17,15 +17,15 @@ struct LifetimeStatsTests {
     #expect(stats.keptUnchanged == 0)
   }
 
-  @Test func progressIsTheReviewedShareOfTheLibrary() {
-    #expect(ReviewProgressCard.fraction(reviewed: 25, total: 100) == 0.25)
+  @Test func progressIsTheDecidedShareOfTheLibrary() {
+    #expect(BrowseProgressCard.fraction(decided: 25, total: 100) == 0.25)
   }
 
   @Test func progressIsZeroForAnEmptyLibrary() {
-    #expect(ReviewProgressCard.fraction(reviewed: 5, total: 0) == 0)
+    #expect(BrowseProgressCard.fraction(decided: 5, total: 0) == 0)
   }
 
   @Test func progressNeverExceedsTheWholeLibrary() {
-    #expect(ReviewProgressCard.fraction(reviewed: 150, total: 100) == 1)
+    #expect(BrowseProgressCard.fraction(decided: 150, total: 100) == 1)
   }
 }

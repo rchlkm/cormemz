@@ -4,15 +4,15 @@ import Foundation
 enum AppScreen: Equatable {
   case home
   case setup
-  case review
-  case pendingReview
+  case browse
+  case pendingChanges
   case completion
 }
 
 /// Progress of applying a confirmed session to the library.
-enum CommitState: Equatable {
+enum ApplyState: Equatable {
   case idle
-  case committing
+  case applying
   case failed(String)
 
   var failureMessage: String? {

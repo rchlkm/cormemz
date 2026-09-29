@@ -14,12 +14,12 @@ struct DecisionOverlay: View {
     self.tint = tint
   }
 
-  init(decision: ReviewDecision) {
+  init(decision: Decision) {
     let content = Self.content(for: decision)
     self.init(icon: content.icon, title: content.title, tint: content.tint)
   }
 
-  static func content(for decision: ReviewDecision) -> (icon: String, title: String, tint: Color) {
+  static func content(for decision: Decision) -> (icon: String, title: String, tint: Color) {
     switch decision {
     case .keep: return ("checkmark", "Kept", decision.tint)
     case .pendingDelete: return ("trash", "Marked for deletion", decision.tint)

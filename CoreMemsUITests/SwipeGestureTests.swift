@@ -1,7 +1,7 @@
 // CoreMemsUITests/SwipeGestureTests.swift
 import XCTest
 
-final class SwipeGestureTests: ReviewUITestCase {
+final class SwipeGestureTests: BrowseUITestCase {
   /// How far a drag must move the card to count as followed; the last reported point lags the finger.
   private static let minimumFollowedDistance: CGFloat = 10
 
@@ -35,26 +35,26 @@ final class SwipeGestureTests: ReviewUITestCase {
   }
 
   func testGoBackIsDisabledUntilThereIsSomewhereToGoBack() {
-    XCTAssertFalse(element(AccessibilityID.reviewGoBack).isEnabled)
+    XCTAssertFalse(element(AccessibilityID.browseGoBack).isEnabled)
 
-    element(AccessibilityID.reviewKeep).tap()
+    element(AccessibilityID.browseKeep).tap()
     waitForProgress("1 reviewed")
 
-    XCTAssertTrue(element(AccessibilityID.reviewGoBack).isEnabled)
+    XCTAssertTrue(element(AccessibilityID.browseGoBack).isEnabled)
   }
 
   func testGoBackButtonBringsBackThePreviousPhoto() {
-    element(AccessibilityID.reviewDelete).tap()
+    element(AccessibilityID.browseDelete).tap()
     waitForProgress("1 reviewed")
 
-    element(AccessibilityID.reviewGoBack).tap()
+    element(AccessibilityID.browseGoBack).tap()
 
     waitForProgress("0 reviewed")
     XCTAssertEqual(markedPhotoCount(), 1)
   }
 
   func testSwipeLeftGoesBackOneDecision() {
-    element(AccessibilityID.reviewKeep).tap()
+    element(AccessibilityID.browseKeep).tap()
     waitForProgress("1 reviewed")
 
     swipeCard(dx: -Self.committedSwipeDistance)

@@ -1,7 +1,7 @@
 // CoreMemsUITests/PinchGestureTests.swift
 import XCTest
 
-final class PinchGestureTests: ReviewUITestCase {
+final class PinchGestureTests: BrowseUITestCase {
   private static let expandingPinchScale: CGFloat = 2.5
   private static let dismissDragDistance: CGFloat = 300
 

@@ -12,7 +12,7 @@ struct SessionHarness {
   let persistence: MockSessionPersistence
   let haptics: MockHapticsService
   let stats: MockLifetimeStatsService
-  let reviewedStore: ReviewedPhotosStore
+  let decidedStore: DecidedPhotosStore
 
   init(
     library: RecordingPhotoLibrary? = nil,
@@ -26,16 +26,16 @@ struct SessionHarness {
     network = FakeNetworkAccess(allowsDownloads: allowsDownloads)
     haptics = MockHapticsService()
     stats = MockLifetimeStatsService()
-    reviewedStore = ReviewedPhotosStore(
+    decidedStore = DecidedPhotosStore(
       fileURL: FileManager.default.temporaryDirectory
-        .appendingPathComponent("reviewed-\(UUID().uuidString).json"))
+        .appendingPathComponent("decided-\(UUID().uuidString).json"))
     vm = SessionViewModel(
       library: library,
       persistence: persistence,
       haptics: haptics,
       statsStore: stats,
       pinnedAlbumsStore: MockPinnedAlbumsStore(),
-      reviewedPhotosStore: reviewedStore,
+      decidedPhotosStore: decidedStore,
       settings: SessionSettings(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!),
       imageLoader: PhotoImageLoader { @Sendable _, _ in nil },
       networkAccess: network)
@@ -46,7 +46,7 @@ struct SessionHarness {
   /// The session photo ID of a library asset.
   static func photoID(_ index: Int) -> String { assetID(index) }
 
-  /// A harness whose session is already under review, over `photoCount` library photos.
+  /// A harness whose session is already being browsed, over `photoCount` library photos.
   /// `liveIndexes` are Live Photos; `sizes` maps an asset index to its reported bytes.
   /// `batchSize` overrides the check-in interval, which sets how many photos load per batch.
   static func started(
@@ -67,7 +67,7 @@ struct SessionHarness {
   }
 
   /// Decides on `index` and waits for the decision to be recorded.
-  func decide(_ index: Int, _ decision: ReviewDecision) async {
+  func decide(_ index: Int, _ decision: Decision) async {
     await vm.decide(index: index, decision: decision)?.value
   }
 }

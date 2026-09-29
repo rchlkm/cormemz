@@ -10,7 +10,7 @@ See [README.md](README.md) for the overview.
 - **Album** — pick one Photos album and review it, newest first
 - Limit a session to screenshots only, or to photos excluding screenshots, independent of the mode chosen
 - Periodic check-ins and a final review after 200 items
-- Previously reviewed items can be skipped in future sessions
+- Previously browsed items can be skipped in future sessions
 
 ## Review
 
@@ -26,7 +26,7 @@ Review one item at a time in full screen.
 - Sort pinned albums in the album picker: **My order** or **Recently used**
 - Mark Live Photos for conversion to stills
 - Undo deletion or conversion marks
-- Hold a photo for later so it isn't remembered as reviewed and shows up in future sessions
+- Flag a photo for later so it isn't remembered as browsed and shows up in future sessions
 
 ## Review & Confirmation
 
@@ -73,7 +73,6 @@ Review one item at a time in full screen.
 - **Photo editing** — crop and adjust photos while preserving the original
 - **Video editing** — trim videos while preserving the original
 - **Paste filter presets**
-
 
 ### Future User Settings
 

@@ -18,7 +18,7 @@ final class PeekController: ObservableObject {
   var isPeeking: Bool { state != nil }
 
   /// A peeked photo other than the one peeking started from. Keeping it isn't offered:
-  /// it would only mark the photo as reviewed.
+  /// it would only mark the photo as decided.
   func isNeighbor(_ photoID: String) -> Bool { state.map { $0.anchorID != photoID } ?? false }
 
   /// Starts browsing the neighbors of `anchorID`, once they load.
@@ -32,7 +32,7 @@ final class PeekController: ObservableObject {
     state = nil
   }
 
-  /// Points the review controls at a peeked neighbor. Reaching the photo at either end of
+  /// Points the browse controls at a peeked neighbor. Reaching the photo at either end of
   /// the strip loads more on that side.
   func focus(on photoID: String) {
     guard let current = state, current.neighborIDs.contains(photoID) else { return }

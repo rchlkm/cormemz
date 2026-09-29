@@ -90,7 +90,7 @@ struct GoBackTests {
     #expect(h.vm.currentIndex == 1)
   }
 
-  @Test func goingBackOverATrayRestoreKeepsTheReviewIndex() async {
+  @Test func goingBackOverATrayRestoreKeepsTheBrowseIndex() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)
     await h.decide(1, .keep)

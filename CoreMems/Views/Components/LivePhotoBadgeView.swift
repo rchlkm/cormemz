@@ -4,14 +4,14 @@ import SwiftUI
 
 /// Where a `LivePhotoBadgeView` draws itself.
 enum LivePhotoBadgeStyle {
-  /// Plain circular glyph, for chrome drawn over the photo (`ReviewCardView`).
+  /// Plain circular glyph, for chrome drawn over the photo (`BrowseCardView`).
   case icon
   /// Labeled capsule matching Photos' full-screen "LIVE" badge (`ExpandedPhotoView`).
   case pill
 }
 
 /// Live Photo playback toggle shared by every surface that shows the badge
-/// (`ReviewCardView`, `ExpandedPhotoView`). Tap plays in place; tap again reverts.
+/// (`BrowseCardView`, `ExpandedPhotoView`). Tap plays in place; tap again reverts.
 ///
 /// Long-press offers `onConvertToStill`, supplied by the caller and enabled by `canConvertToStill`.
 struct LivePhotoBadgeView: View {

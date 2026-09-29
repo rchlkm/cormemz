@@ -10,7 +10,7 @@ struct CompletionView: View {
   let convertedCount: Int
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
-  let reviewedPhotoCount: Int
+  let decidedPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
 
@@ -21,16 +21,16 @@ struct CompletionView: View {
     var items = [
       StatTileItem(
         label: "Kept", value: keptUnchangedCount.formatted(),
-        systemImage: "checkmark", tint: ReviewDecision.keep.tint),
+        systemImage: "checkmark", tint: Decision.keep.tint),
       StatTileItem(
         label: "Deleted", value: deletedCount.formatted(), systemImage: "trash",
-        tint: ReviewDecision.pendingDelete.tint),
+        tint: Decision.pendingDelete.tint),
     ]
     if convertedCount > 0 {
       items.append(
         StatTileItem(
           label: "Converted to stills", value: convertedCount.formatted(),
-          systemImage: "livephoto", tint: ReviewDecision.convertToStill.tint))
+          systemImage: "livephoto", tint: Decision.convertToStill.tint))
     }
     if albumAssignedCount > 0 {
       items.append(
@@ -67,7 +67,7 @@ struct CompletionView: View {
           if deletedBytes + convertedBytesSaved > 0 {
             SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
           }
-          ReviewProgressCard(reviewed: reviewedPhotoCount, total: libraryPhotoCount)
+          BrowseProgressCard(decided: decidedPhotoCount, total: libraryPhotoCount)
         }
         .padding(.horizontal, 16)
         .padding(.top, 48)
@@ -86,7 +86,7 @@ struct CompletionView: View {
     VStack(spacing: 10) {
       Image(systemName: "checkmark.circle.fill")
         .font(.system(size: 44))
-        .foregroundStyle(ReviewDecision.keep.tint)
+        .foregroundStyle(Decision.keep.tint)
       Text("Session complete")
         .font(.title2.bold())
     }
@@ -102,7 +102,7 @@ struct CompletionView: View {
     convertedCount: 1,
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
-    reviewedPhotoCount: 1_206,
+    decidedPhotoCount: 1_206,
     libraryPhotoCount: 3_100,
     onAgain: {})
 }

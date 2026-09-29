@@ -23,7 +23,7 @@ nonisolated struct NetworkConditions: Equatable {
   }
 }
 
-/// Shared copy for why downloads might be paused, so Settings and the in-review notice
+/// Shared copy for why downloads might be paused, so Settings and the in-browse notice
 /// don't drift out of sync describing the same underlying reason.
 nonisolated enum NetworkPauseReason {
   static let lowDataMode = "Low Data Mode is on for this network"

@@ -78,7 +78,7 @@ struct SessionDeckTests {
   @Test func adoptingAPhotoAheadMovesItBeforeTheActiveCard() {
     var deck = makeDeck()
 
-    let index = deck.adoptIntoReviewed(photoID: "p3")
+    let index = deck.adoptIntoDecided(photoID: "p3")
 
     #expect(index == 0)
     #expect(deck.photos.map(\.id) == ["p3", "p0", "p1", "p2"])
@@ -86,21 +86,21 @@ struct SessionDeckTests {
     #expect(deck.currentPhoto?.id == "p0")
   }
 
-  @Test func adoptingAnAlreadyReviewedPhotoKeepsItsPlace() {
+  @Test func adoptingAnAlreadyDecidedPhotoKeepsItsPlace() {
     var deck = makeDeck()
     deck.record(index: 0, decision: .keep)
 
-    let keptInPlace = deck.adoptIntoReviewed(photoID: "p0")
+    let keptInPlace = deck.adoptIntoDecided(photoID: "p0")
     #expect(keptInPlace == 0)
     #expect(deck.photos.map(\.id) == ["p0", "p1", "p2", "p3"])
-    let missingPhoto = deck.adoptIntoReviewed(photoID: "missing")
+    let missingPhoto = deck.adoptIntoDecided(photoID: "missing")
     #expect(missingPhoto == nil)
   }
 
-  @Test func insertingAnOutsidePhotoCountsItAsReviewed() {
+  @Test func insertingAnOutsidePhotoCountsItAsDecided() {
     var deck = makeDeck()
 
-    let index = deck.insertReviewed(SessionPhoto(id: "peeked", assetIdentifier: "x", previewURL: nil))
+    let index = deck.insertDecided(SessionPhoto(id: "peeked", assetIdentifier: "x", previewURL: nil))
 
     #expect(index == 0)
     #expect(deck.currentIndex == 1)
@@ -226,7 +226,7 @@ struct SessionDeckTests {
     #expect(deck.currentIndex == 1)
   }
 
-  @Test func removingEveryReviewedPhotoLeavesAnExhaustedDeckExhausted() {
+  @Test func removingEveryDecidedPhotoLeavesAnExhaustedDeckExhausted() {
     var deck = makeDeck(count: 2)
     deck.record(index: 0, decision: .pendingDelete)
     deck.record(index: 1, decision: .pendingDelete)

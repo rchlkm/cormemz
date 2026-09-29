@@ -1,12 +1,12 @@
 // CoreMemsUITests/SessionFlowTests.swift
 import XCTest
 
-final class SessionFlowTests: ReviewUITestCase {
+final class SessionFlowTests: BrowseUITestCase {
   func testMarkedPhotoCanBeRestoredFromTheTray() {
-    element(AccessibilityID.reviewDelete).tap()
+    element(AccessibilityID.browseDelete).tap()
     waitForProgress("1 reviewed")
 
-    button(AccessibilityID.reviewTray).tap()
+    button(AccessibilityID.browseTray).tap()
     let restore = app.buttons.matching(identifier: AccessibilityID.trayRestore).firstMatch
     XCTAssertTrue(restore.waitForExistence(timeout: Self.uiTimeout))
     restore.tap()
@@ -16,9 +16,9 @@ final class SessionFlowTests: ReviewUITestCase {
   }
 
   func testMarkedPhotoOpensFullScreenFromTheTrayAndCanBeUndone() {
-    element(AccessibilityID.reviewDelete).tap()
+    element(AccessibilityID.browseDelete).tap()
     waitForProgress("1 reviewed")
-    button(AccessibilityID.reviewTray).tap()
+    button(AccessibilityID.browseTray).tap()
 
     element(AccessibilityID.gridPhoto).firstMatch.tap()
     let viewer = element(AccessibilityID.photoViewer)
@@ -30,9 +30,9 @@ final class SessionFlowTests: ReviewUITestCase {
   }
 
   func testClosingTheFullScreenViewerLeavesThePhotoMarked() {
-    element(AccessibilityID.reviewDelete).tap()
+    element(AccessibilityID.browseDelete).tap()
     waitForProgress("1 reviewed")
-    button(AccessibilityID.reviewTray).tap()
+    button(AccessibilityID.browseTray).tap()
 
     element(AccessibilityID.gridPhoto).firstMatch.tap()
     let viewer = element(AccessibilityID.photoViewer)
@@ -43,12 +43,12 @@ final class SessionFlowTests: ReviewUITestCase {
     XCTAssertEqual(app.buttons.matching(identifier: AccessibilityID.trayRestore).count, 1)
   }
 
-  func testDoneLeadsThroughPendingReviewToCompletion() {
-    element(AccessibilityID.reviewKeep).tap()
+  func testDoneLeadsThroughPendingChangesToCompletion() {
+    element(AccessibilityID.browseKeep).tap()
     waitForProgress("1 reviewed")
 
-    element(AccessibilityID.reviewDone).tap()
-    let confirm = element(AccessibilityID.pendingConfirm)
+    element(AccessibilityID.browseDone).tap()
+    let confirm = element(AccessibilityID.applyConfirm)
     XCTAssertTrue(confirm.waitForExistence(timeout: Self.uiTimeout))
     confirm.tap()
 
@@ -56,7 +56,7 @@ final class SessionFlowTests: ReviewUITestCase {
   }
 
   func testEachLaunchStartsClean() {
-    element(AccessibilityID.reviewKeep).tap()
+    element(AccessibilityID.browseKeep).tap()
     waitForProgress("1 reviewed")
 
     app.terminate()

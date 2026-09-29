@@ -57,7 +57,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
   /// (`ExpandedPhotoView`'s full-screen `AdaptiveAssetImage`), so a photo that
   /// probes as displayable here is guaranteed to render, not just produce a
   /// smaller cached preview that the real request then can't match locally.
-  private nonisolated static let reviewProbeSize: CGSize = {
+  private nonisolated static let browseProbeSize: CGSize = {
     let scale = UIScreen.main.scale
     let bounds = UIScreen.main.bounds.size
     return CGSize(width: bounds.width * scale, height: bounds.height * scale)
@@ -109,7 +109,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     return (resource.value(forKey: Self.locallyAvailableKey) as? Bool) ?? false
   }
 
-  /// Accepts a lower-quality cached preview, not just a full-quality local image — reviewing
+  /// Accepts a lower-quality cached preview, not just a full-quality local image — browsing
   /// a photo at reduced quality beats skipping it outright, and `PhotoImageLoader`'s own
   /// request already renders whatever quality this same lookup finds.
   private nonisolated static func probeDisplayable(_ asset: PHAsset) async -> Bool {
@@ -119,7 +119,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     options.isNetworkAccessAllowed = false
     return await withCheckedContinuation { continuation in
       PHImageManager.default().requestImage(
-        for: asset, targetSize: reviewProbeSize, contentMode: .aspectFit, options: options
+        for: asset, targetSize: browseProbeSize, contentMode: .aspectFit, options: options
       ) { image, _ in
         continuation.resume(returning: image != nil)
       }

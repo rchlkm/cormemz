@@ -1,7 +1,7 @@
 // CoreMems/Views/Components/PeekPreviewView.swift
 import SwiftUI
 
-/// Full-size image of the focused neighbor, laid over the review card's own photo. The
+/// Full-size image of the focused neighbor, laid over the browse card's own photo. The
 /// focused photo and the ones beside it stay mounted, so stepping to an adjacent photo
 /// shows its image at once.
 struct PeekPreviewView: View {
@@ -35,7 +35,7 @@ struct PeekPreviewView: View {
 
 /// Names a photo's decision, so a marked neighbor reads as marked.
 struct PeekDecisionTag: View {
-  let decision: ReviewDecision
+  let decision: Decision
 
   var body: some View {
     if decision != .undecided {

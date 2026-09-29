@@ -2,7 +2,7 @@
 import PhotosUI
 import SwiftUI
 
-/// Full-screen state of a `ReviewCardView` photo, grown into place via
+/// Full-screen state of a `BrowseCardView` photo, grown into place via
 /// `matchedGeometryEffect` rather than a `.fullScreenCover` modal.
 /// Pinch to zoom (persists, no bounce-back), drag to pan while zoomed,
 /// or drag at 1x to shrink back down into the card. Live Photos can be

@@ -154,7 +154,7 @@ struct VideoPlayerCardView: View {
 }
 
 /// A slim, draggable progress track. `.highPriorityGesture` claims a drag
-/// starting on the bar before the review card's own swipe-to-decide gesture
+/// starting on the bar before the browse card's own swipe-to-decide gesture
 /// can see it, so scrubbing never gets mistaken for a swipe.
 private struct ScrubBar: View {
   @Binding var progress: Double
@@ -189,7 +189,7 @@ private struct ScrubBar: View {
 }
 
 /// Bridges an `AVPlayer` into SwiftUI via a bare `AVPlayerLayer` — no
-/// native transport controls, matching the review card's own chrome.
+/// native transport controls, matching the browse card's own chrome.
 private struct PlayerLayerRepresentable: UIViewRepresentable {
   let player: AVPlayer
 

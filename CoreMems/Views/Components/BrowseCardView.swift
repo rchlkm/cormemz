@@ -1,15 +1,15 @@
-// CoreMems/Views/Components/ReviewCardView.swift
+// CoreMems/Views/Components/BrowseCardView.swift
 import PhotosUI
 import SwiftUI
 
-/// Interactive review card: swipe-to-decide gestures, pinch zoom, and
+/// Interactive browse card: swipe-to-decide gestures, pinch zoom, and
 /// all card chrome (date, info and Live Photo badges). `PhotoCardView`
 /// underneath only renders the photo.
 ///
 /// Expanding to full screen is a `matchedGeometryEffect` hand-off to
 /// `ExpandedPhotoView`, not a `.fullScreenCover` — the photo grows into
 /// full screen instead of a modal sliding up.
-struct ReviewCardView: View {
+struct BrowseCardView: View {
   let photo: SessionPhoto
   let maxSize: CGSize
   @ObservedObject var vm: SessionViewModel
@@ -156,7 +156,7 @@ struct ReviewCardView: View {
       isShowingLivePhoto = false
     }
     .uiTestContainer(
-      AccessibilityID.reviewCard,
+      AccessibilityID.browseCard,
       value: "\(Int(lastDragTranslation.width)),\(Int(lastDragTranslation.height))")
   }
 
@@ -236,7 +236,7 @@ struct ReviewCardView: View {
       Image(systemName: vm.isPeeking ? "xmark" : "square.stack")
     }
     .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
-    .accessibilityIdentifier(AccessibilityID.reviewPeekToggle)
+    .accessibilityIdentifier(AccessibilityID.browsePeekToggle)
   }
 
   private var topBar: some View {

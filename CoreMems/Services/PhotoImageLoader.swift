@@ -8,7 +8,7 @@ import os
 /// Satisfies the §8 Non-Functional Requirement: "Photo review must use
 /// appropriately-sized image representations rather than loading
 /// full-resolution originals for every swipe" and "memory usage during
-/// rapid sequential review must not grow unbounded — prior off-screen
+/// rapid sequential browsing must not grow unbounded — prior off-screen
 /// images should be released."
 ///
 /// The cache is bounded by total decoded byte size rather than item
@@ -39,7 +39,7 @@ actor PhotoImageLoader {
   private let cache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
     // Budgets total decoded bitmap bytes rather than image count, so a
-    // handful of large full-resolution review images can't retain far
+    // handful of large full-resolution browse images can't retain far
     // more memory than the same count of small thumbnails would.
     cache.totalCostLimit = 80 * 1024 * 1024
     return cache
@@ -199,7 +199,7 @@ actor PhotoImageLoader {
 }
 
 /// Logs cache evictions so memory behavior can be watched manually in
-/// the console during a real review session, without needing a PhotoKit
+/// the console during a real browse session, without needing a PhotoKit
 /// fake to unit test against.
 private final class CacheEvictionLogger: NSObject, NSCacheDelegate {
   private static let logger = Logger(subsystem: "com.coremems", category: "performance")

@@ -141,7 +141,7 @@ struct PeekSessionTests {
     #expect(h.vm.currentIndex == 0)
   }
 
-  @Test func filingANeighborIntoAnAlbumDoesNotCountItAsReviewed() async {
+  @Test func filingANeighborIntoAnAlbumDoesNotCountItAsDecided() async {
     let h = await peeking()
     let album = AlbumRef.existing(localIdentifier: "album-1")
 

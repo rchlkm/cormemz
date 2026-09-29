@@ -74,7 +74,7 @@ struct PhotoGridCells: View {
 
 /// Small badge naming what will happen to a marked photo. Empty for any other decision.
 private struct DecisionTag: View {
-  let decision: ReviewDecision
+  let decision: Decision
 
   private var style: (symbol: String, color: Color)? {
     switch decision {

@@ -2,7 +2,7 @@
 import Foundation
 
 struct LifetimeSessionStats: Codable {
-  var totalReviewed = 0
+  var totalDecided = 0
   var totalKept = 0
   var totalDeleted = 0
   var bytesDeleted: Int64 = 0
@@ -18,7 +18,7 @@ struct LifetimeSessionStats: Codable {
 
   mutating func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
-    totalReviewed += kept + deleted
+    totalDecided += kept + deleted
     totalKept += kept
     totalDeleted += deleted
     self.bytesDeleted += bytesDeleted
@@ -34,13 +34,14 @@ struct LifetimeSessionStats: Codable {
   private mutating func startTrackingIfNeeded() {
     if trackingSince == nil { trackingSince = Date() }
   }
+
 }
 
 /// Decodes missing keys as zero so stats saved by earlier versions still load.
 extension LifetimeSessionStats {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    totalReviewed = try container.decodeIfPresent(Int.self, forKey: .totalReviewed) ?? 0
+    totalDecided = try container.decodeIfPresent(Int.self, forKey: .totalDecided) ?? 0
     totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
     totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
     bytesDeleted = try container.decodeIfPresent(Int64.self, forKey: .bytesDeleted) ?? 0

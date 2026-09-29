@@ -1,12 +1,12 @@
-// CoreMemsTests/Session/SessionConfirmationPlanTests.swift
+// CoreMemsTests/Session/SessionChangePlanTests.swift
 import Photos
 import Testing
 
 @testable import CoreMems
 
-@Suite("Session confirmation plan")
-struct SessionConfirmationPlanTests {
-  private func makeDeck(_ decisions: [ReviewDecision], live: Set<Int> = []) -> SessionDeck {
+@Suite("Session change plan")
+struct SessionChangePlanTests {
+  private func makeDeck(_ decisions: [Decision], live: Set<Int> = []) -> SessionDeck {
     SessionDeck(
       photos: decisions.enumerated().map { index, decision in
         var photo = SessionPhoto(
@@ -27,7 +27,7 @@ struct SessionConfirmationPlanTests {
   @Test func nothingMarkedPlansNoChanges() {
     let deck = makeDeck([.keep, .keep])
 
-    let plan = SessionConfirmationPlan(deck: deck, assets: assets(for: deck), staging: AlbumStaging())
+    let plan = SessionChangePlan(deck: deck, assets: assets(for: deck), staging: AlbumStaging())
 
     #expect(plan.changes.isEmpty)
     #expect(plan.deletions.isEmpty)
@@ -38,7 +38,7 @@ struct SessionConfirmationPlanTests {
     let deck = makeDeck([.pendingDelete, .convertToStill, .keep], live: [1])
     let library = assets(for: deck)
 
-    let plan = SessionConfirmationPlan(deck: deck, assets: library, staging: AlbumStaging())
+    let plan = SessionChangePlan(deck: deck, assets: library, staging: AlbumStaging())
 
     #expect(plan.deletions.map(\.id) == ["p0"])
     #expect(plan.changes.deletions.map(\.localIdentifier) == ["a0"])
@@ -50,7 +50,7 @@ struct SessionConfirmationPlanTests {
   @Test func aConversionWithoutItsAssetIsLeftOut() {
     let deck = makeDeck([.convertToStill], live: [0])
 
-    let plan = SessionConfirmationPlan(deck: deck, assets: [:], staging: AlbumStaging())
+    let plan = SessionChangePlan(deck: deck, assets: [:], staging: AlbumStaging())
 
     #expect(plan.conversions.isEmpty)
     #expect(plan.changes.conversions.isEmpty)
@@ -63,7 +63,7 @@ struct SessionConfirmationPlanTests {
     _ = staging.toggle(photoID: "p0", ref: ref)
     _ = staging.toggle(photoID: "p1", ref: ref)
 
-    let plan = SessionConfirmationPlan(deck: deck, assets: assets(for: deck), staging: staging)
+    let plan = SessionChangePlan(deck: deck, assets: assets(for: deck), staging: staging)
 
     #expect(Array(plan.changes.albumAdditions.keys) == ["p1"])
   }

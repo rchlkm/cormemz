@@ -41,13 +41,13 @@ struct RootView: View {
   private var settingsView: some View {
     SettingsView(
       checkInInterval: $vm.checkInInterval,
-      includesReviewedPhotos: $vm.includesReviewedPhotos,
+      includesDecidedPhotos: $vm.includesDecidedPhotos,
       networkPolicy: $vm.networkPolicy,
       isLowDataModeActive: vm.isLowDataModeActive,
       defaultSessionMode: $vm.defaultSessionMode,
-      reviewedPhotoCount: vm.reviewedPhotoCount,
+      decidedPhotoCount: vm.decidedPhotoCount,
       libraryPhotoCount: vm.eligiblePhotoCount,
-      onResetReviewedPhotos: { vm.resetReviewedPhotos() },
+      onResetDecidedPhotos: { vm.resetDecidedPhotos() },
       pinnedAlbums: vm.pinnedAlbums,
       recentAlbumIDs: vm.recentAlbumIDs,
       lifetimeStats: vm.lifetimeStats,
@@ -113,10 +113,10 @@ struct RootView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showSettings) { settingsView }
           }
-        case .review:
-          ReviewView(vm: vm)
-        case .pendingReview:
-          PendingReviewView(vm: vm)
+        case .browse:
+          BrowseView(vm: vm)
+        case .pendingChanges:
+          ApplyChangesView(vm: vm)
         case .completion:
           CompletionView(
             keptCount: vm.keptCount,
@@ -126,7 +126,7 @@ struct RootView: View {
             convertedCount: vm.convertedLivePhotoCount,
             deletedBytes: vm.deletedBytes,
             convertedBytesSaved: vm.convertedBytesSaved,
-            reviewedPhotoCount: vm.reviewedPhotoCount,
+            decidedPhotoCount: vm.decidedPhotoCount,
             libraryPhotoCount: vm.eligiblePhotoCount,
             onAgain: { vm.resetForAnotherSession() }
           )

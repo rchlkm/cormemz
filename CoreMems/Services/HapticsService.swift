@@ -15,7 +15,7 @@ protocol HapticsServicing {
 }
 
 extension HapticsServicing {
-  func decided(_ decision: ReviewDecision) {
+  func decided(_ decision: Decision) {
     switch decision {
     case .keep: keep()
     case .pendingDelete: markForDeletion()
@@ -25,7 +25,7 @@ extension HapticsServicing {
   }
 }
 
-/// Haptic + system-sound feedback for review decisions.
+/// Haptic + system-sound feedback for browse decisions.
 ///
 /// `AudioServicesPlaySystemSound` respects the ring/silent switch by
 /// default on real hardware — no extra gating needed. (The iOS

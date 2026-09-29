@@ -1,9 +1,9 @@
-// CoreMemsUITests/Support/ReviewUITestCase.swift
+// CoreMemsUITests/Support/BrowseUITestCase.swift
 import XCTest
 
 /// Launches the app with in-memory doubles and starts a session, leaving the
 /// first photo on screen.
-class ReviewUITestCase: XCTestCase {
+class BrowseUITestCase: XCTestCase {
   static let launchArgument = "-uiTesting"
   static let uiTimeout: TimeInterval = 10
 
@@ -23,7 +23,7 @@ class ReviewUITestCase: XCTestCase {
     let start = app.buttons[AccessibilityID.setupStart]
     XCTAssertTrue(start.waitForExistence(timeout: Self.uiTimeout), "Setup screen never appeared")
     start.tap()
-    XCTAssertTrue(card.waitForExistence(timeout: Self.uiTimeout), "Review screen never appeared")
+    XCTAssertTrue(card.waitForExistence(timeout: Self.uiTimeout), "Browse screen never appeared")
   }
 
   func element(_ identifier: String) -> XCUIElement {
@@ -36,7 +36,7 @@ class ReviewUITestCase: XCTestCase {
     app.buttons[identifier]
   }
 
-  var card: XCUIElement { element(AccessibilityID.reviewCard) }
+  var card: XCUIElement { element(AccessibilityID.browseCard) }
 
   func drag(_ element: XCUIElement, dx: CGFloat, dy: CGFloat) {
     let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -48,7 +48,7 @@ class ReviewUITestCase: XCTestCase {
   }
 
   func waitForProgress(_ label: String, file: StaticString = #filePath, line: UInt = #line) {
-    let progress = element(AccessibilityID.reviewProgress)
+    let progress = element(AccessibilityID.browseProgress)
     let matches = NSPredicate(format: "label == %@", label)
     let result = XCTWaiter().wait(
       for: [XCTNSPredicateExpectation(predicate: matches, object: progress)],
@@ -78,7 +78,7 @@ class ReviewUITestCase: XCTestCase {
 
   /// The number of photos listed in the marked-photos tray.
   func markedPhotoCount() -> Int {
-    button(AccessibilityID.reviewTray).tap()
+    button(AccessibilityID.browseTray).tap()
     let closeButton = app.buttons["Close"]
     XCTAssertTrue(closeButton.waitForExistence(timeout: Self.uiTimeout), "Tray never opened")
     let count = app.buttons.matching(identifier: AccessibilityID.trayRestore).count

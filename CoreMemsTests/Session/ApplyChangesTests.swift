@@ -1,16 +1,16 @@
-// CoreMemsTests/Session/ConfirmTests.swift
+// CoreMemsTests/Session/ApplyChangesTests.swift
 import Photos
 import Testing
 
 @testable import CoreMems
 
-@Suite("Confirming a session")
+@Suite("Applying changes")
 @MainActor
-struct ConfirmTests {
-  /// A started session whose review is over, so Pending Review is showing.
+struct ApplyChangesTests {
+  /// A started session whose browsing is over, so Apply Changes is showing.
   private func finishedSession(
     photoCount: Int, liveIndexes: Set<Int> = [], sizes: [Int: Int64] = [:],
-    decisions: [(Int, ReviewDecision)]
+    decisions: [(Int, Decision)]
   ) async -> SessionHarness {
     let h = await SessionHarness.started(
       photoCount: photoCount, liveIndexes: liveIndexes, sizes: sizes)
@@ -23,7 +23,7 @@ struct ConfirmTests {
     let h = await finishedSession(photoCount: 3, decisions: [(0, .pendingDelete), (1, .keep)])
     h.library.assets.removeFirst()
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.eligiblePhotoCount == 2)
   }
@@ -32,7 +32,7 @@ struct ConfirmTests {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.library.events.isEmpty)
     #expect(h.vm.screen == .completion)
@@ -43,26 +43,26 @@ struct ConfirmTests {
     #expect(h.persistence.snapshot == nil)
   }
 
-  @Test func keptPhotosAreRememberedAsReviewed() async {
+  @Test func keptPhotosAreRememberedAsDecided() async {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .pendingDelete), (2, .keep)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(
-      h.reviewedStore.reviewedIdentifiers()
+      h.decidedStore.decidedIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
-    #expect(h.vm.reviewedPhotoCount == 2)
+    #expect(h.vm.decidedPhotoCount == 2)
   }
 
-  @Test func photosHeldForLaterAreNotRememberedAsReviewed() async {
+  @Test func photosHeldForLaterAreNotRememberedAsDecided() async {
     let h = await finishedSession(photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(1))
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(
-      h.reviewedStore.reviewedIdentifiers()
+      h.decidedStore.decidedIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
   }
 
@@ -71,9 +71,9 @@ struct ConfirmTests {
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(0))
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(0))
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
-    #expect(h.reviewedStore.reviewedIdentifiers() == [SessionHarness.assetID(0)])
+    #expect(h.decidedStore.decidedIdentifiers() == [SessionHarness.assetID(0)])
   }
 
   @Test func albumCreatedWithAPhotoIsRecentUntilTheCommitSwapsInTheRealAlbum() async {
@@ -83,7 +83,7 @@ struct ConfirmTests {
     #expect(h.vm.recentAlbumIDs.first == tempID)
     h.library.createdAlbumIDs = ["real-album"]
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.recentAlbumIDs.first == "real-album")
     #expect(!h.vm.recentAlbumIDs.contains(tempID))
@@ -94,13 +94,13 @@ struct ConfirmTests {
       photoCount: 3, liveIndexes: [2], sizes: [1: 100, 2: 900],
       decisions: [(0, .keep), (1, .pendingDelete), (2, .convertToStill)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(
       h.library.events == [
         .storageSize([SessionHarness.assetID(1)]),
         .storageSize([SessionHarness.assetID(2)]),
-        .commit,
+        .apply,
       ])
   }
 
@@ -109,10 +109,10 @@ struct ConfirmTests {
       photoCount: 4, liveIndexes: [1],
       decisions: [(0, .pendingDelete), (1, .convertToStill), (2, .keep), (3, .pendingDelete)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
-    #expect(h.library.committedChanges.count == 1)
-    let changes = h.library.committedChanges[0]
+    #expect(h.library.appliedChanges.count == 1)
+    let changes = h.library.appliedChanges[0]
     #expect(
       changes.deletions.map(\.localIdentifier)
         == [SessionHarness.assetID(0), SessionHarness.assetID(3)])
@@ -124,7 +124,7 @@ struct ConfirmTests {
       photoCount: 3, sizes: [1: 100, 2: 250],
       decisions: [(0, .keep), (1, .pendingDelete), (2, .pendingDelete)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.screen == .completion)
     #expect(h.vm.deletedCount == 2)
@@ -144,7 +144,7 @@ struct ConfirmTests {
       photoCount: 2, liveIndexes: [1], sizes: [1: 900],
       decisions: [(0, .keep), (1, .convertToStill)])
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     let converted = h.vm.photos[1]
     #expect(converted.decision == .keep)
@@ -163,7 +163,7 @@ struct ConfirmTests {
       decisions: [(0, .keep), (1, .convertToStill)])
     h.library.stillSizes = [SessionHarness.assetID(1): 300]
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.stats.stats.bytesSavedByConversion == 600)
     #expect(h.vm.convertedBytesSaved == 600)
@@ -172,12 +172,12 @@ struct ConfirmTests {
   @Test func rejectedCommitLeavesTheSessionUntouched() async {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .pendingDelete), (2, .keep)])
-    h.library.commitFailure = LibraryTestError.rejected
+    h.library.applyFailure = LibraryTestError.rejected
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.deletionError != nil)
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
     #expect(h.vm.photos.count == 3)
     #expect(h.vm.photos[1].decision == .pendingDelete)
     #expect(h.vm.canGoBack)
@@ -190,26 +190,26 @@ struct ConfirmTests {
   @Test func decliningTheSystemPromptKeepsTheSessionOpenWithoutAnError() async {
     let h = await finishedSession(
       photoCount: 2, decisions: [(0, .pendingDelete), (1, .keep)])
-    h.library.commitFailure = PHPhotosError(.userCancelled)
+    h.library.applyFailure = PHPhotosError(.userCancelled)
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.deletionError == nil)
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
     #expect(h.vm.photos[0].decision == .pendingDelete)
     #expect(h.stats.stats.sessionsCompleted == 0)
   }
 
-  @Test func aMissingStillCopyReportsAnErrorAndStaysOnPendingReview() async {
+  @Test func aMissingStillCopyReportsAnErrorAndStaysOnPendingChanges() async {
     let h = await finishedSession(
       photoCount: 3, liveIndexes: [1, 2],
       decisions: [(0, .keep), (1, .convertToStill), (2, .convertToStill)])
     h.library.photoIDsWithoutStill = [SessionHarness.photoID(2)]
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.vm.deletionError == PhotoLibraryError.creationFailed.localizedDescription)
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
     #expect(h.vm.photos[1].decision == .keep)
     #expect(h.vm.photos[1].isLivePhoto == false)
     #expect(h.vm.photos[2].decision == .convertToStill)

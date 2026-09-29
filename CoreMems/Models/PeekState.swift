@@ -7,7 +7,7 @@ enum PeekSide {
 }
 
 /// The library neighbors being browsed around one session photo, and which of them the
-/// review controls act on.
+/// browse controls act on.
 struct PeekState {
   /// Photos each side starts with, how many an expansion adds, and the most a side can hold.
   static let initialCount = 2

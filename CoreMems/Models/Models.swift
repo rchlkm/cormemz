@@ -1,7 +1,7 @@
 // CoreMems/Models/Models.swift
 import Foundation
 
-enum ReviewDecision: String, Equatable {
+enum Decision: String, Equatable {
   case undecided
   case keep
   case pendingDelete
@@ -20,7 +20,7 @@ enum SelectionMode: String, Equatable, CaseIterable {
   case date
   case album
 
-  /// The review screen's caption; `startDateText` fills `.date`, `albumName` fills `.album`.
+  /// The browse screen's caption; `startDateText` fills `.date`, `albumName` fills `.album`.
   func sessionLabel(startDateText: String?, albumName: String? = nil) -> String? {
     switch self {
     case .shuffle: return nil
@@ -36,25 +36,25 @@ enum MediaTypeFilter: String, Equatable, CaseIterable {
   case all, photos, screenshots, videos, timelapses
 }
 
-/// A single photo in a review session. In production `assetIdentifier`
+/// A single photo in a browse session. In production `assetIdentifier`
 /// maps to a `PHAsset.localIdentifier`; `previewImageName`/`previewURL`
 /// stand in for whatever thumbnail source you're using in the prototype.
 struct SessionPhoto: Identifiable, Equatable {
   let id: String  // stable within-session identifier
   var assetIdentifier: String  // PHAsset.localIdentifier in production
   let previewURL: URL?
-  var decision: ReviewDecision = .undecided
+  var decision: Decision = .undecided
   var isFavorite: Bool = false
   var isLivePhoto: Bool = false
   /// PhotoKit videos (including timelapses) are never Live Photos, so this and
   /// `isLivePhoto` are mutually exclusive.
   var isVideo: Bool = false
-  /// Held photos aren't remembered as reviewed, so later sessions offer them again.
+  /// Held photos aren't remembered as decided, so later sessions offer them again.
   var isHeldForLater: Bool = false
   var dateLabel: String = ""
 
   /// Only Live Photos can be converted to a still.
-  func canReceive(_ decision: ReviewDecision) -> Bool {
+  func canReceive(_ decision: Decision) -> Bool {
     decision != .convertToStill || isLivePhoto
   }
 }
@@ -62,9 +62,9 @@ struct SessionPhoto: Identifiable, Equatable {
 /// One entry in the full pending-delete history for the session.
 struct DecisionHistoryEntry {
   let photoIndex: Int
-  let previousDecision: ReviewDecision
-  let newDecision: ReviewDecision
-  /// True if this decision was the one that advanced the review index
+  let previousDecision: Decision
+  let newDecision: Decision
+  /// True if this decision was the one that advanced the browse index
   /// (i.e. it happened via swipe/keep/delete on the current card, not
   /// via a Tray restore of an earlier photo).
   let advancedIndex: Bool
@@ -157,11 +157,11 @@ extension Sequence {
 enum SessionLifecycleState: Equatable {
   case idle
   case active
-  case pendingReview
+  case pendingChanges
   case completed
 }
 
-struct ReviewSession {
+struct BrowseSession {
   let id: UUID = UUID()
   var requestedSize: Int
   var photos: [SessionPhoto]

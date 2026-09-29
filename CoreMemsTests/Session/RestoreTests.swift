@@ -19,7 +19,7 @@ struct RestoreTests {
     #expect(h.haptics.trayRestoreCallCount == 1)
   }
 
-  @Test func restoreLeavesTheReviewIndexAlone() async {
+  @Test func restoreLeavesTheBrowseIndexAlone() async {
     let h = await SessionHarness.started(photoCount: 4)
     await h.decide(0, .pendingDelete)
     await h.decide(1, .keep)
@@ -62,6 +62,6 @@ struct RestoreTests {
 
     h.vm.restoreMany(ids: [SessionHarness.photoID(0)])
 
-    #expect(h.persistence.snapshot?.decisions.first == ReviewDecision.keep.rawValue)
+    #expect(h.persistence.snapshot?.decisions.first == Decision.keep.rawValue)
   }
 }

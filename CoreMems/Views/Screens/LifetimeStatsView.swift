@@ -4,7 +4,7 @@ import SwiftUI
 /// Every lifetime stat in one place. Pushed from the top of Settings.
 struct LifetimeStatsView: View {
   let stats: LifetimeSessionStats
-  let reviewedPhotoCount: Int
+  let decidedPhotoCount: Int
   let libraryPhotoCount: Int
   let onClear: () -> Void
 
@@ -17,11 +17,11 @@ struct LifetimeStatsView: View {
         systemImage: "clock.arrow.circlepath"),
       StatTileItem(
         label: "Kept", value: stats.keptUnchanged.formatted(), systemImage: "checkmark.circle",
-        tint: ReviewDecision.keep.tint),
-      StatTileItem(label: "Reviewed", value: stats.totalReviewed.formatted(), systemImage: "eye"),
+        tint: Decision.keep.tint),
+      StatTileItem(label: "Decided", value: stats.totalDecided.formatted(), systemImage: "eye"),
       StatTileItem(
         label: "Live Photos converted", value: stats.livePhotosConverted.formatted(),
-        systemImage: "livephoto", tint: ReviewDecision.convertToStill.tint),
+        systemImage: "livephoto", tint: Decision.convertToStill.tint),
     ]
   }
 
@@ -33,7 +33,7 @@ struct LifetimeStatsView: View {
         OutcomeRatioCard(
           kept: stats.keptUnchanged, converted: stats.livePhotosConverted,
           deleted: stats.totalDeleted)
-        ReviewProgressCard(reviewed: reviewedPhotoCount, total: libraryPhotoCount)
+        BrowseProgressCard(decided: decidedPhotoCount, total: libraryPhotoCount)
         SpaceCleanedCard(
           deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion)
         footer
@@ -98,7 +98,7 @@ struct LifetimeStatsView: View {
   NavigationStack {
     LifetimeStatsView(
       stats: LifetimeSessionStats(
-        totalReviewed: 1_480,
+        totalDecided: 1_480,
         totalKept: 1_206,
         totalDeleted: 274,
         bytesDeleted: 1_840_000_000,
@@ -107,7 +107,7 @@ struct LifetimeStatsView: View {
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)
       ),
-      reviewedPhotoCount: 1_206,
+      decidedPhotoCount: 1_206,
       libraryPhotoCount: 3_100,
       onClear: {}
     )

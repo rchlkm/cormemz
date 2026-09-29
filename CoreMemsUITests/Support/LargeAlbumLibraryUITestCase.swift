@@ -12,7 +12,7 @@ class LargeAlbumLibraryUITestCase: XCTestCase {
     super.setUp()
     continueAfterFailure = false
     app = XCUIApplication()
-    app.launchArguments = [ReviewUITestCase.launchArgument, "-uiTestingLargeAlbumLibrary"]
+    app.launchArguments = [BrowseUITestCase.launchArgument, "-uiTestingLargeAlbumLibrary"]
     app.launch()
     let settings = app.buttons["Settings"]
     XCTAssertTrue(settings.waitForExistence(timeout: Self.uiTimeout), "Setup screen never appeared")

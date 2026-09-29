@@ -1,7 +1,7 @@
 // CoreMems/Views/Components/AlbumQuickStripView.swift
 import SwiftUI
 
-/// Album chips under the review card: a fixed "More" chip, then the photo's albums
+/// Album chips under the browse card: a fixed "More" chip, then the photo's albums
 /// (checked), pinned, and recent ones.
 struct AlbumQuickStripView: View {
   @ObservedObject var vm: SessionViewModel
@@ -205,7 +205,7 @@ struct AlbumQuickStripView: View {
 #Preview {
   let photos = SessionViewModel.mockPhotos(count: 3)
   AlbumQuickStripView(
-    vm: .mock(screen: .review, photos: photos), photoID: photos[0].id, onMore: {}
+    vm: .mock(screen: .browse, photos: photos), photoID: photos[0].id, onMore: {}
   )
   .background(Color.black)
 }

@@ -1,8 +1,8 @@
-// CoreMems/Models/SessionConfirmationPlan.swift
+// CoreMems/Models/SessionChangePlan.swift
 import Photos
 
 /// What confirming a session changes in the library, worked out from the deck.
-struct SessionConfirmationPlan {
+struct SessionChangePlan {
   let deletions: [SessionPhoto]
   /// Marked Live Photos that still have their asset.
   let conversions: [SessionPhoto]

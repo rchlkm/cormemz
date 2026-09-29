@@ -4,7 +4,7 @@ import Testing
 
 @testable import CoreMems
 
-@Suite("Reviewing without a network")
+@Suite("Browsing without a network")
 @MainActor
 struct OfflineTests {
   @Test func aLivePhotoWithALocalOriginalConvertsOffline() async {
@@ -50,7 +50,7 @@ struct OfflineTests {
     #expect(!remaining.contains(SessionHarness.assetID(7)))
   }
 
-  @Test func goingOfflineKeepsPhotosAlreadyReviewed() async {
+  @Test func goingOfflineKeepsPhotosAlreadyDecided() async {
     let h = await SessionHarness.started(photoCount: 10, batchSize: 5)
     await h.decide(0, .keep)
     await h.decide(1, .pendingDelete)
@@ -66,7 +66,7 @@ struct OfflineTests {
     #expect(h.vm.currentIndex == 2)
   }
 
-  @Test func droppedPhotosStayUnreviewed() async {
+  @Test func droppedPhotosStayUndecided() async {
     let h = await SessionHarness.started(photoCount: 3)
     h.library.assetsNeedingDownload = [SessionHarness.assetID(1)]
     h.network.setAllowsDownloads(false)
@@ -74,20 +74,20 @@ struct OfflineTests {
 
     for index in 0..<2 { await h.decide(index, .keep) }
     h.vm.finishEarly()
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(
-      h.reviewedStore.reviewedIdentifiers()
+      h.decidedStore.decidedIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
   }
 
-  @Test func droppingEveryPhotoAheadEndsTheReview() async {
+  @Test func droppingEveryPhotoAheadEndsTheBrowse() async {
     let h = await SessionHarness.started(photoCount: 3)
     h.library.assetsNeedingDownload = Set((0..<3).map(SessionHarness.assetID))
 
     h.network.setAllowsDownloads(false)
 
-    #expect(await eventually { h.vm.screen == .pendingReview })
+    #expect(await eventually { h.vm.screen == .pendingChanges })
     #expect(h.vm.photos.isEmpty)
   }
 
@@ -109,7 +109,7 @@ struct OfflineTests {
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.isEmpty)
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
   }
 
   @Test func startingOnlineWithAnEmptySourceKeepsThePlaceholderPhotos() async {
@@ -119,7 +119,7 @@ struct OfflineTests {
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.count == 5)
-    #expect(h.vm.screen == .review)
+    #expect(h.vm.screen == .browse)
   }
 
   @Test func settingTheNetworkPolicyUpdatesLiveNetworkAccess() {

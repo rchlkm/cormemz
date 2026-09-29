@@ -35,7 +35,7 @@ Loads photos in batches instead of fetching the whole library.
 
 ```
  deck:  [■ ■ ■ ■ ■ ■ □ □ □ □ □ □ □ □ □ □ □ □]
-         ▲ reviewed  ▲ still to review
+         ▲ decided   ▲ still undecided
                       │
                       loadMoreIfNeeded() fires once this drops below
                       lookaheadBatches * batchSize, pulls one more
@@ -44,17 +44,17 @@ Loads photos in batches instead of fetching the whole library.
 
 Same source for the whole session. Cursor continues from wherever the last batch left off.
 
-## Skipping already-reviewed photos
+## Skipping already-decided photos
 
-Sessions exclude photos kept in earlier sessions (`ReviewedPhotosStore`), passed as `excluding`. One fallback so an all-reviewed library doesn't dead-end into an empty session:
+Sessions exclude photos kept in earlier sessions (`DecidedPhotosStore`), passed as `excluding`. One fallback so an all-decided library doesn't dead-end into an empty session:
 
 ```
- makeAssetSource(excluding: reviewed) -> nextBatch
+ makeAssetSource(excluding: decided) -> nextBatch
           │
     empty, but library has eligible photos?
           │
           v
- makeAssetSource(excluding: []) -> nextBatch   (show reviewed photos again)
+ makeAssetSource(excluding: []) -> nextBatch   (show decided photos again)
 ```
 
 ## Skipping photos that need a download
@@ -77,15 +77,15 @@ reduced quality instead of skipping it. When `networkAccess.allowsDownloads` is 
 every candidate is admitted and no probing happens.
 
 Rejected photos aren't lost — they're left out of the current session's deck, the same
-way `excluding` leaves out already-reviewed photos, and can surface (and get re-probed)
+way `excluding` leaves out already-decided photos, and can surface (and get re-probed)
 in a later session.
 
 ### Mid-session drops
 
 If network access changes mid-session and downloads become disallowed,
 `SessionViewModel.dropPhotosNeedingDownloadAhead()` re-probes every *undecided* photo
-ahead of the current card and removes the ones no longer displayable. Already-reviewed
-cards are left alone; dropped photos stay unreviewed for a future session.
+ahead of the current card and removes the ones no longer displayable. Already-decided
+cards are left alone; dropped photos stay undecided for a future session.
 
 ## PhotoKit quirks
 

@@ -1,25 +1,25 @@
-// CoreMems/Views/Components/ReviewProgressCard.swift
+// CoreMems/Views/Components/BrowseProgressCard.swift
 import SwiftUI
 
-/// How much of the library has been reviewed.
-struct ReviewProgressCard: View {
-  let reviewed: Int
+/// How much of the library has been kept.
+struct BrowseProgressCard: View {
+  let decided: Int
   let total: Int
 
   /// 0...1; zero when the library is empty.
-  static func fraction(reviewed: Int, total: Int) -> Double {
+  static func fraction(decided: Int, total: Int) -> Double {
     guard total > 0 else { return 0 }
-    return min(max(Double(reviewed) / Double(total), 0), 1)
+    return min(max(Double(decided) / Double(total), 0), 1)
   }
 
-  private var fraction: Double { Self.fraction(reviewed: reviewed, total: total) }
+  private var fraction: Double { Self.fraction(decided: decided, total: total) }
 
-  private var shownReviewed: Int { min(reviewed, total) }
+  private var shownDecided: Int { min(decided, total) }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("Library reviewed")
+        Text("Kept in library")
           .font(.headline)
         Spacer()
         Text(total > 0 ? fraction.formatted(.percent.precision(.fractionLength(0))) : "–")
@@ -27,7 +27,7 @@ struct ReviewProgressCard: View {
           .monospacedDigit()
       }
       bar
-      Text("\(shownReviewed.formatted()) of \(total.formatted()) photos")
+      Text("\(shownDecided.formatted()) of \(total.formatted()) photos")
         .font(.footnote)
         .foregroundStyle(.secondary)
     }
@@ -51,7 +51,7 @@ struct ReviewProgressCard: View {
 }
 
 #Preview {
-  ReviewProgressCard(reviewed: 1_206, total: 3_100)
+  BrowseProgressCard(decided: 1_206, total: 3_100)
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
 }

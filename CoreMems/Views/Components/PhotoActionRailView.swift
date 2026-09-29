@@ -2,7 +2,7 @@
 import SwiftUI
 
 /// Floating rail of photo-editing actions — favorite, album, caption,
-/// keywords — meant to sit on top of a review card. The host positions
+/// keywords — meant to sit on top of a browse card. The host positions
 /// it outside the card's swipe-transform layer so swiping the photo
 /// never moves it; this view only handles the person dragging it to a
 /// new spot themselves.
@@ -22,7 +22,7 @@ struct PhotoActionRailView: View {
   var isLoadingAlbumData: Bool = false
   let onToggleFavorite: () -> Void
 
-  /// Keeps the photo out of the reviewed history so a later session shows it again.
+  /// Keeps the photo out of the decided history so a later session shows it again.
   let onToggleHeldForLater: () -> Void
 
   /// Shows or hides the album quick strip.

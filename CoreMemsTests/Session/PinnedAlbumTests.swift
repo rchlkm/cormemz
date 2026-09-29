@@ -4,7 +4,7 @@ import Testing
 
 @testable import CoreMems
 
-@Suite("Pinning albums during review")
+@Suite("Pinning albums during browsing")
 @MainActor
 struct PinnedAlbumTests {
   private let trips = AlbumOption(ref: .existing(localIdentifier: "trips"), name: "Trips")

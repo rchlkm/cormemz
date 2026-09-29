@@ -8,22 +8,22 @@ extension SessionViewModel {
 
   func isPeekedNeighbor(_ photoID: String) -> Bool { peekController.isNeighbor(photoID) }
 
-  /// The photo the review card shows: the one peeking started from, else the active photo.
+  /// The photo the browse card shows: the one peeking started from, else the active photo.
   var cardPhoto: SessionPhoto? { peek.flatMap { photo(withID: $0.anchorID) } ?? currentPhoto }
 
-  /// The photo the review controls act on: the peeked-at neighbor, else the active photo.
+  /// The photo the browse controls act on: the peeked-at neighbor, else the active photo.
   var focusedPhoto: SessionPhoto? { peek.flatMap { photo(withID: $0.focusedID) } ?? currentPhoto }
 
   var peekNeighbors: [SessionPhoto] { (peek?.neighborIDs ?? []).compactMap(photo(withID:)) }
 
-  /// Starts browsing the library neighbors of the active photo, once they load. The review
+  /// Starts browsing the library neighbors of the active photo, once they load. The browse
   /// controls act on the focused neighbor until `endPeek()`.
   func beginPeek() {
     guard let anchor = currentPhoto else { return }
     peekController.begin(anchorID: anchor.id)
   }
 
-  /// Leaves peeking; the active photo is the review card's photo again.
+  /// Leaves peeking; the active photo is the browse card's photo again.
   func endPeek() {
     peekController.end()
   }

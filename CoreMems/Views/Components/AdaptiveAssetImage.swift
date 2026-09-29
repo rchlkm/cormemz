@@ -11,7 +11,7 @@ import SwiftUI
 ///   `fitWithin.width`), portrait photos go tall (capped by
 ///   `fitWithin.height`) — whichever limit is hit first wins, and the
 ///   view's own size shrinks to match. Nothing is ever cropped or
-///   allowed to overflow. Use for the main review card / full-screen view.
+///   allowed to overflow. Use for the main browse card / full-screen view.
 struct AdaptiveAssetImage: View {
   let photo: SessionPhoto
   var targetSize: CGSize = CGSize(width: 600, height: 800)

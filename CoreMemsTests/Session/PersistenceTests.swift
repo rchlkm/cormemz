@@ -42,7 +42,7 @@ struct PersistenceTests {
 
     let resumed = SessionHarness(persistence: h.persistence).vm
 
-    #expect(resumed.screen == .review)
+    #expect(resumed.screen == .browse)
     #expect(resumed.photos.map(\.id) == (0..<4).map(SessionHarness.photoID))
     #expect(resumed.photos.map(\.decision) == [.keep, .pendingDelete, .undecided, .undecided])
     #expect(resumed.currentIndex == 2)
@@ -63,14 +63,14 @@ struct PersistenceTests {
     #expect(resumed.canGoBack)
   }
 
-  @Test func aSessionSavedAtTheEndOfTheDeckResumesOnPendingReview() async {
+  @Test func aSessionSavedAtTheEndOfTheDeckResumesOnPendingChanges() async {
     let h = await SessionHarness.started(photoCount: 2)
     await h.decide(0, .keep)
     await h.decide(1, .pendingDelete)
 
     let resumed = SessionHarness(persistence: h.persistence).vm
 
-    #expect(resumed.screen == .pendingReview)
+    #expect(resumed.screen == .pendingChanges)
     #expect(resumed.pendingItems.count == 1)
   }
 
@@ -86,7 +86,7 @@ struct PersistenceTests {
     await h.decide(0, .keep)
     await h.decide(1, .keep)
 
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
 
     #expect(h.persistence.snapshot == nil)
     #expect(SessionHarness(persistence: h.persistence).vm.screen == .home)

@@ -4,13 +4,13 @@ import SwiftUI
 /// Lifetime stats summary and review preferences. Pushed from Setup.
 struct SettingsView: View {
   @Binding var checkInInterval: Int
-  @Binding var includesReviewedPhotos: Bool
+  @Binding var includesDecidedPhotos: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
   @Binding var defaultSessionMode: SelectionMode
-  let reviewedPhotoCount: Int
+  let decidedPhotoCount: Int
   let libraryPhotoCount: Int
-  let onResetReviewedPhotos: () -> Void
+  let onResetDecidedPhotos: () -> Void
   let pinnedAlbums: PinnedAlbumsViewModel
   /// Recently used album IDs, newest first; orders pinned albums when sorted by recency.
   let recentAlbumIDs: [String]
@@ -30,7 +30,7 @@ struct SettingsView: View {
       pinnedAlbumsSection
       defaultSessionModeSection
       checkInSection
-      reviewedPhotosSection
+      decidedPhotosSection
       dataUsageSection
       #if DEBUG
         DebugStateDumpSection()
@@ -39,11 +39,11 @@ struct SettingsView: View {
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)
-    .alert("Reset review history?", isPresented: $showResetConfirmation) {
+    .alert("Reset kept history?", isPresented: $showResetConfirmation) {
       Button("Cancel", role: .cancel) {}
-      Button("Reset", role: .destructive, action: onResetReviewedPhotos)
+      Button("Reset", role: .destructive, action: onResetDecidedPhotos)
     } message: {
-      Text("Every photo becomes eligible for review again. Your photos aren't changed.")
+      Text("Every kept photo becomes eligible to appear again. Your photos aren't changed.")
     }
   }
 
@@ -78,16 +78,16 @@ struct SettingsView: View {
     }
   }
 
-  private var reviewedPhotosSection: some View {
+  private var decidedPhotosSection: some View {
     Section {
-      Toggle("Include reviewed photos", isOn: $includesReviewedPhotos)
-      LabeledContent("Reviewed so far", value: reviewedPhotoCount.formatted())
-      Button("Reset review history", role: .destructive) {
+      Toggle("Include kept photos", isOn: $includesDecidedPhotos)
+      LabeledContent("Kept so far", value: decidedPhotoCount.formatted())
+      Button("Reset kept history", role: .destructive) {
         showResetConfirmation = true
       }
-      .disabled(reviewedPhotoCount == 0)
+      .disabled(decidedPhotoCount == 0)
     } header: {
-      Text("Reviewed photos")
+      Text("Kept photos")
     } footer: {
       Text(
         "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off."
@@ -152,7 +152,7 @@ struct SettingsView: View {
     Section {
       NavigationLink {
         LifetimeStatsView(
-          stats: lifetimeStats, reviewedPhotoCount: reviewedPhotoCount,
+          stats: lifetimeStats, decidedPhotoCount: decidedPhotoCount,
           libraryPhotoCount: libraryPhotoCount, onClear: onClearLifetimeStats)
       } label: {
         VStack(alignment: .leading, spacing: 2) {
@@ -191,17 +191,17 @@ extension NetworkPolicy {
   NavigationStack {
     SettingsView(
       checkInInterval: .constant(12),
-      includesReviewedPhotos: .constant(false),
+      includesDecidedPhotos: .constant(false),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,
       defaultSessionMode: .constant(.shuffle),
-      reviewedPhotoCount: 128,
+      decidedPhotoCount: 128,
       libraryPhotoCount: 3_100,
-      onResetReviewedPhotos: {},
+      onResetDecidedPhotos: {},
       pinnedAlbums: .mock(),
       recentAlbumIDs: [],
       lifetimeStats: LifetimeSessionStats(
-        totalReviewed: 150,
+        totalDecided: 150,
         totalKept: 100,
         totalDeleted: 50,
         sessionsCompleted: 12,

@@ -2,7 +2,7 @@
 import SwiftUI
 
 /// Scrolling filmstrip of a photo's library neighbors, oldest to newest, shown in place of the
-/// review buttons, with a delete button floating over its right end. Whichever thumbnail is centered is the
+/// browse buttons, with a delete button floating over its right end. Whichever thumbnail is centered is the
 /// focused one; the anchor photo carries an accent marker.
 struct PeekFilmstripView: View {
   let neighbors: [SessionPhoto]
@@ -44,12 +44,12 @@ struct PeekFilmstripView: View {
     .buttonStyle(
       IconButtonStyle(
         size: .large,
-        surface: .tinted(isFocusedMarkedForDeletion ? .secondary : ReviewDecision.pendingDelete.tint))
+        surface: .tinted(isFocusedMarkedForDeletion ? .secondary : Decision.pendingDelete.tint))
     )
     .background(Circle().fill(.background))
     .padding(.trailing, Self.deleteTrailingPadding)
     .accessibilityIdentifier(
-      isFocusedMarkedForDeletion ? AccessibilityID.reviewPeekRestore : AccessibilityID.reviewPeekDelete)
+      isFocusedMarkedForDeletion ? AccessibilityID.browsePeekRestore : AccessibilityID.browsePeekDelete)
   }
 
   private var filmstrip: some View {
@@ -159,7 +159,7 @@ private struct AnchorBadge: View {
 
 /// Small round icon marking a photo's decision on a thumbnail.
 private struct DecisionBadge: View {
-  let decision: ReviewDecision
+  let decision: Decision
 
   var body: some View {
     Image(systemName: DecisionOverlay.content(for: decision).icon)

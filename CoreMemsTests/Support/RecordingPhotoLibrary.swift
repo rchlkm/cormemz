@@ -9,11 +9,11 @@ enum LibraryTestError: Error {
 }
 
 /// A photo library double that serves `assets`, logs the calls that touch the
-/// library, and answers commits from configurable outcomes.
+/// library, and answers applies from configurable outcomes.
 final class RecordingPhotoLibrary: PhotoLibraryServicing {
   enum Event: Equatable {
     case storageSize(Set<String>)
-    case commit
+    case apply
   }
 
   var assets: [PHAsset] = []
@@ -22,13 +22,13 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var storageSizes: [String: Int64] = [:]
   /// Bytes of the still copy made for each original asset identifier; unlisted assets report zero.
   var stillSizes: [String: Int64] = [:]
-  /// When set, every commit returns this instead of succeeding.
-  var commitFailure: Error?
+  /// When set, every apply returns this instead of succeeding.
+  var applyFailure: Error?
   /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
   var stubbedRandomDate: Date?
-  /// Identifiers of the albums each commit reports as created.
+  /// Identifiers of the albums each apply reports as created.
   var createdAlbumIDs: Set<String> = []
-  /// Session photo IDs whose still copy the commit fails to produce.
+  /// Session photo IDs whose still copy the apply fails to produce.
   var photoIDsWithoutStill: Set<String> = []
   /// Asset identifiers that can't be shown without a download.
   var assetsNeedingDownload: Set<String> = []
@@ -40,7 +40,7 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   /// The media type filter passed to the most recent `makeAssetSource` call.
   private(set) var lastMediaTypeFilter: MediaTypeFilter?
   private(set) var events: [Event] = []
-  private(set) var committedChanges: [SessionLibraryChanges] = []
+  private(set) var appliedChanges: [SessionLibraryChanges] = []
 
   func requestAuthorization() async -> PHAuthorizationStatus { authorizationStatus }
   func currentAuthorizationStatus() -> PHAuthorizationStatus { authorizationStatus }
@@ -102,12 +102,12 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     []
   }
 
-  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+  func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {
-    events.append(.commit)
-    committedChanges.append(changes)
-    if let commitFailure { return .failure(commitFailure) }
+    events.append(.apply)
+    appliedChanges.append(changes)
+    if let applyFailure { return .failure(applyFailure) }
     let stills = changes.conversions
       .filter { !photoIDsWithoutStill.contains($0.key) }
       .mapValues { "still-\($0.localIdentifier)" }

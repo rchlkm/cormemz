@@ -73,7 +73,7 @@ struct BatchLoadingTests {
     try? await Task.sleep(for: Self.settleTime)
 
     #expect(await requestedBatchSizes(h) == [Self.initialCount, Self.batchSize])
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
   }
 
   @Test func aSmallLibraryNeedsNoFurtherBatches() async {
@@ -84,7 +84,7 @@ struct BatchLoadingTests {
 
     #expect(h.vm.photos.count == 8)
     #expect(await requestedBatchSizes(h) == [Self.initialCount])
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
   }
 
   @Test func sessionEndsOnceTheLastBatchComesBackEmpty() async {
@@ -92,7 +92,7 @@ struct BatchLoadingTests {
 
     for index in 0..<Self.initialCount { await h.decide(index, .keep) }
 
-    #expect(await eventually { h.vm.screen == .pendingReview })
+    #expect(await eventually { h.vm.screen == .pendingChanges })
     #expect(await requestedBatchSizes(h).last == Self.batchSize)
   }
 
@@ -105,7 +105,7 @@ struct BatchLoadingTests {
       try? await Task.sleep(for: .milliseconds(1))
     }
 
-    #expect(await eventually { h.vm.screen == .pendingReview })
+    #expect(await eventually { h.vm.screen == .pendingChanges })
     #expect(h.vm.photos.count == cap)
     #expect(h.vm.reachedSessionCap)
   }

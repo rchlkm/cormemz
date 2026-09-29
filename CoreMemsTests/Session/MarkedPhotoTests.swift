@@ -23,10 +23,10 @@ struct MarkedPhotoTests {
     await pending?.value
 
     #expect(h.vm.photo(withID: SessionHarness.photoID(0))?.decision == .convertToStill)
-    #expect(h.vm.photo(withID: "extra")?.decision == ReviewDecision.undecided)
+    #expect(h.vm.photo(withID: "extra")?.decision == Decision.undecided)
   }
 
-  @Test func markedPhotosListDeletionsAndConversionsInReviewOrder() async {
+  @Test func markedPhotosListDeletionsAndConversionsInBrowseOrder() async {
     let h = await SessionHarness.started(photoCount: 4, liveIndexes: [1])
     await h.decide(0, .pendingDelete)
     await h.decide(1, .convertToStill)

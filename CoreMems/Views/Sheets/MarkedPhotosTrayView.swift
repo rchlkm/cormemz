@@ -1,7 +1,7 @@
 // CoreMems/Views/Sheets/MarkedPhotosTrayView.swift
 import SwiftUI
 
-/// Everything that changes when the session is confirmed, in review order.
+/// Everything that changes when changes are applied, in browse order.
 struct MarkedPhotosTrayView: View {
   let items: [SessionPhoto]
   let onRestore: (String) -> Void

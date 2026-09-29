@@ -1,16 +1,16 @@
-// CoreMems/Services/ReviewedPhotosStore.swift
+// CoreMems/Services/DecidedPhotosStore.swift
 import Foundation
 
-protocol ReviewedPhotosStoring {
-  func reviewedIdentifiers() -> Set<String>
-  func markReviewed(_ identifiers: Set<String>)
+protocol DecidedPhotosStoring {
+  func decidedIdentifiers() -> Set<String>
+  func markDecided(_ identifiers: Set<String>)
   func clear()
 }
 
 /// Remembers which photos (`PHAsset.localIdentifier`) the user has already
 /// kept, so later sessions skip them.
 /// File-backed, same convention as `PinnedAlbumsStore`.
-final class ReviewedPhotosStore: ReviewedPhotosStoring {
+final class DecidedPhotosStore: DecidedPhotosStoring {
   private let fileURL: URL
 
   init(fileURL: URL? = nil) {
@@ -21,18 +21,18 @@ final class ReviewedPhotosStore: ReviewedPhotosStoring {
     let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
       .first!
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    self.fileURL = dir.appendingPathComponent("core-mems-reviewed-photos.json")
+    self.fileURL = dir.appendingPathComponent("core-mems-decided-photos.json")
   }
 
-  func reviewedIdentifiers() -> Set<String> {
+  func decidedIdentifiers() -> Set<String> {
     guard let data = try? Data(contentsOf: fileURL),
       let identifiers = try? JSONDecoder().decode(Set<String>.self, from: data)
     else { return [] }
     return identifiers
   }
 
-  func markReviewed(_ identifiers: Set<String>) {
-    let existing = reviewedIdentifiers()
+  func markDecided(_ identifiers: Set<String>) {
+    let existing = decidedIdentifiers()
     guard !identifiers.isSubset(of: existing) else { return }
     save(existing.union(identifiers))
   }

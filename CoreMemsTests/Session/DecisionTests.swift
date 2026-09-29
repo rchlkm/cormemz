@@ -90,13 +90,13 @@ struct DecisionTests {
     #expect(h.vm.history.count == 1)
   }
 
-  @Test func decidingTheLastPhotoOpensPendingReview() async {
+  @Test func decidingTheLastPhotoOpensPendingChanges() async {
     let h = await SessionHarness.started(photoCount: 2)
 
     await h.decide(0, .keep)
-    #expect(h.vm.screen == .review)
+    #expect(h.vm.screen == .browse)
     await h.decide(1, .pendingDelete)
 
-    #expect(h.vm.screen == .pendingReview)
+    #expect(h.vm.screen == .pendingChanges)
   }
 }

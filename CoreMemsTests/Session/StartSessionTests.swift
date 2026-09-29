@@ -7,17 +7,17 @@ import Testing
 @Suite("Starting a session")
 @MainActor
 struct StartSessionTests {
-  private func harness(assetCount: Int, reviewed: Set<Int> = []) -> SessionHarness {
+  private func harness(assetCount: Int, decided: Set<Int> = []) -> SessionHarness {
     let library = RecordingPhotoLibrary()
     library.assets = (0..<assetCount).map { FakeAsset(identifier: SessionHarness.assetID($0)) }
     let h = SessionHarness(library: library)
-    h.reviewedStore.markReviewed(Set(reviewed.map(SessionHarness.assetID)))
+    h.decidedStore.markDecided(Set(decided.map(SessionHarness.assetID)))
     h.vm.eligiblePhotoCount = assetCount
     return h
   }
 
   @Test func photosKeptInEarlierSessionsAreSkipped() async {
-    let h = harness(assetCount: 3, reviewed: [0])
+    let h = harness(assetCount: 3, decided: [0])
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 
@@ -32,22 +32,22 @@ struct StartSessionTests {
     #expect(h.vm.photos.map(\.id) == h.vm.photos.map(\.assetIdentifier))
   }
 
-  @Test func reviewedPhotosCanBeIncluded() async {
-    let h = harness(assetCount: 3, reviewed: [0])
-    h.vm.includesReviewedPhotos = true
+  @Test func decidedPhotosCanBeIncluded() async {
+    let h = harness(assetCount: 3, decided: [0])
+    h.vm.includesDecidedPhotos = true
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.count == 3)
   }
 
-  @Test func aLibraryReviewedInFullIsShownAgainRatherThanEmpty() async {
-    let h = harness(assetCount: 3, reviewed: [0, 1, 2])
+  @Test func aLibraryDecidedInFullIsShownAgainRatherThanEmpty() async {
+    let h = harness(assetCount: 3, decided: [0, 1, 2])
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.count == 3)
-    #expect(h.vm.screen == .review)
+    #expect(h.vm.screen == .browse)
   }
 
   @Test func anEmptyLibraryFallsBackToPlaceholderPhotos() async {
@@ -57,7 +57,7 @@ struct StartSessionTests {
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.map(\.id) == ["mock-0", "mock-1", "mock-2"])
-    #expect(h.vm.screen == .review)
+    #expect(h.vm.screen == .browse)
   }
 
   @Test func theLabelDescribesHowPhotosWereChosen() async {
@@ -100,7 +100,7 @@ struct StartSessionTests {
   @Test func aNewSessionClearsThePreviousOnesCounts() async {
     let h = await SessionHarness.started(photoCount: 3)
     await h.decide(0, .pendingDelete)
-    await h.vm.confirmSession()
+    await h.vm.applyChanges()
     #expect(h.vm.deletedCount == 1)
 
     await h.vm.startSession(mode: .recent, startDate: nil)

@@ -1,7 +1,7 @@
 // CoreMems/Models/SessionDeck.swift
 import Foundation
 
-/// The session's photos in review order, the active card, and the step-back history.
+/// The session's photos in browse order, the active card, and the step-back history.
 struct SessionDeck {
   var photos: [SessionPhoto] = []
   var currentIndex = 0
@@ -13,7 +13,7 @@ struct SessionDeck {
 
   var pendingItems: [SessionPhoto] { photos.filter { $0.decision == .pendingDelete } }
   var pendingConversions: [SessionPhoto] { photos.filter { $0.decision == .convertToStill } }
-  /// Deletions and conversions together, in the order they were reviewed.
+  /// Deletions and conversions together, in the order they were decided.
   var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
   /// Photos decided Keep, not counting conversions.
@@ -24,14 +24,14 @@ struct SessionDeck {
   func photo(withID photoID: String) -> SessionPhoto? { photos.first { $0.id == photoID } }
 
   /// Whether a decision can be recorded for the photo at `index`.
-  func accepts(_ decision: ReviewDecision, at index: Int) -> Bool {
+  func accepts(_ decision: Decision, at index: Int) -> Bool {
     photos.indices.contains(index) && photos[index].canReceive(decision)
   }
 
   /// Records `decision` for the photo at `index` and returns whether it advanced the active
   /// card, or `nil` if there is no photo there.
   @discardableResult
-  mutating func record(index: Int, decision: ReviewDecision) -> Bool? {
+  mutating func record(index: Int, decision: Decision) -> Bool? {
     guard photos.indices.contains(index) else { return nil }
     let advanced = index == currentIndex
     history.append(
@@ -71,16 +71,16 @@ struct SessionDeck {
     history.removeAll()
   }
 
-  /// Puts a deck photo ahead of the active card into the reviewed part of the deck, leaving
+  /// Puts a deck photo ahead of the active card into the decided part of the deck, leaving
   /// the active card where it is. Returns the photo's index, or `nil` if it isn't in the deck.
-  mutating func adoptIntoReviewed(photoID: String) -> Int? {
+  mutating func adoptIntoDecided(photoID: String) -> Int? {
     guard let index = index(ofPhotoID: photoID) else { return nil }
     guard index > currentIndex else { return index }
-    return insertReviewed(photos.remove(at: index))
+    return insertDecided(photos.remove(at: index))
   }
 
   /// Adds a photo from outside the deck in front of the active card. Returns its index.
-  mutating func insertReviewed(_ photo: SessionPhoto) -> Int {
+  mutating func insertDecided(_ photo: SessionPhoto) -> Int {
     photos.insert(photo, at: currentIndex)
     currentIndex += 1
     return currentIndex - 1

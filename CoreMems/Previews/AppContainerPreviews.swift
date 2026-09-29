@@ -15,14 +15,14 @@ import SwiftUI
     RootViewContent(vm: .mock(screen: .setup, eligiblePhotoCount: 500))
   }
 
-  #Preview("4. Review Screen") {
-    RootViewContent(vm: .mock(screen: .review, photos: SessionViewModel.mockPhotos(count: 8)))
+  #Preview("4. Browse Screen") {
+    RootViewContent(vm: .mock(screen: .browse, photos: SessionViewModel.mockPhotos(count: 8)))
   }
 
-  #Preview("5. Pending Review Screen") {
-    let photos = pendingReviewFixture()
+  #Preview("5. Apply Changes Screen") {
+    let photos = applyChangesFixture()
     RootViewContent(
-      vm: .mock(screen: .pendingReview, photos: photos, currentIndex: photos.count))
+      vm: .mock(screen: .pendingChanges, photos: photos, currentIndex: photos.count))
   }
 
   #Preview("6. Completion Screen") {
@@ -30,9 +30,9 @@ import SwiftUI
       vm: .mock(screen: .completion, photos: keptPhotosFixture(count: 42), deletedCount: 15))
   }
 
-  /// A mix of kept and pending-delete photos, as if a review pass just
-  /// finished — feeds the Pending Review preview's grid.
-  private func pendingReviewFixture() -> [SessionPhoto] {
+  /// A mix of kept and pending-delete photos, as if a browse pass just
+  /// finished — feeds the Apply Changes preview's grid.
+  private func applyChangesFixture() -> [SessionPhoto] {
     var photos = SessionViewModel.mockPhotos(count: 10)
     for i in photos.indices {
       photos[i].decision = i % 3 == 0 ? .pendingDelete : .keep
@@ -59,13 +59,13 @@ import SwiftUI
     private var settingsView: some View {
       SettingsView(
         checkInInterval: $vm.checkInInterval,
-        includesReviewedPhotos: $vm.includesReviewedPhotos,
+        includesDecidedPhotos: $vm.includesDecidedPhotos,
         networkPolicy: $vm.networkPolicy,
         isLowDataModeActive: vm.isLowDataModeActive,
         defaultSessionMode: $vm.defaultSessionMode,
-        reviewedPhotoCount: vm.reviewedPhotoCount,
+        decidedPhotoCount: vm.decidedPhotoCount,
         libraryPhotoCount: vm.eligiblePhotoCount,
-        onResetReviewedPhotos: { vm.resetReviewedPhotos() },
+        onResetDecidedPhotos: { vm.resetDecidedPhotos() },
         pinnedAlbums: vm.pinnedAlbums,
         recentAlbumIDs: vm.recentAlbumIDs,
         lifetimeStats: vm.lifetimeStats,
@@ -119,10 +119,10 @@ import SwiftUI
               .toolbar(.hidden, for: .navigationBar)
               .navigationDestination(isPresented: $showSettings) { settingsView }
             }
-          case .review:
-            ReviewView(vm: vm)
-          case .pendingReview:
-            PendingReviewView(vm: vm)
+          case .browse:
+            BrowseView(vm: vm)
+          case .pendingChanges:
+            ApplyChangesView(vm: vm)
           case .completion:
             CompletionView(
               keptCount: vm.keptCount,
@@ -132,7 +132,7 @@ import SwiftUI
               convertedCount: vm.convertedLivePhotoCount,
               deletedBytes: vm.deletedBytes,
               convertedBytesSaved: vm.convertedBytesSaved,
-              reviewedPhotoCount: vm.reviewedPhotoCount,
+              decidedPhotoCount: vm.decidedPhotoCount,
               libraryPhotoCount: vm.eligiblePhotoCount,
               onAgain: { vm.resetForAnotherSession() }
             )

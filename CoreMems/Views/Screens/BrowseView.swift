@@ -1,7 +1,7 @@
-// CoreMems/Views/Screens/ReviewView.swift
+// CoreMems/Views/Screens/BrowseView.swift
 import SwiftUI
 
-struct ReviewView: View {
+struct BrowseView: View {
   @ObservedObject var vm: SessionViewModel
 
   @State private var showTray = false
@@ -60,10 +60,10 @@ struct ReviewView: View {
           trailing: AnyView(
             HStack(spacing: 12) {
               MarkedPhotosTrayButton(markedCount: vm.markedPhotos.count) { showTray = true }
-                .accessibilityIdentifier(AccessibilityID.reviewTray)
+                .accessibilityIdentifier(AccessibilityID.browseTray)
               Button("Done") { vm.finishEarly() }
                 .font(.system(size: 15, weight: .semibold))
-                .accessibilityIdentifier(AccessibilityID.reviewDone)
+                .accessibilityIdentifier(AccessibilityID.browseDone)
             }
           )
         )
@@ -72,7 +72,7 @@ struct ReviewView: View {
           Text("\(vm.currentIndex) reviewed")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
-            .accessibilityIdentifier(AccessibilityID.reviewProgress)
+            .accessibilityIdentifier(AccessibilityID.browseProgress)
           if let sessionLabel = vm.sessionLabel {
             Text(sessionLabel)
               .font(.caption2)
@@ -91,7 +91,7 @@ struct ReviewView: View {
             if let current {
               GeometryReader { geo in
                 let maxSize = CGSize(width: geo.size.width - 16, height: geo.size.height - 8)
-                ReviewCardView(
+                BrowseCardView(
                   photo: current, maxSize: maxSize, vm: vm,
                   namespace: heroNamespace, expandedPhoto: $expandedPhoto
                 )
@@ -131,7 +131,7 @@ struct ReviewView: View {
           )
           .padding(.bottom, Self.filmstripBottomPadding)
         } else {
-          ReviewControlBar(
+          BrowseControlBar(
             canGoBack: vm.canGoBack,
             onGoBack: { vm.goBack() },
             onDelete: { vm.decide(index: vm.currentIndex, decision: .pendingDelete) },
@@ -179,7 +179,7 @@ struct ReviewView: View {
 
       if showCheckIn {
         CheckInOverlayView(
-          reviewedCount: vm.currentIndex,
+          decidedCount: vm.currentIndex,
           onContinue: { showCheckIn = false },
           onDone: {
             showCheckIn = false
@@ -224,7 +224,7 @@ struct ReviewView: View {
 /// Shared modal chrome for review-screen overlays: dimmed background, an icon, a title,
 /// a message, then whatever actions the caller supplies — factored out of the check-in and
 /// network-notice overlays, which were otherwise identical but for their content.
-private struct ReviewOverlayCardView<Icon: View, Actions: View>: View {
+private struct BrowseOverlayCardView<Icon: View, Actions: View>: View {
   let title: String
   let message: String
   @ViewBuilder let icon: () -> Icon
@@ -254,13 +254,13 @@ private struct ReviewOverlayCardView<Icon: View, Actions: View>: View {
 }
 
 private struct CheckInOverlayView: View {
-  let reviewedCount: Int
+  let decidedCount: Int
   let onContinue: () -> Void
   let onDone: () -> Void
 
   var body: some View {
-    ReviewOverlayCardView(
-      title: "\(reviewedCount) photos reviewed",
+    BrowseOverlayCardView(
+      title: "\(decidedCount) photos reviewed",
       message: "Keep going, or call it here for now — your decisions are already saved."
     ) {
       Text("👀").font(.system(size: 30))
@@ -284,7 +284,7 @@ private struct NetworkNoticeOverlayView: View {
   }
 
   var body: some View {
-    ReviewOverlayCardView(
+    BrowseOverlayCardView(
       title: "Downloads are paused",
       message:
         "\(explanation) Photos already cached still show; anything with nothing cached is skipped and offered again later. Flag a photo to come back to it once you're reconnected."

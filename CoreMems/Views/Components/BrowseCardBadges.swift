@@ -1,7 +1,7 @@
-// CoreMems/Views/Components/ReviewCardBadges.swift
+// CoreMems/Views/Components/BrowseCardBadges.swift
 import SwiftUI
 
-/// Sits behind the review card and fades in as the card is dragged up, hinting at the
+/// Sits behind the browse card and fades in as the card is dragged up, hinting at the
 /// nearby-photos gesture. `progress` runs 0...1.
 struct SwipeUpHintView: View {
   let size: CGSize

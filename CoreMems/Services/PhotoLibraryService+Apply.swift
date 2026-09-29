@@ -1,8 +1,8 @@
-// CoreMems/Services/PhotoLibraryService+Commit.swift
+// CoreMems/Services/PhotoLibraryService+Apply.swift
 import Photos
 
 extension PhotoLibraryService {
-  func commitSessionChanges(_ changes: SessionLibraryChanges) async
+  func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {
     guard !changes.isEmpty else { return .success(SessionLibraryResult()) }
