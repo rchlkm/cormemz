@@ -9,6 +9,10 @@ struct SessionSnapshotMappingTests {
     var photo = SessionPhoto(id: "p1", assetIdentifier: "a1", previewURL: nil)
     photo.decision = .pendingDelete
     photo.isHeldForLater = true
+    var edit = MediaEdit()
+    edit.rotate()
+    edit.trimRange = 1...2
+    photo.edit = edit
     let history = [
       DecisionHistoryEntry(
         photoIndex: 0, previousDecision: .undecided, newDecision: .pendingDelete, advancedIndex: true)

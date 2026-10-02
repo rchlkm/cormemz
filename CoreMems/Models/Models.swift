@@ -7,10 +7,12 @@ enum Decision: String, Equatable {
   case pendingDelete
   /// Keeps the image as a still photo and deletes the Live Photo original on confirm.
   case convertToStill
+  /// Keeps the photo with its staged `MediaEdit`, written to the library on confirm.
+  case edited
 
-  var isKept: Bool { self == .keep || self == .convertToStill }
+  var isKept: Bool { self == .keep || self == .convertToStill || self == .edited }
   /// Decisions that change the library when the session is confirmed.
-  var isMarked: Bool { self == .pendingDelete || self == .convertToStill }
+  var isMarked: Bool { self == .pendingDelete || self == .convertToStill || self == .edited }
 }
 
 /// How a session's photos are selected from the library.
@@ -51,6 +53,8 @@ struct SessionPhoto: Identifiable, Equatable {
   var isVideo: Bool = false
   /// Held photos aren't remembered as decided, so later sessions offer them again.
   var isHeldForLater: Bool = false
+  /// Applied on confirm while `decision` is `.edited`; kept otherwise so it can be reopened.
+  var edit: MediaEdit?
   var dateLabel: String = ""
 
   /// Only Live Photos can be converted to a still.

@@ -102,7 +102,8 @@ final class SessionViewModel: ObservableObject {
   private static let lookaheadBatches = 2
   /// How long each decision stays on screen before it's recorded; unlisted ones record at once.
   private static let decisionHolds: [Decision: Duration] = [
-    .convertToStill: .milliseconds(450)
+    .convertToStill: .milliseconds(450),
+    .edited: .milliseconds(450),
   ]
   @Published private var albumStaging = AlbumStaging()
   @Published private var recentAlbums = RecentAlbums()
@@ -187,6 +188,7 @@ final class SessionViewModel: ObservableObject {
   var currentPhoto: SessionPhoto? { deck.currentPhoto }
   var pendingItems: [SessionPhoto] { deck.pendingItems }
   var pendingConversions: [SessionPhoto] { deck.pendingConversions }
+  var pendingEdits: [SessionPhoto] { deck.pendingEdits }
   var markedPhotos: [SessionPhoto] { deck.markedPhotos }
   var keptCount: Int { deck.keptCount }
   var canGoBack: Bool { !deck.history.isEmpty && !isPeeking }
@@ -385,6 +387,19 @@ final class SessionViewModel: ObservableObject {
       let index = adoptIntoDecided(photoID)
     else { return nil }
     return decide(index: index, decision: decision)
+  }
+
+  /// Decides the photo as Edited with `edit` staged on it, the way `decide(photoID:decision:)`
+  /// records any decision. Returns `nil`, staging nothing, if the edit changes nothing or
+  /// the decision is ignored.
+  @discardableResult
+  func saveEdit(_ edit: MediaEdit, photoID: String) -> Task<Void, Never>? {
+    guard !edit.isEmpty, let recording = decide(photoID: photoID, decision: .edited) else {
+      return nil
+    }
+    deck.setEdit(edit, photoID: photoID)
+    persistState()
+    return recording
   }
 
   /// A Live Photo can be converted when its original is on the device or may be downloaded.

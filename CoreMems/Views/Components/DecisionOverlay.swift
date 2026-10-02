@@ -24,6 +24,7 @@ struct DecisionOverlay: View {
     case .keep: return ("checkmark", "Kept", decision.tint)
     case .pendingDelete: return ("trash", "Marked for deletion", decision.tint)
     case .convertToStill: return ("livephoto.slash", "Marked for conversion", decision.tint)
+    case .edited: return ("slider.horizontal.3", "Edited", decision.tint)
     case .undecided: return ("questionmark", "Undecided", decision.tint)
     }
   }

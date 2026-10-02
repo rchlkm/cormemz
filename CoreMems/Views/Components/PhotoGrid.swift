@@ -77,11 +77,8 @@ private struct DecisionTag: View {
   let decision: Decision
 
   private var style: (symbol: String, color: Color)? {
-    switch decision {
-    case .pendingDelete: return ("trash", decision.tint)
-    case .convertToStill: return ("livephoto.slash", decision.tint)
-    case .keep, .undecided: return nil
-    }
+    guard decision.isMarked else { return nil }
+    return (DecisionOverlay.content(for: decision).icon, decision.tint)
   }
 
   var body: some View {

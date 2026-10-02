@@ -13,7 +13,8 @@ struct SessionDeck {
 
   var pendingItems: [SessionPhoto] { photos.filter { $0.decision == .pendingDelete } }
   var pendingConversions: [SessionPhoto] { photos.filter { $0.decision == .convertToStill } }
-  /// Deletions and conversions together, in the order they were decided.
+  var pendingEdits: [SessionPhoto] { photos.filter { $0.decision == .edited } }
+  /// Deletions, conversions and edits together, in the order they were decided.
   var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
   /// Photos decided Keep, not counting conversions.
@@ -112,6 +113,14 @@ struct SessionDeck {
   mutating func setHeldForLater(_ isHeld: Bool, photoID: String) -> Bool {
     guard let index = index(ofPhotoID: photoID) else { return false }
     photos[index].isHeldForLater = isHeld
+    return true
+  }
+
+  /// Returns whether the photo is in the deck.
+  @discardableResult
+  mutating func setEdit(_ edit: MediaEdit, photoID: String) -> Bool {
+    guard let index = index(ofPhotoID: photoID) else { return false }
+    photos[index].edit = edit
     return true
   }
 
