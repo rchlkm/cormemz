@@ -8,7 +8,6 @@ extension Decision {
     case .keep: return .green
     case .pendingDelete: return .red
     case .convertToStill: return .blue
-    case .edited: return .orange
     case .undecided: return .secondary
     }
   }

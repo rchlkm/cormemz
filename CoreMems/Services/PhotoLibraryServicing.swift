@@ -19,6 +19,12 @@ enum PhotoLibraryError: LocalizedError {
   }
 }
 
+/// A staged edit and the asset it's written to.
+struct AssetEdit {
+  let asset: PHAsset
+  let edit: MediaEdit
+}
+
 /// Everything a session changes in the library. `albumAssets` maps a session photo ID
 /// to its `PHAsset` for the album changes.
 struct SessionLibraryChanges {
@@ -28,9 +34,12 @@ struct SessionLibraryChanges {
   var albumAdditions: [String: Set<AlbumRef>] = [:]
   var albumRemovals: [String: Set<String>] = [:]
   var albumAssets: [String: PHAsset] = [:]
+  /// Edits written to their assets in place, by session photo ID.
+  var edits: [String: AssetEdit] = [:]
 
   var isEmpty: Bool {
     deletions.isEmpty && conversions.isEmpty && albumAdditions.isEmpty && albumRemovals.isEmpty
+      && edits.isEmpty
   }
 }
 
@@ -44,6 +53,8 @@ struct SessionLibraryResult {
   /// Identifiers of staged album adds/removes that silently no-op'd because the album no
   /// longer exists (deleted, or renamed away, since the photo was tagged for it).
   var missingAlbumIdentifiers: Set<String> = []
+  /// Session photo IDs whose edit couldn't be rendered, so it was left out.
+  var failedEditIDs: Set<String> = []
 }
 
 /// Photos permission state and the limited-library picker.
@@ -112,10 +123,13 @@ protocol LibraryEditing {
   /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
   /// signal to roll back any optimistic UI update.
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error>
+  /// Starts rendering `edit` in the background, so applying it later only has to write it.
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset)
   /// Applies everything a session changes in the library as one transaction: still
-  /// copies of converted Live Photos (the originals are deleted), album changes, and
-  /// deletions. Deleted photos move to Recently Deleted. The user sees one system
-  /// prompt, and either all of it happens or none of it does.
+  /// copies of converted Live Photos (the originals are deleted), edits, album changes, and
+  /// deletions. Deleted photos move to Recently Deleted. The user sees one system prompt, and
+  /// either all of it happens or none of it does; an edit that can't be rendered is left out
+  /// rather than failing the rest.
   func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
 }

@@ -87,6 +87,7 @@ struct BrowseCardView: View {
           livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false }
         )
         .aspectRatio(inlineLivePhoto.size, contentMode: .fit)
+        .rotated(quarterTurns: subject.previewQuarterTurns)
         .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
       } else {
         PhotoCardView(photo: photo, maxSize: maxSize)
@@ -111,7 +112,7 @@ struct BrowseCardView: View {
     }
     .overlay(alignment: .top) { topBar }
     .overlay(alignment: .top) {
-      PeekDecisionTag(decision: subject.decision)
+      PeekDecisionTag(decision: subject.decision, isEdited: subject.activeEdit != nil)
         .padding(.top, Self.topBarHeight + Self.decisionTagGap)
     }
     .overlay(alignment: .bottomLeading) {

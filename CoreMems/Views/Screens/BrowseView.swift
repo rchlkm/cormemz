@@ -158,7 +158,9 @@ struct BrowseView: View {
         Button("Cancel", role: .cancel) {}
         Button("Leave without applying", role: .destructive) { vm.exitToSetup() }
       } message: {
-        Text("You have marked photos that haven't been confirmed. Leaving discards those changes.")
+        Text(
+          "You have marked or edited photos that haven't been confirmed. Leaving discards those changes."
+        )
       }
       .sheet(isPresented: $showTray) {
         MarkedPhotosTrayView(

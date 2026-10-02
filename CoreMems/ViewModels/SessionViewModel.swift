@@ -28,6 +28,8 @@ final class SessionViewModel: ObservableObject {
   /// Staged album adds/removes from this apply that no-op'd because the album no longer
   /// existed by the time the session was applied.
   @Published private(set) var missingAlbumCount: Int = 0
+  /// Edits from this apply left out because they couldn't be rendered.
+  @Published private(set) var failedEditCount: Int = 0
   @Published var deletedCount: Int = 0
   @Published private(set) var applyState: ApplyState = .idle
   var isDeleting: Bool { applyState == .applying }
@@ -103,8 +105,7 @@ final class SessionViewModel: ObservableObject {
   private static let lookaheadBatches = 2
   /// How long each decision stays on screen before it's recorded; unlisted ones record at once.
   private static let decisionHolds: [Decision: Duration] = [
-    .convertToStill: .milliseconds(450),
-    .edited: .milliseconds(450),
+    .convertToStill: .milliseconds(450)
   ]
   @Published private var albumStaging = AlbumStaging()
   @Published private var recentAlbums = RecentAlbums()
@@ -271,6 +272,7 @@ final class SessionViewModel: ObservableObject {
     convertedLivePhotoCount = 0
     convertedBytesSaved = 0
     editedCount = 0
+    failedEditCount = 0
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
@@ -391,17 +393,24 @@ final class SessionViewModel: ObservableObject {
     return decide(index: index, decision: decision)
   }
 
-  /// Decides the photo as Edited with `edit` staged on it, the way `decide(photoID:decision:)`
-  /// records any decision. Returns `nil`, staging nothing, if the edit changes nothing or
-  /// the decision is ignored.
+  /// Stages `edit` on the photo; it's written on Apply unless the photo ends up marked. An
+  /// undecided photo stays undecided, and a marked one goes back to Keep, since editing it
+  /// means keeping it. A peeked neighbor joins the deck behind the active card.
+  /// Returns whether the edit was staged.
   @discardableResult
-  func saveEdit(_ edit: MediaEdit, photoID: String) -> Task<Void, Never>? {
-    guard !edit.isEmpty, let recording = decide(photoID: photoID, decision: .edited) else {
-      return nil
+  func saveEdit(_ edit: MediaEdit, photoID: String) -> Bool {
+    guard !edit.isEmpty, photo(withID: photoID) != nil else { return false }
+    if deck.index(ofPhotoID: photoID) == nil, let peeked = peekController.take(photoID: photoID) {
+      _ = deck.insertDecided(peeked)
     }
-    deck.setEdit(edit, photoID: photoID)
+    if deck.photo(withID: photoID)?.decision.isMarked == true {
+      deck.restoreMarkedToKeep(ids: [photoID])
+    }
+    guard deck.setEdit(edit, photoID: photoID) else { return false }
+    haptics.albumToggle()
+    if let asset = pickedAssets[photoID] { library.prepareEdit(edit, for: asset) }
     persistState()
-    return recording
+    return true
   }
 
   /// A Live Photo can be converted when its original is on the device or may be downloaded.
@@ -496,8 +505,8 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
-  /// Restores any number of marked photos to Keep; powers the Marked Photos
-  /// tray and the end-of-session grids.
+  /// Restores any number of marked photos to Keep and discards edits; powers the Marked
+  /// Photos tray and the end-of-session grids.
   func restoreMany(ids: [String]) {
     guard !ids.isEmpty else { return }
     if deck.restoreMarkedToKeep(ids: Set(ids)) {
@@ -694,7 +703,7 @@ final class SessionViewModel: ObservableObject {
   // MARK: Confirm and Delete
 
   /// Applies everything staged this session as one library transaction: still copies
-  /// of converted Live Photos, album changes, and deletions. All of it happens or none
+  /// of converted Live Photos, edits, album changes, and deletions. All of it happens or none
   /// of it does, behind a single system prompt.
   func applyChanges() async {
     let plan = SessionChangePlan(deck: deck, assets: pickedAssets, staging: albumStaging)
@@ -702,7 +711,7 @@ final class SessionViewModel: ObservableObject {
     if !plan.changes.isEmpty {
       guard await applyPlan(plan) else { return }
     }
-    editedCount = plan.editedCount
+    editedCount = plan.editedCount - failedEditCount
 
     haptics.sessionComplete()
     screen = .completion
@@ -733,6 +742,7 @@ final class SessionViewModel: ObservableObject {
       }
       albumAssignedCount = plan.changes.albumAdditions.count
       missingAlbumCount = applied.outcome.missingAlbumIdentifiers.count
+      failedEditCount = applied.outcome.failedEditIDs.count
       albumStaging.clearStaged()
       deletedCount = plan.deletions.count
       deletedBytes = applied.bytesDeleted

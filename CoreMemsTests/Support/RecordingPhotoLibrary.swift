@@ -32,6 +32,10 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var photoIDsWithoutStill: Set<String> = []
   /// Asset identifiers that can't be shown without a download.
   var assetsNeedingDownload: Set<String> = []
+  /// Session photo IDs whose edit the apply reports as failed to render.
+  var photoIDsWithFailedEdit: Set<String> = []
+  /// Each edit handed to `prepareEdit`, with its asset identifier, in order.
+  private(set) var preparedEdits: [(assetID: String, edit: MediaEdit)] = []
   /// Asset identifiers whose original isn't on the device.
   var assetsWithoutLocalOriginal: Set<String> = []
 
@@ -102,6 +106,10 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     []
   }
 
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset) {
+    preparedEdits.append((asset.localIdentifier, edit))
+  }
+
   func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {
@@ -115,7 +123,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
       .filter { stills[$0.key] != nil }
       .mapValues { stillSizes[$0.localIdentifier] ?? 0 }
     return .success(SessionLibraryResult(
-      stillIdentifiers: stills, stillSizes: sizes, createdAlbumIDs: createdAlbumIDs))
+      stillIdentifiers: stills, stillSizes: sizes, createdAlbumIDs: createdAlbumIDs,
+      failedEditIDs: photoIDsWithFailedEdit.intersection(changes.edits.keys)))
   }
 
   func createAlbum(named name: String) async -> Result<String, Error> {

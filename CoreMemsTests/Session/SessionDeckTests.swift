@@ -226,19 +226,19 @@ struct SessionDeckTests {
     #expect(deck.currentIndex == 1)
   }
 
-  @Test func anEditedPhotoCountsAsKeptAndMarked() {
-    var deck = makeDeck()
+  @Test func anEditIsPendingWhateverTheDecisionUnlessMarked() {
+    var deck = makeDeck(count: 4, liveIndexes: [3])
     var edit = MediaEdit()
     edit.rotate()
-    deck.setEdit(edit, photoID: "p1")
+    for id in ["p0", "p1", "p2", "p3"] { deck.setEdit(edit, photoID: id) }
 
-    deck.record(index: 1, decision: .edited)
+    deck.record(index: 1, decision: .keep)
+    deck.record(index: 2, decision: .pendingDelete)
+    deck.record(index: 3, decision: .convertToStill)
 
-    #expect(deck.photos[1].edit == edit)
-    #expect(deck.pendingEdits.map(\.id) == ["p1"])
-    #expect(deck.markedPhotos.map(\.id) == ["p1"])
-    #expect(deck.keptCount == 1)
-    #expect(deck.keptPhotos.isEmpty)
+    #expect(deck.pendingEdits.map(\.id) == ["p0", "p1"])
+    #expect(deck.markedPhotos.map(\.id) == ["p0", "p1", "p2", "p3"])
+    #expect(deck.keptCount == 2)
   }
 
   @Test func settingAnEditOutsideTheDeckIsIgnored() {
@@ -249,18 +249,19 @@ struct SessionDeckTests {
     #expect(!found)
   }
 
-  @Test func restoringAnEditedPhotoKeepsItsEditForReopening() {
+  @Test func restoringAnEditedPhotoDiscardsItsEdit() {
     var deck = makeDeck()
     var edit = MediaEdit()
     edit.rotate()
     deck.setEdit(edit, photoID: "p0")
-    deck.record(index: 0, decision: .edited)
+    deck.record(index: 0, decision: .keep)
 
-    deck.restoreMarkedToKeep(ids: ["p0"])
+    let restored = deck.restoreMarkedToKeep(ids: ["p0"])
 
+    #expect(restored)
     #expect(deck.photos[0].decision == .keep)
-    #expect(deck.photos[0].edit == edit)
-    #expect(deck.pendingEdits.isEmpty)
+    #expect(deck.photos[0].edit == nil)
+    #expect(deck.history.count == 1)
   }
 
   @Test func removingEveryDecidedPhotoLeavesAnExhaustedDeckExhausted() {

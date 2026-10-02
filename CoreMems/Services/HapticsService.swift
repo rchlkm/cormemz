@@ -17,7 +17,7 @@ protocol HapticsServicing {
 extension HapticsServicing {
   func decided(_ decision: Decision) {
     switch decision {
-    case .keep, .edited: keep()
+    case .keep: keep()
     case .pendingDelete: markForDeletion()
     case .convertToStill: convertToStill()
     case .undecided: break

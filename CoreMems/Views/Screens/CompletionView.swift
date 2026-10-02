@@ -9,14 +9,16 @@ struct CompletionView: View {
   let missingAlbumCount: Int
   let convertedCount: Int
   let editedCount: Int
+  /// Edits left out because they couldn't be rendered.
+  let failedEditCount: Int
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
   let decidedPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
 
-  /// Converted and edited photos are also counted in `keptCount`; they get their own tiles.
-  private var keptUnchangedCount: Int { max(keptCount - convertedCount - editedCount, 0) }
+  /// Converted photos are also counted in `keptCount`; they get their own tile.
+  private var keptUnchangedCount: Int { max(keptCount - convertedCount, 0) }
 
   private var tiles: [StatTileItem] {
     var items = [
@@ -37,7 +39,7 @@ struct CompletionView: View {
       items.append(
         StatTileItem(
           label: "Edited", value: editedCount.formatted(),
-          systemImage: DecisionOverlay.content(for: .edited).icon, tint: Decision.edited.tint))
+          systemImage: EditStyle.symbol, tint: EditStyle.tint))
     }
     if albumAssignedCount > 0 {
       items.append(
@@ -60,6 +62,15 @@ struct CompletionView: View {
               .foregroundStyle(.secondary)
               .multilineTextAlignment(.center)
           }
+          if failedEditCount > 0 {
+            Text(
+              "\(failedEditCount) edit\(failedEditCount == 1 ? "" : "s") couldn't be saved — "
+                + "the original\(failedEditCount == 1 ? " was" : "s were") left unchanged."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+          }
           if missingAlbumCount > 0 {
             Text(
               "\(missingAlbumCount) album assignment\(missingAlbumCount == 1 ? "" : "s") "
@@ -70,8 +81,7 @@ struct CompletionView: View {
             .multilineTextAlignment(.center)
           }
           OutcomeRatioCard(
-            kept: keptUnchangedCount, converted: convertedCount, edited: editedCount,
-            deleted: deletedCount)
+            kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
           if deletedBytes + convertedBytesSaved > 0 {
             SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
           }
@@ -109,6 +119,7 @@ struct CompletionView: View {
     missingAlbumCount: 1,
     convertedCount: 1,
     editedCount: 2,
+    failedEditCount: 0,
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
     decidedPhotoCount: 1_206,

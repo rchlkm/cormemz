@@ -15,11 +15,25 @@ extension PhotoLibraryService {
     }
 
     var result = SessionLibraryResult()
+    var editOutputs: [String: PHContentEditingOutput] = [:]
+    for (photoID, staged) in changes.edits {
+      if let output = await editRenderer.output(for: staged.edit, of: staged.asset) {
+        editOutputs[photoID] = output
+      } else {
+        result.failedEditIDs.insert(photoID)
+      }
+    }
+
     do {
       try await PHPhotoLibrary.shared().performChanges {
         var created: [String: PHObjectPlaceholder] = [:]
         for (photoID, replacement) in replacements {
           created[photoID] = replacement.requestCreation()
+        }
+
+        for (photoID, output) in editOutputs {
+          guard let asset = changes.edits[photoID]?.asset else { continue }
+          PHAssetChangeRequest(for: asset).contentEditingOutput = output
         }
 
         var assetsByExistingAddID: [String: [PHObject]] = [:]
@@ -96,6 +110,7 @@ extension PhotoLibraryService {
         result.stillIdentifiers = created.mapValues(\.localIdentifier)
         result.stillSizes = replaced.mapValues { Int64($0.data.count) }
       }
+      await editRenderer.discardAll()
       return .success(result)
     } catch {
       return .failure(error)

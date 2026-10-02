@@ -2,7 +2,7 @@
 import Foundation
 
 /// Edits staged for one photo or video, written to the library on Apply.
-struct MediaEdit: Equatable, Codable {
+nonisolated struct MediaEdit: Equatable, Codable {
   /// Counterclockwise quarter turns, 0...3.
   private(set) var quarterTurns = 0
   /// The part of a video to keep, in seconds; `nil` keeps all of it.

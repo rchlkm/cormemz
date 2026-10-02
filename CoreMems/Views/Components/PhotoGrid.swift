@@ -38,6 +38,7 @@ struct PhotoGridCells: View {
             .overlay(
               AdaptiveAssetImage(photo: photo, targetSize: CGSize(width: 200, height: 200))
                 .scaledToFill()
+                .rotated(quarterTurns: photo.previewQuarterTurns)
             )
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .contentShape(RoundedRectangle(cornerRadius: 14))
@@ -58,7 +59,7 @@ struct PhotoGridCells: View {
         }
         .overlay(alignment: .bottomLeading) {
           if showsDecisionTags {
-            DecisionTag(decision: photo.decision)
+            DecisionTag(decision: photo.decision, isEdited: photo.activeEdit != nil)
               .padding(6)
           }
         }
@@ -72,13 +73,14 @@ struct PhotoGridCells: View {
   }
 }
 
-/// Small badge naming what will happen to a marked photo. Empty for any other decision.
+/// Small badge naming what will happen to a marked or edited photo. Empty otherwise.
 private struct DecisionTag: View {
   let decision: Decision
+  let isEdited: Bool
 
   private var style: (symbol: String, color: Color)? {
-    guard decision.isMarked else { return nil }
-    return (DecisionOverlay.content(for: decision).icon, decision.tint)
+    if decision.isMarked { return (DecisionOverlay.content(for: decision).icon, decision.tint) }
+    return isEdited ? (EditStyle.symbol, EditStyle.tint) : nil
   }
 
   var body: some View {

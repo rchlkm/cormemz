@@ -216,4 +216,84 @@ struct ApplyChangesTests {
     #expect(h.vm.convertedLivePhotoCount == 1)
     #expect(h.stats.stats.sessionsCompleted == 0)
   }
+
+  /// A started session where every photo is kept and those at `editedIndexes` are rotated once.
+  private func sessionWithEdits(photoCount: Int, editedIndexes: [Int]) async -> SessionHarness {
+    let h = await SessionHarness.started(photoCount: photoCount)
+    var edit = MediaEdit()
+    edit.rotate()
+    for index in editedIndexes {
+      h.vm.saveEdit(edit, photoID: SessionHarness.photoID(index))
+    }
+    for index in 0..<photoCount { await h.decide(index, .keep) }
+    return h
+  }
+
+  @Test func editsAreWrittenInTheSameCommitAsDeletions() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    var edit = MediaEdit()
+    edit.rotate()
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .pendingDelete)
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.events.filter { $0 == .apply }.count == 1)
+    let changes = h.library.appliedChanges.first
+    #expect(changes?.edits.keys.sorted() == [SessionHarness.photoID(0)])
+    #expect(changes?.edits[SessionHarness.photoID(0)]?.edit == edit)
+    #expect(changes?.deletions.map(\.localIdentifier) == [SessionHarness.assetID(1)])
+    #expect(h.vm.screen == .completion)
+  }
+
+  @Test func anEditOnAnUndecidedPhotoIsStillWritten() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    var edit = MediaEdit()
+    edit.rotate()
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(1))
+    await h.decide(0, .keep)
+    h.vm.finishEarly()
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.appliedChanges.first?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+  }
+
+  @Test func anEditedAndKeptPhotoCountsOnceAsKeptAndOnceAsEdited() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0])
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.keptCount == 2)
+    #expect(h.vm.editedCount == 1)
+    #expect(h.stats.stats.keptUnchanged == 2)
+    #expect(h.stats.stats.mediaEdited == 1)
+    #expect(
+      h.decidedStore.decidedIdentifiers()
+        == [SessionHarness.assetID(0), SessionHarness.assetID(1)])
+  }
+
+  @Test func anUndoneEditIsNotWritten() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.vm.restoreMany(ids: [SessionHarness.photoID(0)])
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.appliedChanges.first?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+    #expect(h.vm.editedCount == 1)
+  }
+
+  @Test func anEditThatFailsToRenderIsReportedAndNotCounted() async {
+    let h = await sessionWithEdits(photoCount: 3, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.screen == .completion)
+    #expect(h.vm.failedEditCount == 1)
+    #expect(h.vm.editedCount == 1)
+    #expect(h.stats.stats.mediaEdited == 1)
+    #expect(h.stats.stats.sessionsCompleted == 1)
+  }
 }

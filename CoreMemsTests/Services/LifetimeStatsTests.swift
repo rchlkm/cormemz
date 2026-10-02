@@ -12,10 +12,10 @@ struct LifetimeStatsTests {
     #expect(stats.keptUnchanged == 7)
   }
 
-  @Test func keptUnchangedExcludesEdits() {
+  @Test func editsDontChangeTheKeptCount() {
     let stats = LifetimeSessionStats(totalKept: 10, livePhotosConverted: 3, mediaEdited: 2)
 
-    #expect(stats.keptUnchanged == 5)
+    #expect(stats.keptUnchanged == 7)
   }
 
   @Test func recordingASessionAddsItsEdits() {
@@ -27,7 +27,7 @@ struct LifetimeStatsTests {
     #expect(stats.mediaEdited == 4)
     #expect(stats.totalKept == 7)
     #expect(stats.totalDecided == 9)
-    #expect(stats.keptUnchanged == 3)
+    #expect(stats.keptUnchanged == 7)
   }
 
   @Test func statsSavedWithoutAnEditedCountLoadAsZero() throws {

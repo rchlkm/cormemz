@@ -37,8 +37,10 @@ struct FullScreenPhotoView: View {
         .ignoresSafeArea()
 
       AdaptiveAssetImage(
-        photo: photo, targetSize: UIScreen.main.bounds.size, contentMode: .fit
+        photo: photo, targetSize: UIScreen.main.bounds.size.turned(by: photo.previewQuarterTurns),
+        contentMode: .fit
       )
+      .rotated(quarterTurns: photo.previewQuarterTurns)
       .scaleEffect(scale)
       .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
       .gesture(magnification)
@@ -70,7 +72,7 @@ struct FullScreenPhotoView: View {
   @ViewBuilder
   private var undoBar: some View {
     if let onUndo {
-      let status = DecisionOverlay(decision: photo.decision)
+      let status = photo.decision.isMarked ? DecisionOverlay(decision: photo.decision) : .edited
       VStack(spacing: 12) {
         Label {
           Text(status.title).foregroundStyle(.white)

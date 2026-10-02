@@ -1,11 +1,10 @@
 // CoreMems/Views/Components/OutcomeRatioCard.swift
 import SwiftUI
 
-/// Bar and legend splitting decided photos into kept, converted, edited, and deleted.
+/// Bar and legend splitting decided photos into kept, converted, and deleted.
 struct OutcomeRatioCard: View {
   let kept: Int
   let converted: Int
-  let edited: Int
   let deleted: Int
 
   private struct Segment: Identifiable {
@@ -21,7 +20,6 @@ struct OutcomeRatioCard: View {
     [
       Segment(label: "Kept", count: kept, color: Decision.keep.tint),
       Segment(label: "Converted", count: converted, color: Decision.convertToStill.tint),
-      Segment(label: "Edited", count: edited, color: Decision.edited.tint),
       Segment(label: "Deleted", count: deleted, color: Decision.pendingDelete.tint),
     ]
   }
@@ -30,7 +28,7 @@ struct OutcomeRatioCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Outcomes")
+      Text("Kept vs deleted vs converted")
         .font(.headline)
       bar
       HStack(spacing: 16) {
@@ -84,7 +82,7 @@ struct OutcomeRatioCard: View {
 }
 
 #Preview {
-  OutcomeRatioCard(kept: 1_144, converted: 62, edited: 18, deleted: 274)
+  OutcomeRatioCard(kept: 1_144, converted: 62, deleted: 274)
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
 }

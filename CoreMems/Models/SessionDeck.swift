@@ -13,9 +13,11 @@ struct SessionDeck {
 
   var pendingItems: [SessionPhoto] { photos.filter { $0.decision == .pendingDelete } }
   var pendingConversions: [SessionPhoto] { photos.filter { $0.decision == .convertToStill } }
-  var pendingEdits: [SessionPhoto] { photos.filter { $0.decision == .edited } }
-  /// Deletions, conversions and edits together, in the order they were decided.
-  var markedPhotos: [SessionPhoto] { photos.filter { $0.decision.isMarked } }
+  var pendingEdits: [SessionPhoto] { photos.filter { $0.activeEdit != nil } }
+  /// Deletions, conversions and edits together, in browse order.
+  var markedPhotos: [SessionPhoto] {
+    photos.filter { $0.decision.isMarked || $0.activeEdit != nil }
+  }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
   /// Photos decided Keep, not counting conversions.
   var keptPhotos: [SessionPhoto] { photos.filter { $0.decision == .keep } }
@@ -87,15 +89,23 @@ struct SessionDeck {
     return currentIndex - 1
   }
 
-  /// Sets marked photos among `ids` back to Keep. Returns whether any changed.
+  /// Sets marked photos among `ids` back to Keep and discards the edits of the rest.
+  /// Returns whether any changed.
+  @discardableResult
   mutating func restoreMarkedToKeep(ids: Set<String>) -> Bool {
     var restoredAny = false
-    for (i, photo) in photos.enumerated() where ids.contains(photo.id) && photo.decision.isMarked {
-      history.append(
-        DecisionHistoryEntry(
-          photoIndex: i, previousDecision: photo.decision, newDecision: .keep, advancedIndex: false))
-      photos[i].decision = .keep
-      restoredAny = true
+    for (i, photo) in photos.enumerated() where ids.contains(photo.id) {
+      if photo.decision.isMarked {
+        history.append(
+          DecisionHistoryEntry(
+            photoIndex: i, previousDecision: photo.decision, newDecision: .keep,
+            advancedIndex: false))
+        photos[i].decision = .keep
+        restoredAny = true
+      } else if photo.activeEdit != nil {
+        photos[i].edit = nil
+        restoredAny = true
+      }
     }
     return restoredAny
   }

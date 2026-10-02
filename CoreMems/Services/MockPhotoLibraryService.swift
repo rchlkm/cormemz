@@ -47,6 +47,8 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
     []
   }
 
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset) {}
+
   func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {

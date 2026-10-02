@@ -19,10 +19,10 @@ struct LifetimeSessionStats: Codable {
 
   var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
 
-  /// Kept photos left as they were; conversions and edits are also counted in `totalKept`.
-  var keptUnchanged: Int { max(totalKept - livePhotosConverted - mediaEdited, 0) }
+  /// Kept photos left as they were; conversions are also counted in `totalKept`.
+  var keptUnchanged: Int { max(totalKept - livePhotosConverted, 0) }
 
-  /// `edited` photos are also counted in `kept`.
+  /// `edited` counts edits written, which apply to photos whatever their decision.
   mutating func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
     totalDecided += kept + deleted

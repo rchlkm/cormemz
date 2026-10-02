@@ -7,7 +7,7 @@ struct SessionChangePlan {
   /// Marked Live Photos that still have their asset.
   let conversions: [SessionPhoto]
   let keptCount: Int
-  /// Edited photos, also counted in `keptCount`.
+  /// Photos with an edit to write.
   let editedCount: Int
   let changes: SessionLibraryChanges
 
@@ -23,6 +23,10 @@ struct SessionChangePlan {
     changes = SessionLibraryChanges(
       deletions: deletions.compactMap { assets[$0.id] },
       conversions: assets.filter { convertedIDs.contains($0.key) },
-      albumAdditions: additions, albumRemovals: removals, albumAssets: assets)
+      albumAdditions: additions, albumRemovals: removals, albumAssets: assets,
+      edits: deck.pendingEdits.reduce(into: [:]) { byID, photo in
+        guard let asset = assets[photo.id], let edit = photo.activeEdit else { return }
+        byID[photo.id] = AssetEdit(asset: asset, edit: edit)
+      })
   }
 }

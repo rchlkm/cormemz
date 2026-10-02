@@ -9,6 +9,8 @@ import SwiftUI
 /// `LivePhotoPlayerView` is fed an already-loaded `PHLivePhoto`.
 struct VideoPlayerCardView: View {
   let assetIdentifier: String
+  /// Counterclockwise quarter turns applied to the picture; the controls stay upright.
+  var quarterTurns = 0
 
   @State private var player: AVPlayer?
   @State private var timeObserver: Any?
@@ -25,6 +27,7 @@ struct VideoPlayerCardView: View {
       if let player {
         ZStack(alignment: .bottom) {
           PlayerLayerRepresentable(player: player)
+            .rotated(quarterTurns: quarterTurns)
           transportBar
         }
       } else if loadFailed {
