@@ -35,6 +35,7 @@ final class SessionViewModel: ObservableObject {
   @Published var convertedLivePhotoCount: Int = 0
   @Published private(set) var deletedBytes: Int64 = 0
   @Published private(set) var convertedBytesSaved: Int64 = 0
+  @Published private(set) var editedCount: Int = 0
 
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
   @Published private(set) var markingDecision: Decision?
@@ -269,6 +270,7 @@ final class SessionViewModel: ObservableObject {
     deletedBytes = 0
     convertedLivePhotoCount = 0
     convertedBytesSaved = 0
+    editedCount = 0
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
@@ -700,13 +702,15 @@ final class SessionViewModel: ObservableObject {
     if !plan.changes.isEmpty {
       guard await applyPlan(plan) else { return }
     }
+    editedCount = plan.editedCount
 
     haptics.sessionComplete()
     screen = .completion
     persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
     recordDecidedPhotos()
-    statsStore.recordSession(kept: plan.keptCount, deleted: deletedCount, bytesDeleted: deletedBytes)
+    statsStore.recordSession(
+      kept: plan.keptCount, deleted: deletedCount, edited: editedCount, bytesDeleted: deletedBytes)
   }
 
   /// Runs the plan's changes as one library transaction and brings the session in line with the result.

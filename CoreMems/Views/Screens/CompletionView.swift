@@ -8,14 +8,15 @@ struct CompletionView: View {
   /// Staged album adds/removes that no-op'd because the album no longer existed.
   let missingAlbumCount: Int
   let convertedCount: Int
+  let editedCount: Int
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
   let decidedPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
 
-  /// Converted photos are also counted in `keptCount`; they get their own tile.
-  private var keptUnchangedCount: Int { max(keptCount - convertedCount, 0) }
+  /// Converted and edited photos are also counted in `keptCount`; they get their own tiles.
+  private var keptUnchangedCount: Int { max(keptCount - convertedCount - editedCount, 0) }
 
   private var tiles: [StatTileItem] {
     var items = [
@@ -31,6 +32,12 @@ struct CompletionView: View {
         StatTileItem(
           label: "Converted to stills", value: convertedCount.formatted(),
           systemImage: "livephoto", tint: Decision.convertToStill.tint))
+    }
+    if editedCount > 0 {
+      items.append(
+        StatTileItem(
+          label: "Edited", value: editedCount.formatted(),
+          systemImage: DecisionOverlay.content(for: .edited).icon, tint: Decision.edited.tint))
     }
     if albumAssignedCount > 0 {
       items.append(
@@ -63,7 +70,8 @@ struct CompletionView: View {
             .multilineTextAlignment(.center)
           }
           OutcomeRatioCard(
-            kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
+            kept: keptUnchangedCount, converted: convertedCount, edited: editedCount,
+            deleted: deletedCount)
           if deletedBytes + convertedBytesSaved > 0 {
             SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
           }
@@ -100,6 +108,7 @@ struct CompletionView: View {
     albumAssignedCount: 2,
     missingAlbumCount: 1,
     convertedCount: 1,
+    editedCount: 2,
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
     decidedPhotoCount: 1_206,

@@ -124,6 +124,7 @@ struct RootView: View {
             albumAssignedCount: vm.albumAssignedCount,
             missingAlbumCount: vm.missingAlbumCount,
             convertedCount: vm.convertedLivePhotoCount,
+            editedCount: vm.editedCount,
             deletedBytes: vm.deletedBytes,
             convertedBytesSaved: vm.convertedBytesSaved,
             decidedPhotoCount: vm.decidedPhotoCount,

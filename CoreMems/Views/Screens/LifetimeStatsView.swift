@@ -22,6 +22,9 @@ struct LifetimeStatsView: View {
       StatTileItem(
         label: "Live Photos converted", value: stats.livePhotosConverted.formatted(),
         systemImage: "livephoto", tint: Decision.convertToStill.tint),
+      StatTileItem(
+        label: "Edited", value: stats.mediaEdited.formatted(),
+        systemImage: DecisionOverlay.content(for: .edited).icon, tint: Decision.edited.tint),
     ]
   }
 
@@ -32,7 +35,7 @@ struct LifetimeStatsView: View {
         StatTileGrid(items: tiles)
         OutcomeRatioCard(
           kept: stats.keptUnchanged, converted: stats.livePhotosConverted,
-          deleted: stats.totalDeleted)
+          edited: stats.mediaEdited, deleted: stats.totalDeleted)
         BrowseProgressCard(decided: decidedPhotoCount, total: libraryPhotoCount)
         SpaceCleanedCard(
           deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion)
@@ -104,6 +107,7 @@ struct LifetimeStatsView: View {
         bytesDeleted: 1_840_000_000,
         livePhotosConverted: 62,
         bytesSavedByConversion: 310_000_000,
+        mediaEdited: 18,
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)
       ),

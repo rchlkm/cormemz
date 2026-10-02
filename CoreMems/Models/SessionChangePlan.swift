@@ -7,12 +7,15 @@ struct SessionChangePlan {
   /// Marked Live Photos that still have their asset.
   let conversions: [SessionPhoto]
   let keptCount: Int
+  /// Edited photos, also counted in `keptCount`.
+  let editedCount: Int
   let changes: SessionLibraryChanges
 
   init(deck: SessionDeck, assets: [String: PHAsset], staging: AlbumStaging) {
     deletions = deck.pendingItems
     conversions = deck.pendingConversions.filter { assets[$0.id] != nil }
     keptCount = deck.keptCount
+    editedCount = deck.pendingEdits.count
 
     // Album changes on a photo that's being deleted are moot.
     let (additions, removals) = staging.changes(excludingPhotoIDs: Set(deletions.map(\.id)))

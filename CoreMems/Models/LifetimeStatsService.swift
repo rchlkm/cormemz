@@ -2,25 +2,33 @@
 import Foundation
 
 struct LifetimeSessionStats: Codable {
+  /// Bump when the stored shape changes; lets a future migration branch on
+  /// what it's actually reading instead of guessing from which keys are present.
+  static let currentSchemaVersion = 1
+
+  var schemaVersion = Self.currentSchemaVersion
   var totalDecided = 0
   var totalKept = 0
   var totalDeleted = 0
   var bytesDeleted: Int64 = 0
   var livePhotosConverted = 0
   var bytesSavedByConversion: Int64 = 0
+  var mediaEdited = 0
   var sessionsCompleted = 0
   var trackingSince: Date?
 
   var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
 
-  /// Kept photos left as they were; conversions are also counted in `totalKept`.
-  var keptUnchanged: Int { max(totalKept - livePhotosConverted, 0) }
+  /// Kept photos left as they were; conversions and edits are also counted in `totalKept`.
+  var keptUnchanged: Int { max(totalKept - livePhotosConverted - mediaEdited, 0) }
 
-  mutating func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) {
+  /// `edited` photos are also counted in `kept`.
+  mutating func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
     totalDecided += kept + deleted
     totalKept += kept
     totalDeleted += deleted
+    mediaEdited += edited
     self.bytesDeleted += bytesDeleted
     sessionsCompleted += 1
   }
@@ -41,6 +49,8 @@ struct LifetimeSessionStats: Codable {
 extension LifetimeSessionStats {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion =
+      try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
     totalDecided = try container.decodeIfPresent(Int.self, forKey: .totalDecided) ?? 0
     totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
     totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
@@ -48,6 +58,7 @@ extension LifetimeSessionStats {
     livePhotosConverted = try container.decodeIfPresent(Int.self, forKey: .livePhotosConverted) ?? 0
     bytesSavedByConversion =
       try container.decodeIfPresent(Int64.self, forKey: .bytesSavedByConversion) ?? 0
+    mediaEdited = try container.decodeIfPresent(Int.self, forKey: .mediaEdited) ?? 0
     sessionsCompleted = try container.decodeIfPresent(Int.self, forKey: .sessionsCompleted) ?? 0
     trackingSince = try container.decodeIfPresent(Date.self, forKey: .trackingSince)
   }
@@ -56,7 +67,8 @@ extension LifetimeSessionStats {
 protocol LifetimeStatsServicing {
   func currentStats() -> LifetimeSessionStats
   @discardableResult
-  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats
+  func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats
   @discardableResult
   func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats
   func clear()
@@ -88,9 +100,10 @@ final class LifetimeStatsService: LifetimeStatsServicing {
   }
 
   @discardableResult
-  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
+  func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats {
     var stats = currentStats()
-    stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
+    stats.recordSession(kept: kept, deleted: deleted, edited: edited, bytesDeleted: bytesDeleted)
     save(stats)
     print("[CoreMems] session stats:", stats)
     return stats
@@ -121,8 +134,9 @@ final class LifetimeStatsService: LifetimeStatsServicing {
     func currentStats() -> LifetimeSessionStats { stats }
 
     @discardableResult
-    func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
-      stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
+    func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats {
+      stats.recordSession(kept: kept, deleted: deleted, edited: edited, bytesDeleted: bytesDeleted)
       return stats
     }
 

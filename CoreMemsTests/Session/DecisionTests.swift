@@ -110,6 +110,21 @@ struct DecisionTests {
     #expect(h.vm.currentIndex == 1)
   }
 
+  @Test func applyingASessionRecordsItsEditsInTheStats() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    var edit = MediaEdit()
+    edit.rotate()
+    await h.vm.saveEdit(edit, photoID: SessionHarness.photoID(0))?.value
+    await h.decide(1, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.editedCount == 1)
+    #expect(h.stats.stats.mediaEdited == 1)
+    #expect(h.stats.stats.totalKept == 2)
+    #expect(h.stats.stats.keptUnchanged == 1)
+  }
+
   @Test func savingAnEditThatChangesNothingIsIgnored() async {
     let h = await SessionHarness.started(photoCount: 2)
 
