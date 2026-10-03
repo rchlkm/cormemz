@@ -15,6 +15,7 @@ struct SessionSettingsTests {
 
     #expect(settings.checkInInterval == SessionSettings.defaultCheckInInterval)
     #expect(!settings.includesKeptPhotos)
+    #expect(settings.tracksKeptHistory)
     #expect(settings.networkPolicy == .wifiAndCellular)
     #expect(settings.defaultSessionMode == .shuffle)
   }
@@ -25,12 +26,14 @@ struct SessionSettingsTests {
 
     settings.checkInInterval = 30
     settings.includesKeptPhotos = true
+    settings.tracksKeptHistory = false
     settings.networkPolicy = .wifiOnly
     settings.defaultSessionMode = .album
 
     let reloaded = SessionSettings(defaults: defaults)
     #expect(reloaded.checkInInterval == 30)
     #expect(reloaded.includesKeptPhotos)
+    #expect(!reloaded.tracksKeptHistory)
     #expect(reloaded.networkPolicy == .wifiOnly)
     #expect(reloaded.defaultSessionMode == .album)
   }

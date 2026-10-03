@@ -42,6 +42,7 @@ struct RootView: View {
     SettingsView(
       checkInInterval: $vm.checkInInterval,
       includesKeptPhotos: $vm.includesKeptPhotos,
+      tracksKeptHistory: $vm.tracksKeptHistory,
       networkPolicy: $vm.networkPolicy,
       isLowDataModeActive: vm.isLowDataModeActive,
       defaultSessionMode: $vm.defaultSessionMode,

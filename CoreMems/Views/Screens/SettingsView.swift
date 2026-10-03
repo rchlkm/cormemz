@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
   @Binding var checkInInterval: Int
   @Binding var includesKeptPhotos: Bool
+  @Binding var tracksKeptHistory: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
   @Binding var defaultSessionMode: SelectionMode
@@ -80,6 +81,7 @@ struct SettingsView: View {
 
   private var keptPhotosSection: some View {
     Section {
+      Toggle("Track kept history", isOn: $tracksKeptHistory)
       Toggle("Include kept photos", isOn: $includesKeptPhotos)
       LabeledContent("Kept so far", value: keptPhotoCount.formatted())
       Button("Reset kept history", role: .destructive) {
@@ -192,6 +194,7 @@ extension NetworkPolicy {
     SettingsView(
       checkInInterval: .constant(12),
       includesKeptPhotos: .constant(false),
+      tracksKeptHistory: .constant(true),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,
       defaultSessionMode: .constant(.shuffle),

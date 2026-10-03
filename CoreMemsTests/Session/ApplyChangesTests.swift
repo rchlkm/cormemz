@@ -55,6 +55,16 @@ struct ApplyChangesTests {
     #expect(h.vm.keptPhotoCount == 2)
   }
 
+  @Test func trackingOffLeavesKeptHistoryUntouched() async {
+    let h = await finishedSession(photoCount: 2, decisions: [(0, .keep), (1, .keep)])
+    h.vm.tracksKeptHistory = false
+
+    await h.vm.applyChanges()
+
+    #expect(h.keptStore.keptIdentifiers().isEmpty)
+    #expect(h.vm.keptPhotoCount == 0)
+  }
+
   @Test func photosHeldForLaterAreNotRemembered() async {
     let h = await finishedSession(photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(1))

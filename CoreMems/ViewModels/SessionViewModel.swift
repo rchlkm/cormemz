@@ -50,6 +50,10 @@ final class SessionViewModel: ObservableObject {
     get { settings.includesKeptPhotos }
     set { settings.includesKeptPhotos = newValue }
   }
+  var tracksKeptHistory: Bool {
+    get { settings.tracksKeptHistory }
+    set { settings.tracksKeptHistory = newValue }
+  }
   /// Which mode Setup opens with.
   var defaultSessionMode: SelectionMode {
     get { settings.defaultSessionMode }
@@ -740,6 +744,7 @@ final class SessionViewModel: ObservableObject {
   /// after applying, or if the session is abandoned, still undecided.
   /// Photos held for later are skipped too.
   private func recordKeptPhotos() {
+    guard tracksKeptHistory else { return }
     let keptIdentifiers = deck.keptPhotos
       .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
       .map(\.assetIdentifier)

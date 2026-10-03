@@ -9,6 +9,7 @@ struct SessionSettings {
   static let maxPhotosPerSession = 200
   private static let checkInIntervalKey = "cm_checkInInterval"
   private static let includesKeptKey = "cm_includesKeptPhotos"
+  private static let tracksKeptHistoryKey = "cm_tracksKeptHistory"
   private static let networkPolicyKey = "cm_networkPolicy"
   private static let defaultSessionModeKey = "cm_defaultSessionMode"
 
@@ -22,6 +23,12 @@ struct SessionSettings {
   /// When true, sessions also include photos kept in earlier sessions.
   var includesKeptPhotos: Bool {
     didSet { defaults.set(includesKeptPhotos, forKey: Self.includesKeptKey) }
+  }
+
+  /// When false, sessions stop recording newly kept photos, so they may be shown
+  /// again later. Doesn't clear photos already recorded.
+  var tracksKeptHistory: Bool {
+    didSet { defaults.set(tracksKeptHistory, forKey: Self.tracksKeptHistoryKey) }
   }
 
   /// Where photos missing from the device may be downloaded from.
@@ -42,6 +49,8 @@ struct SessionSettings {
         min(max($0, range.lowerBound), range.upperBound)
       } ?? Self.defaultCheckInInterval
     includesKeptPhotos = defaults.bool(forKey: Self.includesKeptKey)
+    tracksKeptHistory =
+      (defaults.object(forKey: Self.tracksKeptHistoryKey) as? Bool) ?? true
     networkPolicy =
       defaults.string(forKey: Self.networkPolicyKey).flatMap(NetworkPolicy.init(rawValue:))
       ?? .wifiAndCellular
