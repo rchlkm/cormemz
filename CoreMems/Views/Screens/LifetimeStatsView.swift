@@ -4,7 +4,7 @@ import SwiftUI
 /// Every lifetime stat in one place. Pushed from the top of Settings.
 struct LifetimeStatsView: View {
   let stats: LifetimeSessionStats
-  let decidedPhotoCount: Int
+  let keptPhotoCount: Int
   let libraryPhotoCount: Int
   let onClear: () -> Void
 
@@ -36,7 +36,7 @@ struct LifetimeStatsView: View {
         OutcomeRatioCard(
           kept: stats.keptUnchanged, converted: stats.livePhotosConverted,
           deleted: stats.totalDeleted)
-        BrowseProgressCard(decided: decidedPhotoCount, total: libraryPhotoCount)
+        BrowseProgressCard(kept: keptPhotoCount, total: libraryPhotoCount)
         SpaceCleanedCard(
           deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion)
         footer
@@ -101,7 +101,6 @@ struct LifetimeStatsView: View {
   NavigationStack {
     LifetimeStatsView(
       stats: LifetimeSessionStats(
-        totalDecided: 1_480,
         totalKept: 1_206,
         totalDeleted: 274,
         bytesDeleted: 1_840_000_000,
@@ -111,7 +110,7 @@ struct LifetimeStatsView: View {
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)
       ),
-      decidedPhotoCount: 1_206,
+      keptPhotoCount: 1_206,
       libraryPhotoCount: 3_100,
       onClear: {}
     )

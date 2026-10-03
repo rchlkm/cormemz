@@ -41,13 +41,14 @@ struct RootView: View {
   private var settingsView: some View {
     SettingsView(
       checkInInterval: $vm.checkInInterval,
-      includesDecidedPhotos: $vm.includesDecidedPhotos,
+      includesKeptPhotos: $vm.includesKeptPhotos,
+      tracksKeptHistory: $vm.tracksKeptHistory,
       networkPolicy: $vm.networkPolicy,
       isLowDataModeActive: vm.isLowDataModeActive,
       defaultSessionMode: $vm.defaultSessionMode,
-      decidedPhotoCount: vm.decidedPhotoCount,
+      keptPhotoCount: vm.keptPhotoCount,
       libraryPhotoCount: vm.eligiblePhotoCount,
-      onResetDecidedPhotos: { vm.resetDecidedPhotos() },
+      onResetKeptPhotos: { vm.resetKeptPhotos() },
       pinnedAlbums: vm.pinnedAlbums,
       recentAlbumIDs: vm.recentAlbumIDs,
       lifetimeStats: vm.lifetimeStats,
@@ -130,7 +131,7 @@ struct RootView: View {
             onDiscardEdit: { vm.discardFailedEdit(photoID: $0) },
             deletedBytes: vm.deletedBytes,
             convertedBytesSaved: vm.convertedBytesSaved,
-            decidedPhotoCount: vm.decidedPhotoCount,
+            keptPhotoCount: vm.keptPhotoCount,
             libraryPhotoCount: vm.eligiblePhotoCount,
             onAgain: { vm.resetForAnotherSession() }
           )

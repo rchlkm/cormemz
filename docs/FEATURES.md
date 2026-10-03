@@ -55,6 +55,7 @@ Review one item at a time in full screen.
 - Pinned albums: browse folders and subfolders to pin albums, drag to reorder
 - Choose where iCloud photos may download: Wi-Fi and cellular, Wi-Fi only, or downloaded photos only
 - Default session mode: choose which mode Setup opens with
+- Local storage: total size of the app's own saved data (session progress, kept-photo history)
 
 ## Offline and Limited Connections
 

@@ -4,13 +4,14 @@ import SwiftUI
 /// Lifetime stats summary and review preferences. Pushed from Setup.
 struct SettingsView: View {
   @Binding var checkInInterval: Int
-  @Binding var includesDecidedPhotos: Bool
+  @Binding var includesKeptPhotos: Bool
+  @Binding var tracksKeptHistory: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
   @Binding var defaultSessionMode: SelectionMode
-  let decidedPhotoCount: Int
+  let keptPhotoCount: Int
   let libraryPhotoCount: Int
-  let onResetDecidedPhotos: () -> Void
+  let onResetKeptPhotos: () -> Void
   let pinnedAlbums: PinnedAlbumsViewModel
   /// Recently used album IDs, newest first; orders pinned albums when sorted by recency.
   let recentAlbumIDs: [String]
@@ -18,6 +19,7 @@ struct SettingsView: View {
   let onClearLifetimeStats: () -> Void
 
   @State private var showResetConfirmation = false
+  @State private var appDataBytes: Int64 = 0
 
   private var checkInRange: ClosedRange<Double> {
     let bounds = SessionSettings.checkInIntervalRange
@@ -30,21 +32,31 @@ struct SettingsView: View {
       pinnedAlbumsSection
       defaultSessionModeSection
       checkInSection
-      decidedPhotosSection
+      keptPhotosSection
       dataUsageSection
       #if DEBUG
-        DebugStateDumpSection()
-        DebugNetworkStatsSection()
-        DebugEditFailuresSection()
+        debugSection
       #endif
+      appDataSection
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)
     .alert("Reset kept history?", isPresented: $showResetConfirmation) {
       Button("Cancel", role: .cancel) {}
-      Button("Reset", role: .destructive, action: onResetDecidedPhotos)
+      Button("Reset", role: .destructive, action: onResetKeptPhotos)
     } message: {
       Text("Every kept photo becomes eligible to appear again. Your photos aren't changed.")
+    }
+    .task {
+      appDataBytes = await Task.detached { LocalStorageSize.totalBytes() }.value
+    }
+  }
+
+  private var appDataSection: some View {
+    Section {
+      LabeledContent("Local storage", value: appDataBytes.fileSizeText)
+    } footer: {
+      Text("Doesn't include your photos.")
     }
   }
 
@@ -79,19 +91,30 @@ struct SettingsView: View {
     }
   }
 
-  private var decidedPhotosSection: some View {
+  #if DEBUG
+    private var debugSection: some View {
+      Section {
+        NavigationLink("Debug") {
+          DebugSettingsView()
+        }
+      }
+    }
+  #endif
+
+  private var keptPhotosSection: some View {
     Section {
-      Toggle("Include kept photos", isOn: $includesDecidedPhotos)
-      LabeledContent("Kept so far", value: decidedPhotoCount.formatted())
+      Toggle("Track kept history", isOn: $tracksKeptHistory)
+      Toggle("Include kept photos", isOn: $includesKeptPhotos)
+      LabeledContent("Kept so far", value: keptPhotoCount.formatted())
       Button("Reset kept history", role: .destructive) {
         showResetConfirmation = true
       }
-      .disabled(decidedPhotoCount == 0)
+      .disabled(keptPhotoCount == 0)
     } header: {
       Text("Kept photos")
     } footer: {
       Text(
-        "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off."
+        "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off. Turning off tracking stops remembering new ones."
       )
     }
   }
@@ -153,7 +176,7 @@ struct SettingsView: View {
     Section {
       NavigationLink {
         LifetimeStatsView(
-          stats: lifetimeStats, decidedPhotoCount: decidedPhotoCount,
+          stats: lifetimeStats, keptPhotoCount: keptPhotoCount,
           libraryPhotoCount: libraryPhotoCount, onClear: onClearLifetimeStats)
       } label: {
         VStack(alignment: .leading, spacing: 2) {
@@ -192,17 +215,17 @@ extension NetworkPolicy {
   NavigationStack {
     SettingsView(
       checkInInterval: .constant(12),
-      includesDecidedPhotos: .constant(false),
+      includesKeptPhotos: .constant(false),
+      tracksKeptHistory: .constant(true),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,
       defaultSessionMode: .constant(.shuffle),
-      decidedPhotoCount: 128,
+      keptPhotoCount: 128,
       libraryPhotoCount: 3_100,
-      onResetDecidedPhotos: {},
+      onResetKeptPhotos: {},
       pinnedAlbums: .mock(),
       recentAlbumIDs: [],
       lifetimeStats: LifetimeSessionStats(
-        totalDecided: 150,
         totalKept: 100,
         totalDeleted: 50,
         sessionsCompleted: 12,

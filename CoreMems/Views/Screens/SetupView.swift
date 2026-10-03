@@ -11,6 +11,8 @@ struct SetupView: View {
   let onOpenSettings: () -> Void
   let onStart: (SelectionMode, Date?, AlbumOption?, MediaTypeFilter) -> Void
   let onRefresh: () -> Void
+  /// The mode Setup opens with (Settings > Default session mode), labeled in the mode list.
+  let defaultMode: SelectionMode
   /// Pinned albums, then unpinned recents, for the album picker's quick-access sections.
   var quickAccessAlbums: [AlbumOption] = []
   /// The whole library, nil until loaded.
@@ -50,6 +52,7 @@ struct SetupView: View {
     self.libraryAlbumGroups = libraryAlbumGroups
     self.recentAlbumIDs = recentAlbumIDs
     self.pinnedAlbums = pinnedAlbums
+    self.defaultMode = defaultMode
     _mode = State(initialValue: defaultMode)
   }
 
@@ -167,12 +170,22 @@ struct SetupView: View {
           .font(.system(size: 20, weight: .semibold))
           .frame(width: 28)
         VStack(alignment: .leading, spacing: 2) {
-          Text(candidate.label)
-            .font(.system(size: 16, weight: .semibold))
+          HStack(spacing: 6) {
+            Text(candidate.label)
+              .font(.system(size: 16, weight: .semibold))
+            if candidate == defaultMode {
+              Text("DEFAULT")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color(.tertiarySystemFill), in: Capsule())
+            }
+          }
           Text(candidate.blurb)
             .font(.system(size: 13))
             .foregroundColor(secondaryTextColor(isSelected: isSelected))
-            .lineLimit(2, reservesSpace: true)
+            .lineLimit(2)
         }
         Spacer(minLength: 0)
       }

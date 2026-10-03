@@ -7,7 +7,6 @@ struct LifetimeSessionStats: Codable {
   static let currentSchemaVersion = 1
 
   var schemaVersion = Self.currentSchemaVersion
-  var totalDecided = 0
   var totalKept = 0
   var totalDeleted = 0
   var bytesDeleted: Int64 = 0
@@ -17,6 +16,10 @@ struct LifetimeSessionStats: Codable {
   var sessionsCompleted = 0
   var trackingSince: Date?
 
+  /// Every decision made, kept or deleted. Derived, never stored, so it can't
+  /// drift out of sync with `totalKept`/`totalDeleted`.
+  var totalDecided: Int { totalKept + totalDeleted }
+
   var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
 
   /// Kept photos left as they were; conversions are also counted in `totalKept`.
@@ -25,7 +28,6 @@ struct LifetimeSessionStats: Codable {
   /// `edited` counts edits written, which apply to photos whatever their decision.
   mutating func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
-    totalDecided += kept + deleted
     totalKept += kept
     totalDeleted += deleted
     mediaEdited += edited
@@ -47,7 +49,6 @@ struct LifetimeSessionStats: Codable {
   private mutating func startTrackingIfNeeded() {
     if trackingSince == nil { trackingSince = Date() }
   }
-
 }
 
 /// Decodes missing keys as zero so stats saved by earlier versions still load.
@@ -56,7 +57,6 @@ extension LifetimeSessionStats {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     schemaVersion =
       try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-    totalDecided = try container.decodeIfPresent(Int.self, forKey: .totalDecided) ?? 0
     totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
     totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
     bytesDeleted = try container.decodeIfPresent(Int64.self, forKey: .bytesDeleted) ?? 0

@@ -43,26 +43,36 @@ struct ApplyChangesTests {
     #expect(h.persistence.snapshot == nil)
   }
 
-  @Test func keptPhotosAreRememberedAsDecided() async {
+  @Test func keptPhotosAreRemembered() async {
     let h = await finishedSession(
       photoCount: 3, decisions: [(0, .keep), (1, .pendingDelete), (2, .keep)])
 
     await h.vm.applyChanges()
 
     #expect(
-      h.decidedStore.decidedIdentifiers()
+      h.keptStore.keptIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
-    #expect(h.vm.decidedPhotoCount == 2)
+    #expect(h.vm.keptPhotoCount == 2)
   }
 
-  @Test func photosHeldForLaterAreNotRememberedAsDecided() async {
+  @Test func trackingOffLeavesKeptHistoryUntouched() async {
+    let h = await finishedSession(photoCount: 2, decisions: [(0, .keep), (1, .keep)])
+    h.vm.tracksKeptHistory = false
+
+    await h.vm.applyChanges()
+
+    #expect(h.keptStore.keptIdentifiers().isEmpty)
+    #expect(h.vm.keptPhotoCount == 0)
+  }
+
+  @Test func photosHeldForLaterAreNotRemembered() async {
     let h = await finishedSession(photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(1))
 
     await h.vm.applyChanges()
 
     #expect(
-      h.decidedStore.decidedIdentifiers()
+      h.keptStore.keptIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
   }
 
@@ -73,7 +83,7 @@ struct ApplyChangesTests {
 
     await h.vm.applyChanges()
 
-    #expect(h.decidedStore.decidedIdentifiers() == [SessionHarness.assetID(0)])
+    #expect(h.keptStore.keptIdentifiers() == [SessionHarness.assetID(0)])
   }
 
   @Test func albumCreatedWithAPhotoIsRecentUntilTheCommitSwapsInTheRealAlbum() async {
@@ -270,7 +280,7 @@ struct ApplyChangesTests {
     #expect(h.stats.stats.keptUnchanged == 2)
     #expect(h.stats.stats.mediaEdited == 1)
     #expect(
-      h.decidedStore.decidedIdentifiers()
+      h.keptStore.keptIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(1)])
   }
 

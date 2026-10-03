@@ -14,7 +14,7 @@ struct PersistedSessionSnapshot: Codable {
   var historyAdvanced: [Bool]
   var albumAdditions: [String: Set<AlbumRef>] = [:]  // photoID -> albums to add
   var albumRemovals: [String: Set<String>] = [:]  // photoID -> existing album localIdentifiers to remove
-  var heldPhotoIDs: [String] = []  // photos left out of the decided history
+  var heldPhotoIDs: [String] = []  // photos left out of the kept history
   var pendingNewAlbumRefs: [AlbumRef] = []  // session-created albums, kept pickable across a restart
   var edits: [String: MediaEdit] = [:]  // photoID -> staged edit
 }

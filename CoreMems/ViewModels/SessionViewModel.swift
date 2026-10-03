@@ -50,16 +50,20 @@ final class SessionViewModel: ObservableObject {
     get { settings.checkInInterval }
     set { settings.checkInInterval = newValue }
   }
-  var includesDecidedPhotos: Bool {
-    get { settings.includesDecidedPhotos }
-    set { settings.includesDecidedPhotos = newValue }
+  var includesKeptPhotos: Bool {
+    get { settings.includesKeptPhotos }
+    set { settings.includesKeptPhotos = newValue }
+  }
+  var tracksKeptHistory: Bool {
+    get { settings.tracksKeptHistory }
+    set { settings.tracksKeptHistory = newValue }
   }
   /// Which mode Setup opens with.
   var defaultSessionMode: SelectionMode {
     get { settings.defaultSessionMode }
     set { settings.defaultSessionMode = newValue }
   }
-  @Published private(set) var decidedPhotoCount: Int = 0
+  @Published private(set) var keptPhotoCount: Int = 0
 
   /// Where photos missing from the device may be downloaded from.
   var networkPolicy: NetworkPolicy {
@@ -114,7 +118,7 @@ final class SessionViewModel: ObservableObject {
   private let haptics: HapticsServicing
   private let metadataService: PhotoMetadataServicing
   private let statsStore: LifetimeStatsServicing
-  private let decidedPhotosStore: DecidedPhotosStoring
+  private let keptPhotosStore: KeptPhotosStoring
   private let imageLoader: PhotoImageLoader
   private let networkAccess: NetworkAccessProviding
   private var networkSubscription: AnyCancellable?
@@ -136,7 +140,7 @@ final class SessionViewModel: ObservableObject {
     metadataService: PhotoMetadataServicing = PhotoMetadataService(),
     statsStore: LifetimeStatsServicing = LifetimeStatsService(),
     pinnedAlbumsStore: PinnedAlbumsStoring = PinnedAlbumsStore(),
-    decidedPhotosStore: DecidedPhotosStoring = DecidedPhotosStore(),
+    keptPhotosStore: KeptPhotosStoring = KeptPhotosStore(),
     settings: SessionSettings = SessionSettings(),
     imageLoader: PhotoImageLoader = .shared,
     networkAccess: NetworkAccessProviding = NetworkMonitor.shared
@@ -151,8 +155,8 @@ final class SessionViewModel: ObservableObject {
     self.networkAccess = networkAccess
     applyService = SessionApplyService(library: library)
     pinnedAlbums = PinnedAlbumsViewModel(library: library, store: pinnedAlbumsStore)
-    self.decidedPhotosStore = decidedPhotosStore
-    self.decidedPhotoCount = decidedPhotosStore.decidedIdentifiers().count
+    self.keptPhotosStore = keptPhotosStore
+    self.keptPhotoCount = keptPhotosStore.keptIdentifiers().count
     networkAccess.policy = settings.networkPolicy
     self.allowsDownloads = networkAccess.allowsDownloads
     self.isLowDataModeActive = networkAccess.isConstrained
@@ -254,12 +258,12 @@ final class SessionViewModel: ObservableObject {
     mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
     mediaTypeFilter: MediaTypeFilter = .all, count: Int, limit: Int
   ) async -> (source: any AssetBatching, assets: [PHAsset]) {
-    let decided = includesDecidedPhotos ? [] : decidedPhotosStore.decidedIdentifiers()
+    let kept = includesKeptPhotos ? [] : keptPhotosStore.keptIdentifiers()
     let source = await library.makeAssetSource(
       mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
-      mediaTypeFilter: mediaTypeFilter, excluding: decided)
+      mediaTypeFilter: mediaTypeFilter, excluding: kept)
     let assets = await source.nextBatch(count: count)
-    guard assets.isEmpty, !decided.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
+    guard assets.isEmpty, !kept.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
     else { return (source, assets) }
     let unfiltered = await library.makeAssetSource(
       mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
@@ -315,8 +319,8 @@ final class SessionViewModel: ObservableObject {
       let assets = await source.nextBatch(count: batchSize)
       guard source === assetSource else { return }
       isLoadingBatch = false
-      let decided = Set(deck.photos.map(\.assetIdentifier))
-      let fresh = assets.filter { !decided.contains($0.localIdentifier) }
+      let alreadyInDeck = Set(deck.photos.map(\.assetIdentifier))
+      let fresh = assets.filter { !alreadyInDeck.contains($0.localIdentifier) }
       deck.append(registerPhotos(from: fresh))
       if assets.count < batchSize { assetSource = nil }
       prefetchNextPhoto()
@@ -481,7 +485,7 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
-  /// Toggles whether the photo is left out of the decided history, so a later session shows it again.
+  /// Toggles whether the photo is left out of the kept history, so a later session shows it again.
   func toggleHeldForLater(photoID: String) {
     guard let photo = photo(withID: photoID) else { return }
     let isHeld = !photo.isHeldForLater
@@ -719,7 +723,7 @@ final class SessionViewModel: ObservableObject {
     screen = .completion
     persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
-    recordDecidedPhotos()
+    recordKeptPhotos()
     statsStore.recordSession(
       kept: plan.keptCount, deleted: deletedCount, edited: editedCount, bytesDeleted: deletedBytes)
   }
@@ -816,12 +820,13 @@ final class SessionViewModel: ObservableObject {
   /// Photos marked for deletion aren't recorded: they're either gone
   /// after applying, or if the session is abandoned, still undecided.
   /// Photos held for later are skipped too.
-  private func recordDecidedPhotos() {
+  private func recordKeptPhotos() {
+    guard tracksKeptHistory else { return }
     let keptIdentifiers = deck.keptPhotos
       .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
       .map(\.assetIdentifier)
-    decidedPhotosStore.markDecided(Set(keptIdentifiers))
-    decidedPhotoCount = decidedPhotosStore.decidedIdentifiers().count
+    keptPhotosStore.markKept(Set(keptIdentifiers))
+    keptPhotoCount = keptPhotosStore.keptIdentifiers().count
   }
 
   /// Zeroes the lifetime stats; the next recorded activity restarts the tracking date.
@@ -831,14 +836,14 @@ final class SessionViewModel: ObservableObject {
   }
 
   /// Makes every photo eligible for browsing again.
-  func resetDecidedPhotos() {
-    decidedPhotosStore.clear()
-    decidedPhotoCount = 0
+  func resetKeptPhotos() {
+    keptPhotosStore.clear()
+    keptPhotoCount = 0
   }
 
   func exitToSetup() {
     endPeek()
-    recordDecidedPhotos()
+    recordKeptPhotos()
     persistence.clear()
     screen = .setup
   }

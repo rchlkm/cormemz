@@ -61,16 +61,16 @@ enum UITestConfiguration {
       library.mockEligibleCount = mockLibraryPhotoCount
       let pinnedStore = MockPinnedAlbumsStore()
       if usesLargeAlbumLibrary { seedLargeAlbumLibrary(library, pinnedStore: pinnedStore) }
-      let decidedStore = DecidedPhotosStore(
+      let keptStore = KeptPhotosStore(
         fileURL: FileManager.default.temporaryDirectory
-          .appendingPathComponent("ui-test-decided-\(UUID().uuidString).json"))
+          .appendingPathComponent("ui-test-kept-\(UUID().uuidString).json"))
       return SessionViewModel(
         library: library,
         persistence: MockSessionPersistence(),
         haptics: MockHapticsService(),
         statsStore: MockLifetimeStatsService(),
         pinnedAlbumsStore: pinnedStore,
-        decidedPhotosStore: decidedStore)
+        keptPhotosStore: keptStore)
     }
   }
 #endif
