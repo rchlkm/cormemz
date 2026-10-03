@@ -8,7 +8,6 @@
   enum PersistedStateDump {
     static let enabledKey = "cm_debugStateDumpEnabled"
 
-    private static let filePrefix = "core-mems-"
     private static let defaultsKeyPrefix = "cm_"
 
     static let reportURL = FileManager.default.temporaryDirectory
@@ -49,19 +48,22 @@
       return lines.joined(separator: "\n")
     }
 
+    /// Every file in Application Support, not just ones matching the app's current
+    /// naming — so a file orphaned by an old rename still shows up here.
     private static func persistedFiles() -> [(name: String, size: Int, contents: String)] {
       guard
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
           .first,
         let urls = try? FileManager.default.contentsOfDirectory(
-          at: dir, includingPropertiesForKeys: nil)
+          at: dir, includingPropertiesForKeys: [.isDirectoryKey])
       else { return [] }
       return urls
-        .filter { $0.lastPathComponent.hasPrefix(filePrefix) && $0.pathExtension == "json" }
+        .filter { !((try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false) }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
         .compactMap { url in
           guard let data = try? Data(contentsOf: url) else { return nil }
-          return (url.lastPathComponent, data.count, prettyPrinted(data))
+          let contents = url.pathExtension == "json" ? prettyPrinted(data) : rawText(data)
+          return (url.lastPathComponent, data.count, contents)
         }
     }
 
@@ -79,6 +81,10 @@
         let text = String(data: pretty, encoding: .utf8)
       else { return String(decoding: data, as: UTF8.self) }
       return text
+    }
+
+    private static func rawText(_ data: Data) -> String {
+      String(data: data, encoding: .utf8) ?? "<binary, \(data.count) bytes>"
     }
 
     private static func format(_ bytes: Int) -> String {

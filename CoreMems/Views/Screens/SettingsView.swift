@@ -19,6 +19,7 @@ struct SettingsView: View {
   let onClearLifetimeStats: () -> Void
 
   @State private var showResetConfirmation = false
+  @State private var appDataBytes: Int64 = 0
 
   private var checkInRange: ClosedRange<Double> {
     let bounds = SessionSettings.checkInIntervalRange
@@ -34,9 +35,9 @@ struct SettingsView: View {
       keptPhotosSection
       dataUsageSection
       #if DEBUG
-        DebugStateDumpSection()
-        DebugNetworkStatsSection()
+        debugSection
       #endif
+      appDataSection
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)
@@ -45,6 +46,17 @@ struct SettingsView: View {
       Button("Reset", role: .destructive, action: onResetKeptPhotos)
     } message: {
       Text("Every kept photo becomes eligible to appear again. Your photos aren't changed.")
+    }
+    .task {
+      appDataBytes = await Task.detached { LocalStorageSize.totalBytes() }.value
+    }
+  }
+
+  private var appDataSection: some View {
+    Section {
+      LabeledContent("Local storage", value: appDataBytes.fileSizeText)
+    } footer: {
+      Text("Doesn't include your photos.")
     }
   }
 
@@ -79,6 +91,16 @@ struct SettingsView: View {
     }
   }
 
+  #if DEBUG
+    private var debugSection: some View {
+      Section {
+        NavigationLink("Debug") {
+          DebugSettingsView()
+        }
+      }
+    }
+  #endif
+
   private var keptPhotosSection: some View {
     Section {
       Toggle("Track kept history", isOn: $tracksKeptHistory)
@@ -92,7 +114,7 @@ struct SettingsView: View {
       Text("Kept photos")
     } footer: {
       Text(
-        "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off."
+        "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off. Turning off tracking stops remembering new ones."
       )
     }
   }

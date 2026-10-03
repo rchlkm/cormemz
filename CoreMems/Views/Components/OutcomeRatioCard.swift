@@ -7,6 +7,8 @@ struct OutcomeRatioCard: View {
   let converted: Int
   let deleted: Int
 
+  @State private var showsCounts = false
+
   private struct Segment: Identifiable {
     let label: String
     let count: Int
@@ -38,7 +40,13 @@ struct OutcomeRatioCard: View {
     .padding(16)
     .frame(maxWidth: .infinity, alignment: .leading)
     .cardBackground()
+    .contentShape(Rectangle())
+    .onTapGesture {
+      withAnimation(.snappy) { showsCounts.toggle() }
+    }
     .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(.isButton)
+    .accessibilityHint("Toggles between percentages and counts")
   }
 
   private var bar: some View {
@@ -68,7 +76,7 @@ struct OutcomeRatioCard: View {
       Text(segment.label)
         .font(.footnote)
         .foregroundStyle(.secondary)
-      Text(percentString(segment))
+      Text(showsCounts ? segment.count.formatted() : percentString(segment))
         .font(.footnote.weight(.semibold))
         .monospacedDigit()
     }
