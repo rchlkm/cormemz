@@ -53,8 +53,8 @@ struct SessionLibraryResult {
   /// Identifiers of staged album adds/removes that silently no-op'd because the album no
   /// longer exists (deleted, or renamed away, since the photo was tagged for it).
   var missingAlbumIdentifiers: Set<String> = []
-  /// Session photo IDs whose edit couldn't be rendered, so it was left out.
-  var failedEditIDs: Set<String> = []
+  /// Why each edit left out was left out, by session photo ID.
+  var failedEdits: [String: EditFailureReason] = [:]
 }
 
 /// Photos permission state and the limited-library picker.

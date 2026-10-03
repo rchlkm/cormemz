@@ -12,6 +12,8 @@ protocol HapticsServicing {
   func sessionComplete()
   func favorite()
   func albumToggle()
+  /// An edit couldn't be saved to the library.
+  func editFailed()
 }
 
 extension HapticsServicing {
@@ -51,6 +53,7 @@ final class HapticsService: HapticsServicing {
     // case confirmDelete = 1050
     case sessionComplete = 1109 //1050
     case favorite = 1111
+    case editFailed = 1073
     // case keep = 1111
     // case markForDeletion = 1110
     // case goBack = 1053
@@ -109,6 +112,11 @@ final class HapticsService: HapticsServicing {
     selectionFeedback.selectionChanged()
   }
 
+  func editFailed() {
+    successGenerator.notificationOccurred(.error)
+    play(.editFailed)
+  }
+
   private func play(_ sound: SystemSound) {
     guard isSoundEnabled else { return }
     AudioServicesPlaySystemSound(sound.rawValue)
@@ -125,6 +133,7 @@ final class MockHapticsService: HapticsServicing {
   private(set) var sessionCompleteCallCount = 0
   private(set) var favoriteCount = 0
   private(set) var albumToggleCount = 0
+  private(set) var editFailedCount = 0
 
   func keep() { keepCallCount += 1 }
   func markForDeletion() { markForDeletionCallCount += 1 }
@@ -135,6 +144,7 @@ final class MockHapticsService: HapticsServicing {
   func sessionComplete() { sessionCompleteCallCount += 1 }
   func favorite() { favoriteCount += 1 }
   func albumToggle() { albumToggleCount += 1 }
+  func editFailed() { editFailedCount += 1 }
 
 }
 
@@ -181,6 +191,11 @@ final class MockHapticsService: HapticsServicing {
 
     Button("albumToggle") {
       service.albumToggle()
+    }
+    .buttonStyle(.borderedProminent)
+
+    Button("editFailed") {
+      service.editFailed()
     }
     .buttonStyle(.borderedProminent)
   }

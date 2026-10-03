@@ -13,9 +13,11 @@ nonisolated enum MediaEditError: Error {
 /// Renders staged edits into Photos edit outputs ahead of Apply, so applying only has to
 /// write them. Each asset keeps its latest render; a changed edit replaces it.
 actor MediaEditRenderer {
+  typealias Rendered = Result<PHContentEditingOutput, EditFailureReason>
+
   private struct Render {
     let edit: MediaEdit
-    let task: Task<PHContentEditingOutput?, Never>
+    let task: Task<Rendered, Never>
   }
 
   private nonisolated static let logger = Logger(subsystem: "com.coremems", category: "editing")
@@ -35,9 +37,9 @@ actor MediaEditRenderer {
   }
 
   /// The rendered edit, waiting on a render in progress or starting one. A failed render is
-  /// retried once; `nil` if that fails too.
-  func output(for edit: MediaEdit, of asset: PHAsset) async -> PHContentEditingOutput? {
-    if let output = await render(edit, for: asset).value { return output }
+  /// retried once before its failure is returned.
+  func output(for edit: MediaEdit, of asset: PHAsset) async -> Rendered {
+    if case .success(let output) = await render(edit, for: asset).value { return .success(output) }
     renders[asset.localIdentifier] = nil
     return await render(edit, for: asset).value
   }
@@ -47,23 +49,30 @@ actor MediaEditRenderer {
     renders.removeAll()
   }
 
-  private func render(_ edit: MediaEdit, for asset: PHAsset)
-    -> Task<PHContentEditingOutput?, Never>
-  {
+  private func render(_ edit: MediaEdit, for asset: PHAsset) -> Task<Rendered, Never> {
     let id = asset.localIdentifier
     if let existing = renders[id], existing.edit == edit { return existing.task }
     renders[id]?.task.cancel()
     let allowsNetwork = networkAccess.allowsDownloads
-    let task = Task.detached(priority: .utility) { () -> PHContentEditingOutput? in
+    let task = Task.detached(priority: .utility) { () -> Rendered in
       do {
-        return try await Self.makeOutput(edit, for: asset, allowsNetwork: allowsNetwork)
+        return .success(try await Self.makeOutput(edit, for: asset, allowsNetwork: allowsNetwork))
       } catch {
         Self.logger.error("edit render failed for \(id, privacy: .public): \(error, privacy: .public)")
-        return nil
+        return .failure(Self.reason(for: error, allowsNetwork: allowsNetwork))
       }
     }
     renders[id] = Render(edit: edit, task: task)
     return task
+  }
+
+  /// Without network access, an original that can't be read is assumed to be in iCloud.
+  private nonisolated static func reason(for error: Error, allowsNetwork: Bool)
+    -> EditFailureReason
+  {
+    if (error as? PHPhotosError)?.code == .networkAccessRequired { return .needsDownload }
+    if !allowsNetwork, case MediaEditError.inputUnavailable = error { return .needsDownload }
+    return .unknown
   }
 
   private nonisolated static func makeOutput(

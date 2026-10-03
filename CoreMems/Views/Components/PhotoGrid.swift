@@ -68,7 +68,18 @@ struct PhotoGridCells: View {
     .padding(.horizontal, 26)
     .padding(.top, 16)
     .fullScreenCover(item: $viewing) { photo in
-      FullScreenPhotoView(photo: photo, onUndo: { onRestore(photo.id) })
+      FullScreenPhotoView(
+        photo: photo,
+        actions: [
+          FullScreenPhotoAction(
+            title: "Undo", systemImage: "arrow.uturn.backward",
+            accessibilityID: AccessibilityID.photoViewerUndo,
+            run: {
+              onRestore(photo.id)
+              return nil
+            })
+        ],
+        status: photo.decision.isMarked ? DecisionOverlay(decision: photo.decision) : .edited)
     }
   }
 }

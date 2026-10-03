@@ -35,6 +35,7 @@ struct SettingsView: View {
       #if DEBUG
         DebugStateDumpSection()
         DebugNetworkStatsSection()
+        DebugEditFailuresSection()
       #endif
     }
     .navigationTitle("Settings")

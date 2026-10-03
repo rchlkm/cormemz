@@ -17,10 +17,15 @@ extension PhotoLibraryService {
     var result = SessionLibraryResult()
     var editOutputs: [String: PHContentEditingOutput] = [:]
     for (photoID, staged) in changes.edits {
-      if let output = await editRenderer.output(for: staged.edit, of: staged.asset) {
-        editOutputs[photoID] = output
-      } else {
-        result.failedEditIDs.insert(photoID)
+      #if DEBUG
+        if EditFailureSimulation.shouldFail(assetIdentifier: staged.asset.localIdentifier) {
+          result.failedEdits[photoID] = .unknown
+          continue
+        }
+      #endif
+      switch await editRenderer.output(for: staged.edit, of: staged.asset) {
+      case .success(let output): editOutputs[photoID] = output
+      case .failure(let reason): result.failedEdits[photoID] = reason
       }
     }
 

@@ -15,7 +15,6 @@ struct SessionChangePlan {
     deletions = deck.pendingItems
     conversions = deck.pendingConversions.filter { assets[$0.id] != nil }
     keptCount = deck.keptCount
-    editedCount = deck.pendingEdits.count
 
     // Album changes on a photo that's being deleted are moot.
     let (additions, removals) = staging.changes(excludingPhotoIDs: Set(deletions.map(\.id)))
@@ -28,5 +27,6 @@ struct SessionChangePlan {
         guard let asset = assets[photo.id], let edit = photo.activeEdit else { return }
         byID[photo.id] = AssetEdit(asset: asset, edit: edit)
       })
+    editedCount = changes.edits.count
   }
 }

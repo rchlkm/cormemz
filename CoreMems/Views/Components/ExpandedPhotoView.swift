@@ -31,6 +31,8 @@ struct ExpandedPhotoView: View {
   private let maxScale: CGFloat = 5.0
   private let doubleTapZoom: CGFloat = 2.5
   private let savedStampHold: Duration = .milliseconds(450)
+  /// Room kept clear for the editor's bars, so they sit on black rather than on the photo.
+  private let editorInsets = EdgeInsets(top: 150, leading: 16, bottom: 60, trailing: 16)
 
   private var isZoomed: Bool { scale > 1.01 }
   private var isEditing: Bool { draftEdit != nil }
@@ -38,6 +40,15 @@ struct ExpandedPhotoView: View {
   private var savedEdit: MediaEdit { photo.activeEdit ?? MediaEdit() }
   /// Viewing gestures are off in edit mode.
   private var viewingGestures: GestureMask { isEditing ? .subviews : .all }
+
+  /// The space the photo fits in: the whole screen, or between the bars in edit mode.
+  private var contentBox: CGSize {
+    let screen = UIScreen.main.bounds.size
+    guard isEditing else { return screen }
+    return CGSize(
+      width: screen.width - editorInsets.leading - editorInsets.trailing,
+      height: screen.height - editorInsets.top - editorInsets.bottom)
+  }
 
   var body: some View {
     let dismissDistance = hypot(dismissDrag.width, dismissDrag.height)
@@ -49,6 +60,8 @@ struct ExpandedPhotoView: View {
         .ignoresSafeArea()
 
       content
+        .padding(isEditing ? editorInsets : EdgeInsets())
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isEditing)
         .livePhotoLongPress(
           isEnabled: photo.isLivePhoto && !isEditing,
           assetIdentifier: photo.assetIdentifier,
@@ -113,7 +126,7 @@ struct ExpandedPhotoView: View {
       VideoPlayerCardView(assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns)
     } else {
       AdaptiveAssetImage(
-        photo: photo, fitWithin: UIScreen.main.bounds.size.turned(by: quarterTurns)
+        photo: photo, fitWithin: contentBox.turned(by: quarterTurns)
       )
       .rotated(quarterTurns: quarterTurns)
     }

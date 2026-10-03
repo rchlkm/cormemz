@@ -9,10 +9,16 @@ import SwiftUI
 /// toggles zoom as a shortcut.
 struct FullScreenPhotoView: View {
   let photo: SessionPhoto
-  /// Shows what the photo is marked for with an Undo action; the viewer closes once it runs.
-  var onUndo: (() -> Void)? = nil
+  /// Shown along the bottom under `status`, `statusDetail` and `message`.
+  var actions: [FullScreenPhotoAction] = []
+  var status: DecisionOverlay? = nil
+  var statusDetail: String? = nil
+  /// Shown until an action fails with its own message.
+  var message: String? = nil
 
   @Environment(\.dismiss) private var dismiss
+  @State private var runningActionTitle: String?
+  @State private var actionError: String?
 
   @State private var scale: CGFloat = 1.0
   @State private var lastScale: CGFloat = 1.0
@@ -48,7 +54,7 @@ struct FullScreenPhotoView: View {
       .onTapGesture(count: 2) { toggleZoom() }
     }
     .overlay(alignment: .topTrailing) { closeButton.opacity(chromeOpacity) }
-    .overlay(alignment: .bottom) { undoBar.opacity(chromeOpacity) }
+    .overlay(alignment: .bottom) { footer.opacity(chromeOpacity) }
     .statusBarHidden()
     .uiTestContainer(AccessibilityID.photoViewer)
   }
@@ -70,33 +76,67 @@ struct FullScreenPhotoView: View {
   }
 
   @ViewBuilder
-  private var undoBar: some View {
-    if let onUndo {
-      let status = photo.decision.isMarked ? DecisionOverlay(decision: photo.decision) : .edited
+  private var footer: some View {
+    if !actions.isEmpty {
       VStack(spacing: 12) {
-        Label {
-          Text(status.title).foregroundStyle(.white)
-        } icon: {
-          Image(systemName: status.icon).foregroundStyle(status.tint)
+        if let status {
+          Label {
+            Text(status.title).foregroundStyle(.white)
+          } icon: {
+            Image(systemName: status.icon).foregroundStyle(status.tint)
+          }
+          .font(.headline)
         }
-        .font(.headline)
+        if let statusDetail {
+          Text(statusDetail)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        if let shown = actionError ?? message {
+          Text(shown)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        }
 
-        Button {
-          dismiss()
-          onUndo()
-        } label: {
-          Label("Undo", systemImage: "arrow.uturn.backward")
+        ForEach(actions, id: \.title) { action in
+          Button {
+            run(action)
+          } label: {
+            if runningActionTitle == action.title {
+              ProgressView()
+            } else {
+              Label(action.title, systemImage: action.systemImage)
+            }
+          }
+          .buttonStyle(ActionButtonStyle(role: action.role))
+          .accessibilityIdentifier(action.accessibilityID)
+          .disabled(isZoomed || runningActionTitle != nil)
         }
-        .buttonStyle(ActionButtonStyle(role: .secondary))
-        .accessibilityIdentifier(AccessibilityID.photoViewerUndo)
-        .disabled(isZoomed)
       }
       .environment(\.colorScheme, .dark)
       .padding(26)
+      .padding(.top, 40)
       .frame(maxWidth: .infinity)
       .background(
-        LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
+        LinearGradient(
+          stops: [.init(color: .clear, location: 0), .init(color: .black.opacity(0.85), location: 0.35)],
+          startPoint: .top, endPoint: .bottom)
       )
+    }
+  }
+
+  private func run(_ action: FullScreenPhotoAction) {
+    runningActionTitle = action.title
+    actionError = nil
+    Task {
+      let error = await action.run()
+      runningActionTitle = nil
+      if let error {
+        actionError = error
+      } else {
+        dismiss()
+      }
     }
   }
 
@@ -164,4 +204,14 @@ struct FullScreenPhotoView: View {
       apply()
     }
   }
+}
+
+/// A button along the bottom of `FullScreenPhotoView`.
+struct FullScreenPhotoAction {
+  let title: String
+  let systemImage: String
+  var role = ActionButtonRole.secondary
+  let accessibilityID: String
+  /// Returns a message to show if it failed; the viewer closes once it succeeds.
+  let run: () async -> String?
 }

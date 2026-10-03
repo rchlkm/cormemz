@@ -296,4 +296,113 @@ struct ApplyChangesTests {
     #expect(h.stats.stats.mediaEdited == 1)
     #expect(h.stats.stats.sessionsCompleted == 1)
   }
+
+  @Test func aFailedEditIsListedWithItsDecisionAndReason() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+    h.library.editFailureReason = .needsDownload
+
+    await h.vm.applyChanges()
+
+    let failure = h.vm.failedEdits.first
+    #expect(h.vm.failedEdits.map(\.id) == [SessionHarness.photoID(1)])
+    #expect(failure?.photo.decision == .keep)
+    #expect(failure?.photo.activeEdit?.quarterTurns == 1)
+    #expect(failure?.reason == .needsDownload)
+    #expect(failure?.attempts == 1)
+  }
+
+  @Test func retryingAFailedEditWritesOnlyThatEditAndCountsIt() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(1)])
+
+    #expect(stillFailing.isEmpty)
+    #expect(h.library.appliedChanges.last?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+    #expect(h.library.appliedChanges.last?.deletions.isEmpty == true)
+    #expect(h.vm.failedEdits.isEmpty)
+    #expect(h.vm.editedCount == 2)
+    #expect(h.stats.stats.mediaEdited == 2)
+  }
+
+  @Test func anEditThatFailsAgainStaysListedWithItsNewReasonAndAttempt() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.editFailureReason = .needsDownload
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .needsDownload])
+    #expect(h.vm.failedEdits.first?.reason == .needsDownload)
+    #expect(h.vm.failedEdits.first?.attempts == 2)
+    #expect(h.vm.editedCount == 0)
+    #expect(h.stats.stats.mediaEdited == 0)
+  }
+
+  @Test func decliningTheRetryPromptIsReportedAsDeclined() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+    h.library.applyFailure = PHPhotosError(.userCancelled)
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .declined])
+    #expect(h.vm.failedEdits.first?.reason == .declined)
+  }
+
+  @Test func aRejectedRetryKeepsTheEditListed() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+    h.library.applyFailure = LibraryTestError.rejected
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .unknown])
+    #expect(h.vm.failedEdits.count == 1)
+  }
+
+  @Test func discardingAFailedEditDropsItWithoutTouchingTheLibrary() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0), SessionHarness.photoID(1)]
+    await h.vm.applyChanges()
+    let applies = h.library.appliedChanges.count
+
+    h.vm.discardFailedEdit(photoID: SessionHarness.photoID(0))
+
+    #expect(h.vm.failedEdits.map(\.id) == [SessionHarness.photoID(1)])
+    #expect(h.library.appliedChanges.count == applies)
+    #expect(h.vm.editedCount == 0)
+  }
+
+  @Test func aFailedEditGetsTheFailureFeedbackInsteadOfTheCompletionOne() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+
+    await h.vm.applyChanges()
+
+    #expect(h.haptics.editFailedCount == 1)
+    #expect(h.haptics.sessionCompleteCallCount == 0)
+  }
+
+  @Test func retryFeedbackFollowsTheOutcome() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    let keepsBefore = h.haptics.keepCallCount
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+    #expect(h.haptics.editFailedCount == 2)
+
+    h.library.photoIDsWithFailedEdit = []
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+    #expect(h.haptics.keepCallCount == keepsBefore + 1)
+  }
 }

@@ -9,8 +9,11 @@ struct CompletionView: View {
   let missingAlbumCount: Int
   let convertedCount: Int
   let editedCount: Int
-  /// Edits left out because they couldn't be rendered.
-  let failedEditCount: Int
+  /// Edits that couldn't be saved, offered for a retry.
+  let failedEdits: [FailedEdit]
+  /// Returns the edits still failing.
+  let onRetryEdits: ([String]) async -> [String: EditFailureReason]
+  let onDiscardEdit: (String) -> Void
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
   let decidedPhotoCount: Int
@@ -62,14 +65,8 @@ struct CompletionView: View {
               .foregroundStyle(.secondary)
               .multilineTextAlignment(.center)
           }
-          if failedEditCount > 0 {
-            Text(
-              "\(failedEditCount) edit\(failedEditCount == 1 ? "" : "s") couldn't be saved — "
-                + "the original\(failedEditCount == 1 ? " was" : "s were") left unchanged."
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+          if !failedEdits.isEmpty {
+            FailedEditsCard(failures: failedEdits, onRetry: onRetryEdits, onDiscard: onDiscardEdit)
           }
           if missingAlbumCount > 0 {
             Text(
@@ -119,7 +116,9 @@ struct CompletionView: View {
     missingAlbumCount: 1,
     convertedCount: 1,
     editedCount: 2,
-    failedEditCount: 0,
+    failedEdits: [],
+    onRetryEdits: { _ in [:] },
+    onDiscardEdit: { _ in },
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
     decidedPhotoCount: 1_206,

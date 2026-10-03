@@ -33,6 +33,11 @@ struct LifetimeSessionStats: Codable {
     sessionsCompleted += 1
   }
 
+  mutating func recordEdits(_ count: Int) {
+    startTrackingIfNeeded()
+    mediaEdited += count
+  }
+
   mutating func recordLivePhotoConversion(bytesSaved: Int64) {
     startTrackingIfNeeded()
     livePhotosConverted += 1
@@ -71,6 +76,9 @@ protocol LifetimeStatsServicing {
     -> LifetimeSessionStats
   @discardableResult
   func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats
+  /// Adds edits written after their session was recorded.
+  @discardableResult
+  func recordEdits(_ count: Int) -> LifetimeSessionStats
   func clear()
 }
 
@@ -117,6 +125,14 @@ final class LifetimeStatsService: LifetimeStatsServicing {
     return stats
   }
 
+  @discardableResult
+  func recordEdits(_ count: Int) -> LifetimeSessionStats {
+    var stats = currentStats()
+    stats.recordEdits(count)
+    save(stats)
+    return stats
+  }
+
   func clear() {
     try? FileManager.default.removeItem(at: fileURL)
   }
@@ -143,6 +159,12 @@ final class LifetimeStatsService: LifetimeStatsServicing {
     @discardableResult
     func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats {
       stats.recordLivePhotoConversion(bytesSaved: bytesSaved)
+      return stats
+    }
+
+    @discardableResult
+    func recordEdits(_ count: Int) -> LifetimeSessionStats {
+      stats.recordEdits(count)
       return stats
     }
 

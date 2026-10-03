@@ -28,8 +28,9 @@ final class SessionViewModel: ObservableObject {
   /// Staged album adds/removes from this apply that no-op'd because the album no longer
   /// existed by the time the session was applied.
   @Published private(set) var missingAlbumCount: Int = 0
-  /// Edits from this apply left out because they couldn't be rendered.
-  @Published private(set) var failedEditCount: Int = 0
+  /// Edits from this apply that couldn't be saved, kept for a retry.
+  @Published private(set) var failedEdits: [FailedEdit] = []
+  var failedEditCount: Int { failedEdits.count }
   @Published var deletedCount: Int = 0
   @Published private(set) var applyState: ApplyState = .idle
   var isDeleting: Bool { applyState == .applying }
@@ -272,7 +273,7 @@ final class SessionViewModel: ObservableObject {
     convertedLivePhotoCount = 0
     convertedBytesSaved = 0
     editedCount = 0
-    failedEditCount = 0
+    failedEdits = []
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
@@ -713,7 +714,8 @@ final class SessionViewModel: ObservableObject {
     }
     editedCount = plan.editedCount - failedEditCount
 
-    haptics.sessionComplete()
+    // A failed edit needs attention, so it takes the place of the completion feedback.
+    if failedEdits.isEmpty { haptics.sessionComplete() } else { haptics.editFailed() }
     screen = .completion
     persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
@@ -742,7 +744,9 @@ final class SessionViewModel: ObservableObject {
       }
       albumAssignedCount = plan.changes.albumAdditions.count
       missingAlbumCount = applied.outcome.missingAlbumIdentifiers.count
-      failedEditCount = applied.outcome.failedEditIDs.count
+      failedEdits = deck.photos.compactMap { photo in
+        applied.outcome.failedEdits[photo.id].map { FailedEdit(photo: photo, reason: $0) }
+      }
       albumStaging.clearStaged()
       deletedCount = plan.deletions.count
       deletedBytes = applied.bytesDeleted
@@ -762,6 +766,50 @@ final class SessionViewModel: ObservableObject {
       }
       return false
     }
+  }
+
+  /// Writes the failed edits among `photoIDs` again, as one transaction. Each one written
+  /// leaves `failedEdits` and counts as edited; the rest record why they failed this time.
+  /// Returns those still failing.
+  @discardableResult
+  func retryEdits(photoIDs: [String]) async -> [String: EditFailureReason] {
+    let edits: [String: AssetEdit] = failedEdits.reduce(into: [:]) { byID, failed in
+      guard photoIDs.contains(failed.id), let asset = pickedAssets[failed.id],
+        let edit = failed.photo.activeEdit
+      else { return }
+      byID[failed.id] = AssetEdit(asset: asset, edit: edit)
+    }
+    guard !edits.isEmpty else { return [:] }
+
+    let failures: [String: EditFailureReason]
+    switch await applyService.apply(SessionLibraryChanges(edits: edits)) {
+    case .success(let applied):
+      failures = applied.outcome.failedEdits
+    case .failure(let error):
+      let declined = (error as? PHPhotosError)?.code == .userCancelled
+      failures = edits.mapValues { _ in declined ? .declined : .unknown }
+    }
+
+    let written = Set(edits.keys).subtracting(failures.keys)
+    failedEdits = failedEdits.compactMap { failed in
+      guard !written.contains(failed.id) else { return nil }
+      guard let reason = failures[failed.id] else { return failed }
+      var retried = failed
+      retried.reason = reason
+      retried.attempts += 1
+      return retried
+    }
+    if !written.isEmpty {
+      editedCount += written.count
+      statsStore.recordEdits(written.count)
+    }
+    if failures.isEmpty { haptics.keep() } else { haptics.editFailed() }
+    return failures
+  }
+
+  /// Gives up on a failed edit; its photo stays as it is in the library.
+  func discardFailedEdit(photoID: String) {
+    failedEdits.removeAll { $0.id == photoID }
   }
 
   /// Remembers the session's kept photos so later sessions skip them.

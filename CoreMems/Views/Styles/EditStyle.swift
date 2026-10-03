@@ -7,3 +7,26 @@ enum EditStyle {
   static let symbol = "slider.horizontal.3"
   static let tint = Color.orange
 }
+
+extension MediaEdit {
+  /// What the edit changes, for labels like "Kept · Rotated 90°".
+  var summary: String {
+    var parts: [String] = []
+    if quarterTurns != 0 { parts.append("Rotated \(quarterTurns * 90)°") }
+    if trimRange != nil { parts.append("Trimmed") }
+    return parts.joined(separator: ", ")
+  }
+}
+
+extension EditFailureReason {
+  var message: String {
+    switch self {
+    case .needsDownload:
+      return "The original is in iCloud and downloads are paused. Connect to Wi‑Fi or allow downloads, then try again."
+    case .declined:
+      return "Photos asked for permission and it was declined. Try again and allow it."
+    case .unknown:
+      return "Photos couldn't save this edit."
+    }
+  }
+}
