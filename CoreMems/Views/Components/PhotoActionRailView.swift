@@ -22,7 +22,7 @@ struct PhotoActionRailView: View {
   var isLoadingAlbumData: Bool = false
   let onToggleFavorite: () -> Void
 
-  /// Keeps the photo out of the decided history so a later session shows it again.
+  /// Keeps the photo out of the kept history so a later session shows it again.
   let onToggleHeldForLater: () -> Void
 
   /// Shows or hides the album quick strip.

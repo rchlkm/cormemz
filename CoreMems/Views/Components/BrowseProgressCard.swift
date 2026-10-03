@@ -3,23 +3,23 @@ import SwiftUI
 
 /// How much of the library has been kept.
 struct BrowseProgressCard: View {
-  let decided: Int
+  let kept: Int
   let total: Int
 
   /// 0...1; zero when the library is empty.
-  static func fraction(decided: Int, total: Int) -> Double {
+  static func fraction(kept: Int, total: Int) -> Double {
     guard total > 0 else { return 0 }
-    return min(max(Double(decided) / Double(total), 0), 1)
+    return min(max(Double(kept) / Double(total), 0), 1)
   }
 
-  private var fraction: Double { Self.fraction(decided: decided, total: total) }
+  private var fraction: Double { Self.fraction(kept: kept, total: total) }
 
-  private var shownDecided: Int { min(decided, total) }
+  private var shownKept: Int { min(kept, total) }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("Kept in library")
+        Text("Reviewed in library")
           .font(.headline)
         Spacer()
         Text(total > 0 ? fraction.formatted(.percent.precision(.fractionLength(0))) : "–")
@@ -27,7 +27,7 @@ struct BrowseProgressCard: View {
           .monospacedDigit()
       }
       bar
-      Text("\(shownDecided.formatted()) of \(total.formatted()) photos")
+      Text("\(shownKept.formatted()) of \(total.formatted()) photos")
         .font(.footnote)
         .foregroundStyle(.secondary)
     }
@@ -51,7 +51,7 @@ struct BrowseProgressCard: View {
 }
 
 #Preview {
-  BrowseProgressCard(decided: 1_206, total: 3_100)
+  BrowseProgressCard(kept: 1_206, total: 3_100)
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
 }

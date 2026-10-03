@@ -7,17 +7,17 @@ import Testing
 @Suite("Starting a session")
 @MainActor
 struct StartSessionTests {
-  private func harness(assetCount: Int, decided: Set<Int> = []) -> SessionHarness {
+  private func harness(assetCount: Int, kept: Set<Int> = []) -> SessionHarness {
     let library = RecordingPhotoLibrary()
     library.assets = (0..<assetCount).map { FakeAsset(identifier: SessionHarness.assetID($0)) }
     let h = SessionHarness(library: library)
-    h.decidedStore.markDecided(Set(decided.map(SessionHarness.assetID)))
+    h.keptStore.markKept(Set(kept.map(SessionHarness.assetID)))
     h.vm.eligiblePhotoCount = assetCount
     return h
   }
 
   @Test func photosKeptInEarlierSessionsAreSkipped() async {
-    let h = harness(assetCount: 3, decided: [0])
+    let h = harness(assetCount: 3, kept: [0])
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 
@@ -32,17 +32,17 @@ struct StartSessionTests {
     #expect(h.vm.photos.map(\.id) == h.vm.photos.map(\.assetIdentifier))
   }
 
-  @Test func decidedPhotosCanBeIncluded() async {
-    let h = harness(assetCount: 3, decided: [0])
-    h.vm.includesDecidedPhotos = true
+  @Test func keptPhotosCanBeIncluded() async {
+    let h = harness(assetCount: 3, kept: [0])
+    h.vm.includesKeptPhotos = true
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 
     #expect(h.vm.photos.count == 3)
   }
 
-  @Test func aLibraryDecidedInFullIsShownAgainRatherThanEmpty() async {
-    let h = harness(assetCount: 3, decided: [0, 1, 2])
+  @Test func aLibraryKeptInFullIsShownAgainRatherThanEmpty() async {
+    let h = harness(assetCount: 3, kept: [0, 1, 2])
 
     await h.vm.startSession(mode: .recent, startDate: nil)
 

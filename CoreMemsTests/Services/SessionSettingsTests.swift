@@ -14,7 +14,7 @@ struct SessionSettingsTests {
     let settings = SessionSettings(defaults: makeDefaults())
 
     #expect(settings.checkInInterval == SessionSettings.defaultCheckInInterval)
-    #expect(!settings.includesDecidedPhotos)
+    #expect(!settings.includesKeptPhotos)
     #expect(settings.networkPolicy == .wifiAndCellular)
     #expect(settings.defaultSessionMode == .shuffle)
   }
@@ -24,13 +24,13 @@ struct SessionSettingsTests {
     var settings = SessionSettings(defaults: defaults)
 
     settings.checkInInterval = 30
-    settings.includesDecidedPhotos = true
+    settings.includesKeptPhotos = true
     settings.networkPolicy = .wifiOnly
     settings.defaultSessionMode = .album
 
     let reloaded = SessionSettings(defaults: defaults)
     #expect(reloaded.checkInInterval == 30)
-    #expect(reloaded.includesDecidedPhotos)
+    #expect(reloaded.includesKeptPhotos)
     #expect(reloaded.networkPolicy == .wifiOnly)
     #expect(reloaded.defaultSessionMode == .album)
   }

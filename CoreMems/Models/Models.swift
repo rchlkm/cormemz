@@ -49,7 +49,7 @@ struct SessionPhoto: Identifiable, Equatable {
   /// PhotoKit videos (including timelapses) are never Live Photos, so this and
   /// `isLivePhoto` are mutually exclusive.
   var isVideo: Bool = false
-  /// Held photos aren't remembered as decided, so later sessions offer them again.
+  /// Held photos aren't remembered as kept, so later sessions offer them again.
   var isHeldForLater: Bool = false
   var dateLabel: String = ""
 

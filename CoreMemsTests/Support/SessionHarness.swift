@@ -12,7 +12,7 @@ struct SessionHarness {
   let persistence: MockSessionPersistence
   let haptics: MockHapticsService
   let stats: MockLifetimeStatsService
-  let decidedStore: DecidedPhotosStore
+  let keptStore: KeptPhotosStore
 
   init(
     library: RecordingPhotoLibrary? = nil,
@@ -26,16 +26,16 @@ struct SessionHarness {
     network = FakeNetworkAccess(allowsDownloads: allowsDownloads)
     haptics = MockHapticsService()
     stats = MockLifetimeStatsService()
-    decidedStore = DecidedPhotosStore(
+    keptStore = KeptPhotosStore(
       fileURL: FileManager.default.temporaryDirectory
-        .appendingPathComponent("decided-\(UUID().uuidString).json"))
+        .appendingPathComponent("kept-\(UUID().uuidString).json"))
     vm = SessionViewModel(
       library: library,
       persistence: persistence,
       haptics: haptics,
       statsStore: stats,
       pinnedAlbumsStore: MockPinnedAlbumsStore(),
-      decidedPhotosStore: decidedStore,
+      keptPhotosStore: keptStore,
       settings: SessionSettings(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!),
       imageLoader: PhotoImageLoader { @Sendable _, _ in nil },
       networkAccess: network)

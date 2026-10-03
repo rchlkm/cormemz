@@ -10,7 +10,7 @@ struct CompletionView: View {
   let convertedCount: Int
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
-  let decidedPhotoCount: Int
+  let keptPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
 
@@ -67,7 +67,7 @@ struct CompletionView: View {
           if deletedBytes + convertedBytesSaved > 0 {
             SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
           }
-          BrowseProgressCard(decided: decidedPhotoCount, total: libraryPhotoCount)
+          BrowseProgressCard(kept: keptPhotoCount, total: libraryPhotoCount)
         }
         .padding(.horizontal, 16)
         .padding(.top, 48)
@@ -102,7 +102,7 @@ struct CompletionView: View {
     convertedCount: 1,
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
-    decidedPhotoCount: 1_206,
+    keptPhotoCount: 1_206,
     libraryPhotoCount: 3_100,
     onAgain: {})
 }

@@ -2,7 +2,11 @@
 import Foundation
 
 struct LifetimeSessionStats: Codable {
-  var totalDecided = 0
+  /// Bump when the stored shape changes; lets a future migration branch on
+  /// what it's actually reading instead of guessing from which keys are present.
+  static let currentSchemaVersion = 1
+
+  var schemaVersion = Self.currentSchemaVersion
   var totalKept = 0
   var totalDeleted = 0
   var bytesDeleted: Int64 = 0
@@ -11,6 +15,10 @@ struct LifetimeSessionStats: Codable {
   var sessionsCompleted = 0
   var trackingSince: Date?
 
+  /// Every decision made, kept or deleted. Derived, never stored, so it can't
+  /// drift out of sync with `totalKept`/`totalDeleted`.
+  var totalDecided: Int { totalKept + totalDeleted }
+
   var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
 
   /// Kept photos left as they were; conversions are also counted in `totalKept`.
@@ -18,7 +26,6 @@ struct LifetimeSessionStats: Codable {
 
   mutating func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
-    totalDecided += kept + deleted
     totalKept += kept
     totalDeleted += deleted
     self.bytesDeleted += bytesDeleted
@@ -34,14 +41,12 @@ struct LifetimeSessionStats: Codable {
   private mutating func startTrackingIfNeeded() {
     if trackingSince == nil { trackingSince = Date() }
   }
-
 }
 
 /// Decodes missing keys as zero so stats saved by earlier versions still load.
 extension LifetimeSessionStats {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    totalDecided = try container.decodeIfPresent(Int.self, forKey: .totalDecided) ?? 0
     totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
     totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
     bytesDeleted = try container.decodeIfPresent(Int64.self, forKey: .bytesDeleted) ?? 0

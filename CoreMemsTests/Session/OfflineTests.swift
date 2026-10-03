@@ -77,7 +77,7 @@ struct OfflineTests {
     await h.vm.applyChanges()
 
     #expect(
-      h.decidedStore.decidedIdentifiers()
+      h.keptStore.keptIdentifiers()
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
   }
 
