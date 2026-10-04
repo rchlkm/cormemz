@@ -25,14 +25,9 @@ struct VideoTrimBar: View {
 
   var body: some View {
     VStack(spacing: 6) {
-      Text(playback.position.clockText)
-        .font(.caption.monospacedDigit())
+      PlaybackTimeLabel(seconds: playback.position)
       HStack(spacing: 10) {
-        Button(action: playback.togglePlayback) {
-          Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
-        }
-        .buttonStyle(IconButtonStyle(size: .small, surface: .bare(.white)))
-        .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
+        PlayPauseButton(playback: playback, surface: .bare(.white))
         timeline
       }
     }

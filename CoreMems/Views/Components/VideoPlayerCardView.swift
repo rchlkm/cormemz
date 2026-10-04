@@ -43,14 +43,10 @@ struct VideoPlayerCardView: View {
 
   private var transportBar: some View {
     HStack(spacing: 10) {
-      Button(action: playback.togglePlayback) {
-        Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
-      }
-      .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
-
-      timeLabel(playback.position)
+      PlayPauseButton(playback: playback, surface: .scrim)
+      PlaybackTimeLabel(seconds: playback.position)
       ScrubBar(progress: scrubBinding, isScrubbing: $playback.isScrubbing)
-      timeLabel(playback.duration)
+      PlaybackTimeLabel(seconds: playback.duration)
 
       Button(action: playback.toggleMute) {
         Image(systemName: playback.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
@@ -63,13 +59,6 @@ struct VideoPlayerCardView: View {
     .background(
       LinearGradient(colors: [.clear, .black.opacity(0.5)], startPoint: .top, endPoint: .bottom)
     )
-  }
-
-  private func timeLabel(_ seconds: Double) -> some View {
-    Text(seconds.clockText)
-      .font(.caption.monospacedDigit())
-      .foregroundStyle(.white)
-      .shadow(radius: 2)
   }
 
   /// Reads the live playback position as a fraction; writes seek to wherever the scrub bar
