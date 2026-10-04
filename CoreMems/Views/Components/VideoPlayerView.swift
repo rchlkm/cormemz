@@ -1,4 +1,4 @@
-// CoreMems/Views/Components/VideoPlayerCardView.swift
+// CoreMems/Views/Components/VideoPlayerView.swift
 import AVFoundation
 import SwiftUI
 
@@ -6,7 +6,7 @@ import SwiftUI
 /// mute toggle, and a scrub bar between the current time and the length.
 /// Loads through `playback`, which controls outside the player can share,
 /// analogous to how `LivePhotoPlayerView` is fed an already-loaded `PHLivePhoto`.
-struct VideoPlayerCardView: View {
+struct VideoPlayerView: View {
   @ObservedObject var playback: VideoPlayback
   let assetIdentifier: String
   /// Counterclockwise quarter turns applied to the picture; the controls stay upright.

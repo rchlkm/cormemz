@@ -135,20 +135,12 @@ struct ExpandedPhotoView: View {
     .uiTestContainer(AccessibilityID.expandedPhoto)
   }
 
-  @ViewBuilder
   private var content: some View {
-    if isShowingLivePhoto, let inlineLivePhoto {
-      LivePhotoPlayerView(
-        livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false }
-      )
-      .rotated(quarterTurns: quarterTurns)
-    } else if photo.isVideo {
-      VideoPlayerCardView(
-        playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
-        playbackRange: trimRange, showsTransport: !showsTrimBar)
-    } else {
-      AdaptiveAssetImage(photo: photo, fitWithin: contentBox, quarterTurns: quarterTurns)
-    }
+    PhotoCardView(
+      photo: photo, maxSize: contentBox, quarterTurns: quarterTurns, playbackRange: trimRange,
+      playback: playback, showsTransport: !showsTrimBar,
+      livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
+      onLivePhotoEnded: { isShowingLivePhoto = false })
   }
 
   private var editButton: some View {

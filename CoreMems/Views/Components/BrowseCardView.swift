@@ -22,6 +22,8 @@ struct BrowseCardView: View {
   @State private var showMetadata = false
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
+  /// Held without observing it, so only the views showing playback redraw as it plays.
+  @State private var playback = VideoPlayback()
 
   private static let topBarHeight: CGFloat = 60
   private static let decisionTagGap: CGFloat = 8
@@ -81,19 +83,13 @@ struct BrowseCardView: View {
   }
 
   private var cardForeground: some View {
-    Group {
-      if isShowingLivePhoto, let inlineLivePhoto {
-        LivePhotoPlayerView(
-          livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false }
-        )
-        .aspectRatio(inlineLivePhoto.size, contentMode: .fit)
-        .rotated(quarterTurns: subject.previewQuarterTurns)
-        .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
-      } else {
-        PhotoCardView(photo: photo, maxSize: maxSize)
-          .matchedGeometryEffect(id: photo.id, in: namespace)
-      }
-    }
+    PhotoCardView(
+      photo: photo, maxSize: maxSize, quarterTurns: photo.previewQuarterTurns,
+      playbackRange: photo.activeEdit?.trimRange, playback: playback,
+      livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
+      onLivePhotoEnded: { isShowingLivePhoto = false }
+    )
+    .matchedGeometryEffect(id: photo.id, in: namespace)
     .livePhotoLongPress(
       isEnabled: subject.isLivePhoto,
       assetIdentifier: subject.assetIdentifier,

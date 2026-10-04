@@ -1,30 +1,38 @@
 // CoreMems/Views/Components/PhotoCardView.swift
+import PhotosUI
 import SwiftUI
 
-/// Renders a single photo at its own aspect ratio, letterboxed within
-/// `maxSize` — never cropped, never padded to a fixed shape. This view
-/// is intentionally dumb: no gestures, no overlays, no session state.
-/// All of the browse card's chrome (date, info, add-to-album,
-/// favorite/Live Photo badges, swipe handling) lives one level up in
-/// `BrowseCardView`, which wraps this and sizes itself around whatever
-/// this view reports back.
+/// Renders one photo, video or playing Live Photo at its own aspect ratio, letterboxed
+/// within `maxSize` — never cropped, never padded to a fixed shape. It has no gestures,
+/// overlays or session state; callers supply the turn, trim range and playback to show.
+/// The browse card passes the saved edit's values and the full-screen editor the draft's.
 struct PhotoCardView: View {
   let photo: SessionPhoto
   let maxSize: CGSize
-
-  /// Held without observing it, so only the views showing playback redraw as it plays.
-  @State private var playback = VideoPlayback()
+  let quarterTurns: Int
+  let playbackRange: ClosedRange<Double>?
+  /// Held by the caller so controls outside the player, such as the trim bar, can drive it.
+  let playback: VideoPlayback
+  /// Off when other controls stand in for the video's transport bar.
+  var showsTransport = true
+  /// The Live Photo to play in place of the still; `nil` shows the still.
+  var livePhoto: PHLivePhoto?
+  var onLivePhotoEnded: () -> Void = {}
 
   var body: some View {
-    let quarterTurns = photo.previewQuarterTurns
-    if photo.isVideo {
-      VideoPlayerCardView(
+    if let livePhoto {
+      LivePhotoPlayerView(livePhoto: livePhoto, onPlaybackEnded: onLivePhotoEnded)
+        .aspectRatio(livePhoto.size, contentMode: .fit)
+        .rotated(quarterTurns: quarterTurns)
+        .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
+    } else if photo.isVideo {
+      VideoPlayerView(
         playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
-        playbackRange: photo.activeEdit?.trimRange
+        playbackRange: playbackRange, showsTransport: showsTransport
       )
       .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {
-      AdaptiveAssetImage(photo: photo, fitWithin: maxSize)
+      AdaptiveAssetImage(photo: photo, fitWithin: maxSize, quarterTurns: quarterTurns)
     }
   }
 }
