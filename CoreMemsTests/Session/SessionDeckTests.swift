@@ -226,6 +226,44 @@ struct SessionDeckTests {
     #expect(deck.currentIndex == 1)
   }
 
+  @Test func anEditIsPendingWhateverTheDecisionUnlessMarked() {
+    var deck = makeDeck(count: 4, liveIndexes: [3])
+    var edit = MediaEdit()
+    edit.rotate()
+    for id in ["p0", "p1", "p2", "p3"] { deck.setEdit(edit, photoID: id) }
+
+    deck.record(index: 1, decision: .keep)
+    deck.record(index: 2, decision: .pendingDelete)
+    deck.record(index: 3, decision: .convertToStill)
+
+    #expect(deck.pendingEdits.map(\.id) == ["p0", "p1"])
+    #expect(deck.markedPhotos.map(\.id) == ["p0", "p1", "p2", "p3"])
+    #expect(deck.keptCount == 2)
+  }
+
+  @Test func settingAnEditOutsideTheDeckIsIgnored() {
+    var deck = makeDeck()
+
+    let found = deck.setEdit(MediaEdit(), photoID: "missing")
+
+    #expect(!found)
+  }
+
+  @Test func restoringAnEditedPhotoDiscardsItsEdit() {
+    var deck = makeDeck()
+    var edit = MediaEdit()
+    edit.rotate()
+    deck.setEdit(edit, photoID: "p0")
+    deck.record(index: 0, decision: .keep)
+
+    let restored = deck.restoreMarkedToKeep(ids: ["p0"])
+
+    #expect(restored)
+    #expect(deck.photos[0].decision == .keep)
+    #expect(deck.photos[0].edit == nil)
+    #expect(deck.history.count == 1)
+  }
+
   @Test func removingEveryDecidedPhotoLeavesAnExhaustedDeckExhausted() {
     var deck = makeDeck(count: 2)
     deck.record(index: 0, decision: .pendingDelete)

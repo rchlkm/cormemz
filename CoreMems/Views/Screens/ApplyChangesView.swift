@@ -11,17 +11,33 @@ struct ApplyChangesView: View {
     case all = "All"
     case delete = "Delete"
     case convert = "Convert"
+    case edit = "Edited"
     var id: String { rawValue }
+
+    /// The summary shown when this is the only kind of change; `nil` for `.all`.
+    func summary(count: Int) -> (title: String, symbol: String, tint: Color)? {
+      switch self {
+      case .all: return nil
+      case .delete: return ("\(count) to delete", "trash", Decision.pendingDelete.tint)
+      case .convert:
+        return ("\(count) to convert", "livephoto.slash", Decision.convertToStill.tint)
+      case .edit: return ("\(count) edited", EditStyle.symbol, EditStyle.tint)
+      }
+    }
   }
 
   private var items: [SessionPhoto] { vm.pendingItems }
   private var conversions: [SessionPhoto] { vm.pendingConversions }
-  private var marked: [SessionPhoto] { items + conversions }
+  private var marked: [SessionPhoto] { items + conversions + vm.pendingEdits }
   private var hasItems: Bool { !items.isEmpty }
   private var favoritesCount: Int { items.filter(\.isFavorite).count }
 
-  /// Only offered when both kinds are present; otherwise everything is shown.
-  private var showsFilter: Bool { hasItems && !conversions.isEmpty }
+  /// "All" plus each kind of change present.
+  private var filters: [Filter] {
+    Filter.allCases.filter { $0 == .all || !photos(for: $0).isEmpty }
+  }
+  /// Only offered when more than one kind is present; otherwise everything is shown.
+  private var showsFilter: Bool { filters.count > 2 }
   private var activeFilter: Filter { showsFilter ? filter : .all }
 
   private func photos(for filter: Filter) -> [SessionPhoto] {
@@ -29,6 +45,7 @@ struct ApplyChangesView: View {
     case .all: return marked
     case .delete: return items
     case .convert: return conversions
+    case .edit: return vm.pendingEdits
     }
   }
 
@@ -92,7 +109,7 @@ struct ApplyChangesView: View {
   private var pages: some View {
     if showsFilter {
       TabView(selection: $filter) {
-        ForEach(Filter.allCases) { option in
+        ForEach(filters) { option in
           gridPage(photos(for: option)).tag(option)
         }
       }
@@ -126,17 +143,15 @@ struct ApplyChangesView: View {
     VStack(alignment: .leading, spacing: 8) {
       if showsFilter {
         filterPicker
-      } else if hasItems {
-        summaryLabel("\(items.count) to delete", symbol: "trash", decision: .pendingDelete)
-      } else {
-        summaryLabel(
-          "\(conversions.count) to convert", symbol: "livephoto.slash",
-          decision: .convertToStill)
+      } else if let summary = filters.last?.summary(count: marked.count) {
+        summaryLabel(summary.title, symbol: summary.symbol, tint: summary.tint)
       }
-      Text("Deleted items stay in Recently Deleted for 30 days.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-      if favoritesCount > 0 && activeFilter != .convert {
+      if hasItems || !conversions.isEmpty {
+        Text("Deleted items stay in Recently Deleted for 30 days.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+      if favoritesCount > 0 && (activeFilter == .all || activeFilter == .delete) {
         Label(
           "\(favoritesCount) \(favoritesCount == 1 ? "is" : "are") marked as a favorite",
           systemImage: "heart.fill"
@@ -151,20 +166,18 @@ struct ApplyChangesView: View {
 
   private var filterPicker: some View {
     Picker("Show", selection: $filter) {
-      ForEach(Filter.allCases) { option in
+      ForEach(filters) { option in
         Text("\(option.rawValue) \(photos(for: option).count)").tag(option)
       }
     }
     .pickerStyle(.segmented)
   }
 
-  private func summaryLabel(_ title: String, symbol: String, decision: Decision)
-    -> some View
-  {
+  private func summaryLabel(_ title: String, symbol: String, tint: Color) -> some View {
     Label {
       Text(title)
     } icon: {
-      Image(systemName: symbol).foregroundStyle(decision.tint)
+      Image(systemName: symbol).foregroundStyle(tint)
     }
     .font(.title3.bold())
   }

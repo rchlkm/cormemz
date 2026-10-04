@@ -52,6 +52,7 @@ private final class LibraryChangeObserver: NSObject, PHPhotoLibraryChangeObserve
 final class PhotoLibraryService: PhotoLibraryServicing {
   private let chronologicalImages = ChronologicalImages()
   let networkAccess: NetworkAccessProviding
+  let editRenderer: MediaEditRenderer
 
   /// Matches the largest size a photo is ever actually rendered at
   /// (`ExpandedPhotoView`'s full-screen `AdaptiveAssetImage`), so a photo that
@@ -66,6 +67,11 @@ final class PhotoLibraryService: PhotoLibraryServicing {
 
   init(networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
     self.networkAccess = networkAccess
+    editRenderer = MediaEditRenderer(networkAccess: networkAccess)
+  }
+
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset) {
+    Task { await editRenderer.prepare(edit, for: asset) }
   }
 
   func observeLibraryChanges(_ handler: @escaping () -> Void) -> AnyObject {

@@ -12,6 +12,8 @@ struct LifetimeSessionStats: Codable {
   var bytesDeleted: Int64 = 0
   var livePhotosConverted = 0
   var bytesSavedByConversion: Int64 = 0
+  var bytesSavedByTrimming: Int64 = 0
+  var mediaEdited = 0
   var sessionsCompleted = 0
   var trackingSince: Date?
 
@@ -19,23 +21,35 @@ struct LifetimeSessionStats: Codable {
   /// drift out of sync with `totalKept`/`totalDeleted`.
   var totalDecided: Int { totalKept + totalDeleted }
 
-  var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion }
+  var bytesCleaned: Int64 { bytesDeleted + bytesSavedByConversion + bytesSavedByTrimming }
 
   /// Kept photos left as they were; conversions are also counted in `totalKept`.
   var keptUnchanged: Int { max(totalKept - livePhotosConverted, 0) }
 
-  mutating func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) {
+  /// `edited` counts edits written, which apply to photos whatever their decision.
+  mutating func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64) {
     startTrackingIfNeeded()
     totalKept += kept
     totalDeleted += deleted
+    mediaEdited += edited
     self.bytesDeleted += bytesDeleted
     sessionsCompleted += 1
+  }
+
+  mutating func recordEdits(_ count: Int) {
+    startTrackingIfNeeded()
+    mediaEdited += count
   }
 
   mutating func recordLivePhotoConversion(bytesSaved: Int64) {
     startTrackingIfNeeded()
     livePhotosConverted += 1
     bytesSavedByConversion += bytesSaved
+  }
+
+  mutating func recordTrimSavings(bytes: Int64) {
+    startTrackingIfNeeded()
+    bytesSavedByTrimming += bytes
   }
 
   private mutating func startTrackingIfNeeded() {
@@ -47,12 +61,17 @@ struct LifetimeSessionStats: Codable {
 extension LifetimeSessionStats {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion =
+      try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
     totalKept = try container.decodeIfPresent(Int.self, forKey: .totalKept) ?? 0
     totalDeleted = try container.decodeIfPresent(Int.self, forKey: .totalDeleted) ?? 0
     bytesDeleted = try container.decodeIfPresent(Int64.self, forKey: .bytesDeleted) ?? 0
     livePhotosConverted = try container.decodeIfPresent(Int.self, forKey: .livePhotosConverted) ?? 0
     bytesSavedByConversion =
       try container.decodeIfPresent(Int64.self, forKey: .bytesSavedByConversion) ?? 0
+    bytesSavedByTrimming =
+      try container.decodeIfPresent(Int64.self, forKey: .bytesSavedByTrimming) ?? 0
+    mediaEdited = try container.decodeIfPresent(Int.self, forKey: .mediaEdited) ?? 0
     sessionsCompleted = try container.decodeIfPresent(Int.self, forKey: .sessionsCompleted) ?? 0
     trackingSince = try container.decodeIfPresent(Date.self, forKey: .trackingSince)
   }
@@ -61,9 +80,16 @@ extension LifetimeSessionStats {
 protocol LifetimeStatsServicing {
   func currentStats() -> LifetimeSessionStats
   @discardableResult
-  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats
+  func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats
   @discardableResult
   func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats
+  /// Adds edits written after their session was recorded.
+  @discardableResult
+  func recordEdits(_ count: Int) -> LifetimeSessionStats
+  /// Adds the space freed by trimmed videos whose originals were deleted.
+  @discardableResult
+  func recordTrimSavings(bytes: Int64) -> LifetimeSessionStats
   func clear()
 }
 
@@ -93,9 +119,10 @@ final class LifetimeStatsService: LifetimeStatsServicing {
   }
 
   @discardableResult
-  func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
+  func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats {
     var stats = currentStats()
-    stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
+    stats.recordSession(kept: kept, deleted: deleted, edited: edited, bytesDeleted: bytesDeleted)
     save(stats)
     print("[CoreMems] session stats:", stats)
     return stats
@@ -105,6 +132,22 @@ final class LifetimeStatsService: LifetimeStatsServicing {
   func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats {
     var stats = currentStats()
     stats.recordLivePhotoConversion(bytesSaved: bytesSaved)
+    save(stats)
+    return stats
+  }
+
+  @discardableResult
+  func recordEdits(_ count: Int) -> LifetimeSessionStats {
+    var stats = currentStats()
+    stats.recordEdits(count)
+    save(stats)
+    return stats
+  }
+
+  @discardableResult
+  func recordTrimSavings(bytes: Int64) -> LifetimeSessionStats {
+    var stats = currentStats()
+    stats.recordTrimSavings(bytes: bytes)
     save(stats)
     return stats
   }
@@ -126,14 +169,27 @@ final class LifetimeStatsService: LifetimeStatsServicing {
     func currentStats() -> LifetimeSessionStats { stats }
 
     @discardableResult
-    func recordSession(kept: Int, deleted: Int, bytesDeleted: Int64) -> LifetimeSessionStats {
-      stats.recordSession(kept: kept, deleted: deleted, bytesDeleted: bytesDeleted)
+    func recordSession(kept: Int, deleted: Int, edited: Int, bytesDeleted: Int64)
+    -> LifetimeSessionStats {
+      stats.recordSession(kept: kept, deleted: deleted, edited: edited, bytesDeleted: bytesDeleted)
       return stats
     }
 
     @discardableResult
     func recordLivePhotoConversion(bytesSaved: Int64) -> LifetimeSessionStats {
       stats.recordLivePhotoConversion(bytesSaved: bytesSaved)
+      return stats
+    }
+
+    @discardableResult
+    func recordEdits(_ count: Int) -> LifetimeSessionStats {
+      stats.recordEdits(count)
+      return stats
+    }
+
+    @discardableResult
+    func recordTrimSavings(bytes: Int64) -> LifetimeSessionStats {
+      stats.recordTrimSavings(bytes: bytes)
       return stats
     }
 

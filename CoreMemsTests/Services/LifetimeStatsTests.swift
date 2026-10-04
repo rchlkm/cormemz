@@ -12,11 +12,66 @@ struct LifetimeStatsTests {
     #expect(stats.keptUnchanged == 7)
   }
 
+  @Test func editsDontChangeTheKeptCount() {
+    let stats = LifetimeSessionStats(totalKept: 10, livePhotosConverted: 3, mediaEdited: 2)
+
+    #expect(stats.keptUnchanged == 7)
+  }
+
+  @Test func recordingASessionAddsItsEdits() {
+    var stats = LifetimeSessionStats()
+
+    stats.recordSession(kept: 6, deleted: 2, edited: 3, bytesDeleted: 100)
+    stats.recordSession(kept: 1, deleted: 0, edited: 1, bytesDeleted: 0)
+
+    #expect(stats.mediaEdited == 4)
+    #expect(stats.totalKept == 7)
+    #expect(stats.totalDecided == 9)
+    #expect(stats.keptUnchanged == 7)
+  }
+
+  @Test func trimSavingsAddUpAndCountTowardTheSpaceCleaned() {
+    var stats = LifetimeSessionStats(bytesDeleted: 100, bytesSavedByConversion: 20)
+
+    stats.recordTrimSavings(bytes: 30)
+    stats.recordTrimSavings(bytes: 5)
+
+    #expect(stats.bytesSavedByTrimming == 35)
+    #expect(stats.bytesCleaned == 155)
+  }
+
+  @Test func recordingTrimSavingsStartsTracking() {
+    var stats = LifetimeSessionStats()
+
+    stats.recordTrimSavings(bytes: 30)
+
+    #expect(stats.trackingSince != nil)
+  }
+
+  @Test func statsSavedWithoutTrimSavingsLoadAsZero() throws {
+    let json = Data(#"{"schemaVersion":1,"bytesDeleted":100,"bytesSavedByConversion":20}"#.utf8)
+
+    let stats = try JSONDecoder().decode(LifetimeSessionStats.self, from: json)
+
+    #expect(stats.bytesSavedByTrimming == 0)
+    #expect(stats.bytesCleaned == 120)
+  }
+
+  @Test func statsSavedWithoutAnEditedCountLoadAsZero() throws {
+    let json = Data(#"{"schemaVersion":1,"totalKept":4,"totalDecided":5}"#.utf8)
+
+    let stats = try JSONDecoder().decode(LifetimeSessionStats.self, from: json)
+
+    #expect(stats.mediaEdited == 0)
+    #expect(stats.keptUnchanged == 4)
+    #expect(stats.schemaVersion == 1)
+  }
+
   @Test func totalDecidedIsAlwaysKeptPlusDeleted() {
     var stats = LifetimeSessionStats()
 
-    stats.recordSession(kept: 3, deleted: 2, bytesDeleted: 0)
-    stats.recordSession(kept: 1, deleted: 4, bytesDeleted: 0)
+    stats.recordSession(kept: 3, deleted: 2, edited: 0, bytesDeleted: 0)
+    stats.recordSession(kept: 1, deleted: 4, edited: 0, bytesDeleted: 0)
 
     #expect(stats.totalDecided == stats.totalKept + stats.totalDeleted)
     #expect(stats.totalDecided == 10)

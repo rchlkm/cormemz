@@ -125,8 +125,13 @@ struct RootView: View {
             albumAssignedCount: vm.albumAssignedCount,
             missingAlbumCount: vm.missingAlbumCount,
             convertedCount: vm.convertedLivePhotoCount,
+            editedCount: vm.editedCount,
+            failedEdits: vm.failedEdits,
+            onRetryEdits: { await vm.retryEdits(photoIDs: $0) },
+            onDiscardEdit: { vm.discardFailedEdit(photoID: $0) },
             deletedBytes: vm.deletedBytes,
             convertedBytesSaved: vm.convertedBytesSaved,
+            trimmedBytesSaved: vm.trimmedBytesSaved,
             keptPhotoCount: vm.keptPhotoCount,
             libraryPhotoCount: vm.eligiblePhotoCount,
             onAgain: { vm.resetForAnotherSession() }

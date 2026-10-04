@@ -19,6 +19,20 @@ enum PhotoLibraryError: LocalizedError {
   }
 }
 
+/// A staged edit and the asset it's written to.
+struct AssetEdit {
+  let asset: PHAsset
+  let edit: MediaEdit
+}
+
+extension AssetEdit {
+  /// Nil when the photo has no active edit or no asset to write it to.
+  init?(photo: SessionPhoto, asset: PHAsset?) {
+    guard let asset, let edit = photo.activeEdit else { return nil }
+    self.init(asset: asset, edit: edit)
+  }
+}
+
 /// Everything a session changes in the library. `albumAssets` maps a session photo ID
 /// to its `PHAsset` for the album changes.
 struct SessionLibraryChanges {
@@ -28,9 +42,12 @@ struct SessionLibraryChanges {
   var albumAdditions: [String: Set<AlbumRef>] = [:]
   var albumRemovals: [String: Set<String>] = [:]
   var albumAssets: [String: PHAsset] = [:]
+  /// Edits to write, by session photo ID: in place, or as a new clip for a trim.
+  var edits: [String: AssetEdit] = [:]
 
   var isEmpty: Bool {
     deletions.isEmpty && conversions.isEmpty && albumAdditions.isEmpty && albumRemovals.isEmpty
+      && edits.isEmpty
   }
 }
 
@@ -39,11 +56,17 @@ struct SessionLibraryResult {
   var stillIdentifiers: [String: String] = [:]
   /// File size in bytes of each still copy, by session photo ID.
   var stillSizes: [String: Int64] = [:]
+  /// Local identifier of each trimmed video's new clip, by session photo ID.
+  var clipIdentifiers: [String: String] = [:]
+  /// File size in bytes of each trimmed video's new clip, by session photo ID.
+  var clipSizes: [String: Int64] = [:]
   /// Local identifiers of albums created for former `.pendingNew` refs.
   var createdAlbumIDs: Set<String> = []
   /// Identifiers of staged album adds/removes that silently no-op'd because the album no
   /// longer exists (deleted, or renamed away, since the photo was tagged for it).
   var missingAlbumIdentifiers: Set<String> = []
+  /// Why each edit left out was left out, by session photo ID.
+  var failedEdits: [String: EditFailureReason] = [:]
 }
 
 /// Photos permission state and the limited-library picker.
@@ -112,10 +135,13 @@ protocol LibraryEditing {
   /// `PHAssetChangeRequest`. Callers should treat `.failure` as a
   /// signal to roll back any optimistic UI update.
   func setFavorite(_ asset: PHAsset, isFavorite: Bool) async -> Result<Void, Error>
+  /// Starts rendering `edit` in the background, so applying it later only has to write it.
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset)
   /// Applies everything a session changes in the library as one transaction: still
-  /// copies of converted Live Photos (the originals are deleted), album changes, and
-  /// deletions. Deleted photos move to Recently Deleted. The user sees one system
-  /// prompt, and either all of it happens or none of it does.
+  /// copies of converted Live Photos (the originals are deleted), edits, trimmed clips, album
+  /// changes, and deletions. Deleted photos move to Recently Deleted. The user sees one system prompt, and
+  /// either all of it happens or none of it does; an edit that can't be rendered is left out
+  /// rather than failing the rest.
   func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
 }

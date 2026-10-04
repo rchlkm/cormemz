@@ -33,13 +33,19 @@ struct PeekPreviewView: View {
   }
 }
 
-/// Names a photo's decision, so a marked neighbor reads as marked.
+/// Names a photo's decision, so a marked neighbor reads as marked; a photo with an edit
+/// to write reads as edited, whatever it was decided.
 struct PeekDecisionTag: View {
   let decision: Decision
+  var isEdited = false
+
+  private var content: (icon: String, title: String, tint: Color)? {
+    if isEdited { return (EditStyle.symbol, EditStyle.title, EditStyle.tint) }
+    return decision == .undecided ? nil : DecisionOverlay.content(for: decision)
+  }
 
   var body: some View {
-    if decision != .undecided {
-      let content = DecisionOverlay.content(for: decision)
+    if let content {
       Label(content.title, systemImage: content.icon)
         .font(.title3.weight(.bold))
         .foregroundStyle(.white)

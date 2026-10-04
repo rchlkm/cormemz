@@ -6,53 +6,70 @@ import SwiftUI
 /// `matchedGeometryEffect` rather than a `.fullScreenCover` modal.
 /// Pinch to zoom (persists, no bounce-back), drag to pan while zoomed,
 /// or drag at 1x to shrink back down into the card. Live Photos can be
-/// played here too, in place of the static image.
+/// played here too, in place of the static image. Edit mode stages an
+/// edit on the photo without deciding it, laid out like the Photos editor.
 struct ExpandedPhotoView: View {
   let photo: SessionPhoto
   @ObservedObject var vm: SessionViewModel
   var namespace: Namespace.ID
   @Binding var expandedPhoto: SessionPhoto?
 
-  @State private var scale: CGFloat = 1.0
-  @State private var lastScale: CGFloat = 1.0
-  @State private var panOffset: CGSize = .zero
-  @State private var lastPanOffset: CGSize = .zero
-  @State private var dismissDrag: CGSize = .zero
+  @State private var zoom = ZoomPanState()
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
+  @StateObject private var frameState = LivePhotoFrameState()
+  /// The edit being made in edit mode; `nil` outside it.
+  @State private var draftEdit: MediaEdit?
+  @State private var editTool = EditTool.crop
+  @State private var showsSavedStamp = false
+  /// Held without observing it, so only the views showing playback redraw as it plays.
+  @State private var playback = VideoPlayback()
 
-  private let dismissThreshold: CGFloat = 120
-  private let fadeDistance: CGFloat = 400
-  private let maxScale: CGFloat = 5.0
-  private let doubleTapZoom: CGFloat = 2.5
+  private let savedStampHold: Duration = .milliseconds(450)
+  /// Room kept clear for the editor's bars, including the video trim bar above the tool
+  /// picker, so they sit on black rather than on the photo and the photo sits the same for
+  /// every kind of media.
+  private let editorInsets = EdgeInsets(top: 150, leading: 16, bottom: 148, trailing: 16)
 
-  private var isZoomed: Bool { scale > 1.01 }
+  private var isEditing: Bool { draftEdit != nil }
+  private var quarterTurns: Int { draftEdit?.quarterTurns ?? photo.previewQuarterTurns }
+  private var trimDuration: Double? { vm.trimmableDuration(of: photo) }
+  /// In the Trim tool, the trim bar stands in for the player's own transport bar.
+  private var showsTrimBar: Bool { isEditing && editTool == .trim && trimDuration != nil }
+  private var savedEdit: MediaEdit { photo.activeEdit ?? MediaEdit() }
+  /// Viewing gestures are off in edit mode.
+  private var viewingGestures: GestureMask { isEditing ? .subviews : .all }
+
+  /// The space the photo fits in: the whole screen, or between the bars in edit mode.
+  private var contentBox: CGSize {
+    let screen = UIScreen.main.bounds.size
+    guard isEditing else { return screen }
+    return CGSize(
+      width: screen.width - editorInsets.leading - editorInsets.trailing,
+      height: screen.height - editorInsets.top - editorInsets.bottom)
+  }
 
   var body: some View {
-    let dismissDistance = hypot(dismissDrag.width, dismissDrag.height)
-    let backgroundOpacity = isZoomed ? 1 : max(0, 1 - dismissDistance / fadeDistance)
-
     ZStack {
       Color.black
-        .opacity(backgroundOpacity)
+        .opacity(zoom.backgroundOpacity)
         .ignoresSafeArea()
 
       content
+        .padding(isEditing ? editorInsets : EdgeInsets())
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isEditing)
         .livePhotoLongPress(
-          isEnabled: photo.isLivePhoto,
+          isEnabled: photo.isLivePhoto && !isEditing,
           assetIdentifier: photo.assetIdentifier,
           targetSize: UIScreen.main.bounds.size,
           inlineLivePhoto: $inlineLivePhoto,
           isShowingLivePhoto: $isShowingLivePhoto
         )
         .matchedGeometryEffect(id: photo.id, in: namespace)
-        .scaleEffect(scale)
-        .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
-        .gesture(magnification)
-        .simultaneousGesture(dragGesture)
-        .onTapGesture(count: 2) { toggleZoom() }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: quarterTurns)
+        .zoomPanDismiss($zoom, gestures: viewingGestures, onDismiss: close)
 
-      if photo.isLivePhoto {
+      if photo.isLivePhoto && !isEditing {
         VStack {
           HStack {
             LivePhotoBadgeView(
@@ -74,87 +91,92 @@ struct ExpandedPhotoView: View {
 
       if let decision = vm.markingDecision {
         DecisionOverlay(decision: decision).transition(.opacity)
+      } else if showsSavedStamp {
+        DecisionOverlay.edited.transition(.opacity)
+      }
+    }
+    .overlay(alignment: .bottom) {
+      if !isEditing { viewingControls }
+    }
+    .task(id: isEditing) { if !isEditing { await frameState.open(for: photo) } }
+    .task(id: frameState.time) { await frameState.loadImage() }
+    .overlay {
+      if isEditing && !showsSavedStamp {
+        EditorChrome(
+          draftEdit: $draftEdit, tool: $editTool, savedEdit: savedEdit,
+          trimDuration: trimDuration, playback: playback, onDone: finishEditing)
       }
     }
     .animation(.easeOut(duration: 0.15), value: vm.markingDecision)
+    .animation(.easeOut(duration: 0.15), value: showsSavedStamp)
     .statusBarHidden()
     .uiTestContainer(AccessibilityID.expandedPhoto)
   }
 
-  @ViewBuilder
   private var content: some View {
-    if isShowingLivePhoto, let inlineLivePhoto {
-      LivePhotoPlayerView(
-        livePhoto: inlineLivePhoto, onPlaybackEnded: { isShowingLivePhoto = false })
-    } else if photo.isVideo {
-      VideoPlayerCardView(assetIdentifier: photo.assetIdentifier)
-    } else {
-      AdaptiveAssetImage(photo: photo, fitWithin: UIScreen.main.bounds.size)
+    PhotoCardView(
+      photo: photo, maxSize: contentBox, playback: playback, draftEdit: draftEdit,
+      showsTransport: !showsTrimBar,
+      livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
+      onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameState.image)
+  }
+
+  /// The Live Photo's frame scrubber, when open, above the Edit button.
+  private var viewingControls: some View {
+    VStack(spacing: 20) {
+      if let frames = frameState.frames, frameState.time != nil {
+        frameScrubber(frames).padding(.horizontal, 16)
+      }
+      if !zoom.isZoomed { editButton }
     }
+    .padding(.bottom, 40)
   }
 
-  private var magnification: some Gesture {
-    MagnificationGesture()
-      .onChanged { value in
-        scale = min(max(lastScale * value, 1.0), maxScale)
-      }
-      .onEnded { _ in
-        lastScale = scale
-        if scale <= 1.05 {
-          resetZoom(animated: true)
-        }
-      }
+  private func frameScrubber(_ frames: LivePhotoFrames) -> some View {
+    LivePhotoFrameScrubber(
+      frames: frames,
+      time: Binding(
+        get: { frameState.time ?? frames.keyPhotoTime }, set: { frameState.time = $0 })
+    )
   }
 
-  private var dragGesture: some Gesture {
-    DragGesture()
-      .onChanged { value in
-        if isZoomed {
-          panOffset = CGSize(
-            width: lastPanOffset.width + value.translation.width,
-            height: lastPanOffset.height + value.translation.height)
-        } else {
-          dismissDrag = value.translation
-        }
-      }
-      .onEnded { value in
-        if isZoomed {
-          lastPanOffset = panOffset
-        } else {
-          let distance = hypot(value.translation.width, value.translation.height)
-          if distance > dismissThreshold {
-            close()
-          } else {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-              dismissDrag = .zero
-            }
-          }
-        }
-      }
-  }
-
-  private func toggleZoom() {
-    if isZoomed {
+  private var editButton: some View {
+    Button {
       resetZoom(animated: true)
-    } else {
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-        scale = doubleTapZoom
-        lastScale = doubleTapZoom
-      }
+      isShowingLivePhoto = false
+      frameState.close()
+      editTool = EditTool.available(canTrim: trimDuration != nil)[0]
+      draftEdit = photo.edit ?? MediaEdit()
+    } label: {
+      Image(systemName: EditStyle.symbol)
+    }
+    .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
+    .editorGlass(in: Circle())
+    .accessibilityLabel("Edit")
+    .accessibilityIdentifier(AccessibilityID.editStart)
+  }
+
+  /// Stages the draft, or discards the photo's edit when the draft undoes it, then shows the
+  /// stamp and returns to the card.
+  private func finishEditing() {
+    guard let draftEdit else { return }
+    if draftEdit.isEmpty {
+      vm.restoreMany(ids: [photo.id])
+    } else if !vm.saveEdit(draftEdit, photoID: photo.id) {
+      return
+    }
+    showsSavedStamp = true
+    Task {
+      try? await Task.sleep(for: savedStampHold)
+      close()
     }
   }
 
   private func resetZoom(animated: Bool) {
-    let apply = {
-      scale = 1.0
-      lastScale = 1.0
-      panOffset = .zero
-      lastPanOffset = .zero
-    }
     if animated {
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75), apply)
+      withAnimation(ZoomPanState.zoomAnimation) { zoom.reset() }
     } else {
-      apply()
+      zoom.reset()
     }
   }
 

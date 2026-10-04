@@ -22,6 +22,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var storageSizes: [String: Int64] = [:]
   /// Bytes of the still copy made for each original asset identifier; unlisted assets report zero.
   var stillSizes: [String: Int64] = [:]
+  /// Bytes of the trimmed clip made for each original asset identifier; unlisted assets report zero.
+  var clipSizes: [String: Int64] = [:]
   /// When set, every apply returns this instead of succeeding.
   var applyFailure: Error?
   /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
@@ -32,6 +34,11 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var photoIDsWithoutStill: Set<String> = []
   /// Asset identifiers that can't be shown without a download.
   var assetsNeedingDownload: Set<String> = []
+  /// Session photo IDs whose edit the apply reports as failed to render, for `editFailureReason`.
+  var photoIDsWithFailedEdit: Set<String> = []
+  var editFailureReason = EditFailureReason.unknown
+  /// Each edit handed to `prepareEdit`, with its asset identifier, in order.
+  private(set) var preparedEdits: [(assetID: String, edit: MediaEdit)] = []
   /// Asset identifiers whose original isn't on the device.
   var assetsWithoutLocalOriginal: Set<String> = []
 
@@ -102,6 +109,10 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     []
   }
 
+  func prepareEdit(_ edit: MediaEdit, for asset: PHAsset) {
+    preparedEdits.append((asset.localIdentifier, edit))
+  }
+
   func applySessionChanges(_ changes: SessionLibraryChanges) async
     -> Result<SessionLibraryResult, Error>
   {
@@ -114,8 +125,18 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     let sizes = changes.conversions
       .filter { stills[$0.key] != nil }
       .mapValues { stillSizes[$0.localIdentifier] ?? 0 }
+    let clips = changes.edits
+      .filter { $0.value.edit.trimRange != nil && !photoIDsWithFailedEdit.contains($0.key) }
+      .mapValues { "clip-\($0.asset.localIdentifier)" }
+    let trimmedSizes = changes.edits
+      .filter { clips[$0.key] != nil }
+      .mapValues { clipSizes[$0.asset.localIdentifier] ?? 0 }
     return .success(SessionLibraryResult(
-      stillIdentifiers: stills, stillSizes: sizes, createdAlbumIDs: createdAlbumIDs))
+      stillIdentifiers: stills, stillSizes: sizes, clipIdentifiers: clips, clipSizes: trimmedSizes,
+      createdAlbumIDs: createdAlbumIDs,
+      failedEdits: changes.edits.keys
+        .filter { photoIDsWithFailedEdit.contains($0) }
+        .reduce(into: [:]) { reasons, id in reasons[id] = editFailureReason }))
   }
 
   func createAlbum(named name: String) async -> Result<String, Error> {

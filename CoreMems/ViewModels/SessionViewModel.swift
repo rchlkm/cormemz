@@ -28,6 +28,9 @@ final class SessionViewModel: ObservableObject {
   /// Staged album adds/removes from this apply that no-op'd because the album no longer
   /// existed by the time the session was applied.
   @Published private(set) var missingAlbumCount: Int = 0
+  /// Edits from this apply that couldn't be saved, kept for a retry.
+  @Published private(set) var failedEdits: [FailedEdit] = []
+  var failedEditCount: Int { failedEdits.count }
   @Published var deletedCount: Int = 0
   @Published private(set) var applyState: ApplyState = .idle
   var isDeleting: Bool { applyState == .applying }
@@ -35,6 +38,8 @@ final class SessionViewModel: ObservableObject {
   @Published var convertedLivePhotoCount: Int = 0
   @Published private(set) var deletedBytes: Int64 = 0
   @Published private(set) var convertedBytesSaved: Int64 = 0
+  @Published private(set) var trimmedBytesSaved: Int64 = 0
+  @Published private(set) var editedCount: Int = 0
 
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
   @Published private(set) var markingDecision: Decision?
@@ -191,6 +196,7 @@ final class SessionViewModel: ObservableObject {
   var currentPhoto: SessionPhoto? { deck.currentPhoto }
   var pendingItems: [SessionPhoto] { deck.pendingItems }
   var pendingConversions: [SessionPhoto] { deck.pendingConversions }
+  var pendingEdits: [SessionPhoto] { deck.pendingEdits }
   var markedPhotos: [SessionPhoto] { deck.markedPhotos }
   var keptCount: Int { deck.keptCount }
   var canGoBack: Bool { !deck.history.isEmpty && !isPeeking }
@@ -271,6 +277,9 @@ final class SessionViewModel: ObservableObject {
     deletedBytes = 0
     convertedLivePhotoCount = 0
     convertedBytesSaved = 0
+    trimmedBytesSaved = 0
+    editedCount = 0
+    failedEdits = []
     albumAssignedCount = 0
     albumStaging = AlbumStaging()
     recentAlbums = RecentAlbums()
@@ -391,6 +400,33 @@ final class SessionViewModel: ObservableObject {
     return decide(index: index, decision: decision)
   }
 
+  /// Stages `edit` on the photo; it's written on Apply unless the photo ends up marked. An
+  /// undecided photo stays undecided, and a marked one goes back to Keep, since editing it
+  /// means keeping it. A peeked neighbor joins the deck behind the active card.
+  /// Returns whether the edit was staged.
+  @discardableResult
+  func saveEdit(_ edit: MediaEdit, photoID: String) -> Bool {
+    guard !edit.isEmpty, photo(withID: photoID) != nil else { return false }
+    if deck.index(ofPhotoID: photoID) == nil, let peeked = peekController.take(photoID: photoID) {
+      _ = deck.insertDecided(peeked)
+    }
+    if deck.photo(withID: photoID)?.decision.isMarked == true {
+      deck.restoreMarkedToKeep(ids: [photoID])
+    }
+    guard deck.setEdit(edit, photoID: photoID) else { return false }
+    haptics.albumToggle()
+    if let asset = pickedAssets[photoID] { library.prepareEdit(edit, for: asset) }
+    persistState()
+    return true
+  }
+
+  /// The length in seconds of a video that can be trimmed; `nil` for anything else.
+  func trimmableDuration(of photo: SessionPhoto) -> Double? {
+    guard photo.isVideo, let asset = pickedAssets[photo.id], asset.isTrimmable, asset.duration > 0
+    else { return nil }
+    return asset.duration
+  }
+
   /// A Live Photo can be converted when its original is on the device or may be downloaded.
   func canConvertToStill(_ photo: SessionPhoto) -> Bool {
     guard photo.isLivePhoto else { return false }
@@ -483,8 +519,14 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
-  /// Restores any number of marked photos to Keep; powers the Marked Photos
-  /// tray and the end-of-session grids.
+  private func recordTrimSavings(_ bytes: Int64) {
+    guard bytes > 0 else { return }
+    statsStore.recordTrimSavings(bytes: bytes)
+    trimmedBytesSaved += bytes
+  }
+
+  /// Restores any number of marked photos to Keep and discards edits; powers the Marked
+  /// Photos tray and the end-of-session grids.
   func restoreMany(ids: [String]) {
     guard !ids.isEmpty else { return }
     if deck.restoreMarkedToKeep(ids: Set(ids)) {
@@ -681,7 +723,7 @@ final class SessionViewModel: ObservableObject {
   // MARK: Confirm and Delete
 
   /// Applies everything staged this session as one library transaction: still copies
-  /// of converted Live Photos, album changes, and deletions. All of it happens or none
+  /// of converted Live Photos, edits, album changes, and deletions. All of it happens or none
   /// of it does, behind a single system prompt.
   func applyChanges() async {
     let plan = SessionChangePlan(deck: deck, assets: pickedAssets, staging: albumStaging)
@@ -689,13 +731,16 @@ final class SessionViewModel: ObservableObject {
     if !plan.changes.isEmpty {
       guard await applyPlan(plan) else { return }
     }
+    editedCount = plan.editedCount - failedEditCount
 
-    haptics.sessionComplete()
+    // A failed edit needs attention, so it takes the place of the completion feedback.
+    if failedEdits.isEmpty { haptics.sessionComplete() } else { haptics.editFailed() }
     screen = .completion
     persistence.clear()
     eligiblePhotoCount = library.totalEligibleAssetCount()
     recordKeptPhotos()
-    statsStore.recordSession(kept: plan.keptCount, deleted: deletedCount, bytesDeleted: deletedBytes)
+    statsStore.recordSession(
+      kept: plan.keptCount, deleted: deletedCount, edited: editedCount, bytesDeleted: deletedBytes)
   }
 
   /// Runs the plan's changes as one library transaction and brings the session in line with the result.
@@ -708,6 +753,8 @@ final class SessionViewModel: ObservableObject {
     switch result {
     case .success(let applied):
       applyConversions(plan.conversions, from: applied)
+      markKept(applied.outcome.clipIdentifiers.values)
+      recordTrimSavings(applied.bytesSavedByTrimming)
       let createdAlbumIDs = applied.outcome.createdAlbumIDs
       pinnedAlbums.pin(createdAlbumIDs.sorted())
       recentAlbums.forget(Set(pendingNewAlbums.map(\.ref.identifier)))
@@ -718,6 +765,9 @@ final class SessionViewModel: ObservableObject {
       }
       albumAssignedCount = plan.changes.albumAdditions.count
       missingAlbumCount = applied.outcome.missingAlbumIdentifiers.count
+      failedEdits = deck.photos.compactMap { photo in
+        applied.outcome.failedEdits[photo.id].map { FailedEdit(photo: photo, reason: $0) }
+      }
       albumStaging.clearStaged()
       deletedCount = plan.deletions.count
       deletedBytes = applied.bytesDeleted
@@ -739,16 +789,65 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  /// Writes the failed edits among `photoIDs` again, as one transaction. Each one written
+  /// leaves `failedEdits` and counts as edited; the rest record why they failed this time.
+  /// Returns those still failing.
+  @discardableResult
+  func retryEdits(photoIDs: [String]) async -> [String: EditFailureReason] {
+    let edits: [String: AssetEdit] = failedEdits.reduce(into: [:]) { byID, failed in
+      guard photoIDs.contains(failed.id) else { return }
+      byID[failed.id] = AssetEdit(photo: failed.photo, asset: pickedAssets[failed.id])
+    }
+    guard !edits.isEmpty else { return [:] }
+
+    let failures: [String: EditFailureReason]
+    switch await applyService.apply(SessionLibraryChanges(edits: edits)) {
+    case .success(let applied):
+      failures = applied.outcome.failedEdits
+      markKept(applied.outcome.clipIdentifiers.values)
+      recordTrimSavings(applied.bytesSavedByTrimming)
+    case .failure(let error):
+      let declined = (error as? PHPhotosError)?.code == .userCancelled
+      failures = edits.mapValues { _ in declined ? .declined : .unknown }
+    }
+
+    let written = Set(edits.keys).subtracting(failures.keys)
+    failedEdits = failedEdits.compactMap { failed in
+      guard !written.contains(failed.id) else { return nil }
+      guard let reason = failures[failed.id] else { return failed }
+      var retried = failed
+      retried.reason = reason
+      retried.attempts += 1
+      return retried
+    }
+    if !written.isEmpty {
+      editedCount += written.count
+      statsStore.recordEdits(written.count)
+    }
+    if failures.isEmpty { haptics.keep() } else { haptics.editFailed() }
+    return failures
+  }
+
+  /// Gives up on a failed edit; its photo stays as it is in the library.
+  func discardFailedEdit(photoID: String) {
+    failedEdits.removeAll { $0.id == photoID }
+  }
+
   /// Remembers the session's kept photos so later sessions skip them.
   /// Photos marked for deletion aren't recorded: they're either gone
   /// after applying, or if the session is abandoned, still undecided.
   /// Photos held for later are skipped too.
   private func recordKeptPhotos() {
+    markKept(
+      deck.keptPhotos
+        .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
+        .map(\.assetIdentifier))
+  }
+
+  /// Adds assets to the kept history, such as kept photos and the clips trimmed from them.
+  private func markKept(_ identifiers: some Sequence<String>) {
     guard tracksKeptHistory else { return }
-    let keptIdentifiers = deck.keptPhotos
-      .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
-      .map(\.assetIdentifier)
-    keptPhotosStore.markKept(Set(keptIdentifiers))
+    keptPhotosStore.markKept(Set(identifiers))
     keptPhotoCount = keptPhotosStore.keptIdentifiers().count
   }
 

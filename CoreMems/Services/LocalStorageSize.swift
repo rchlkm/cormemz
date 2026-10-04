@@ -14,8 +14,7 @@ enum LocalStorageSize {
 
     var total: Int64 = 0
     for case let url as URL in enumerator {
-      let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize
-      total += Int64(size ?? 0)
+      total += url.fileSize ?? 0
     }
     return total
   }

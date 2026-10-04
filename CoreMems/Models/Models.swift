@@ -51,7 +51,13 @@ struct SessionPhoto: Identifiable, Equatable {
   var isVideo: Bool = false
   /// Held photos aren't remembered as kept, so later sessions offer them again.
   var isHeldForLater: Bool = false
+  /// Staged independently of `decision`; set aside while the photo is marked, so undoing the
+  /// mark brings it back.
+  var edit: MediaEdit?
   var dateLabel: String = ""
+
+  /// The edit confirming the session writes, if any.
+  var activeEdit: MediaEdit? { decision.isMarked ? nil : edit }
 
   /// Only Live Photos can be converted to a still.
   func canReceive(_ decision: Decision) -> Bool {

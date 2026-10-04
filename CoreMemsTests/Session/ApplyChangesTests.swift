@@ -226,4 +226,305 @@ struct ApplyChangesTests {
     #expect(h.vm.convertedLivePhotoCount == 1)
     #expect(h.stats.stats.sessionsCompleted == 0)
   }
+
+  /// A started session where every photo is kept and those at `editedIndexes` are rotated once.
+  private var trim: MediaEdit {
+    var edit = MediaEdit()
+    edit.trim(to: 1...3, ofDuration: 10)
+    return edit
+  }
+
+  private func sessionWithEdits(photoCount: Int, editedIndexes: [Int]) async -> SessionHarness {
+    let h = await SessionHarness.started(photoCount: photoCount)
+    var edit = MediaEdit()
+    edit.rotate()
+    for index in editedIndexes {
+      h.vm.saveEdit(edit, photoID: SessionHarness.photoID(index))
+    }
+    for index in 0..<photoCount { await h.decide(index, .keep) }
+    return h
+  }
+
+  @Test func editsAreWrittenInTheSameCommitAsDeletions() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    var edit = MediaEdit()
+    edit.rotate()
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .pendingDelete)
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.events.filter { $0 == .apply }.count == 1)
+    let changes = h.library.appliedChanges.first
+    #expect(changes?.edits.keys.sorted() == [SessionHarness.photoID(0)])
+    #expect(changes?.edits[SessionHarness.photoID(0)]?.edit == edit)
+    #expect(changes?.deletions.map(\.localIdentifier) == [SessionHarness.assetID(1)])
+    #expect(h.vm.screen == .completion)
+  }
+
+  @Test func anEditOnAnUndecidedPhotoIsStillWritten() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    var edit = MediaEdit()
+    edit.rotate()
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(1))
+    await h.decide(0, .keep)
+    h.vm.finishEarly()
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.appliedChanges.first?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+  }
+
+  @Test func anEditedAndKeptPhotoCountsOnceAsKeptAndOnceAsEdited() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0])
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.keptCount == 2)
+    #expect(h.vm.editedCount == 1)
+    #expect(h.stats.stats.keptUnchanged == 2)
+    #expect(h.stats.stats.mediaEdited == 1)
+    #expect(
+      h.keptStore.keptIdentifiers()
+        == [SessionHarness.assetID(0), SessionHarness.assetID(1)])
+  }
+
+  @Test func anUndoneEditIsNotWritten() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.vm.restoreMany(ids: [SessionHarness.photoID(0)])
+
+    await h.vm.applyChanges()
+
+    #expect(h.library.appliedChanges.first?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+    #expect(h.vm.editedCount == 1)
+  }
+
+  @Test func anEditThatFailsToRenderIsReportedAndNotCounted() async {
+    let h = await sessionWithEdits(photoCount: 3, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.screen == .completion)
+    #expect(h.vm.failedEditCount == 1)
+    #expect(h.vm.editedCount == 1)
+    #expect(h.stats.stats.mediaEdited == 1)
+    #expect(h.stats.stats.sessionsCompleted == 1)
+  }
+
+  @Test func aFailedEditIsListedWithItsDecisionAndReason() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+    h.library.editFailureReason = .needsDownload
+
+    await h.vm.applyChanges()
+
+    let failure = h.vm.failedEdits.first
+    #expect(h.vm.failedEdits.map(\.id) == [SessionHarness.photoID(1)])
+    #expect(failure?.photo.decision == .keep)
+    #expect(failure?.photo.activeEdit?.quarterTurns == 1)
+    #expect(failure?.reason == .needsDownload)
+    #expect(failure?.attempts == 1)
+  }
+
+  @Test func retryingAFailedEditWritesOnlyThatEditAndCountsIt() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(1)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(1)])
+
+    #expect(stillFailing.isEmpty)
+    #expect(h.library.appliedChanges.last?.edits.keys.sorted() == [SessionHarness.photoID(1)])
+    #expect(h.library.appliedChanges.last?.deletions.isEmpty == true)
+    #expect(h.vm.failedEdits.isEmpty)
+    #expect(h.vm.editedCount == 2)
+    #expect(h.stats.stats.mediaEdited == 2)
+  }
+
+  @Test func anEditThatFailsAgainStaysListedWithItsNewReasonAndAttempt() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.editFailureReason = .needsDownload
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .needsDownload])
+    #expect(h.vm.failedEdits.first?.reason == .needsDownload)
+    #expect(h.vm.failedEdits.first?.attempts == 2)
+    #expect(h.vm.editedCount == 0)
+    #expect(h.stats.stats.mediaEdited == 0)
+  }
+
+  @Test func decliningTheRetryPromptIsReportedAsDeclined() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+    h.library.applyFailure = PHPhotosError(.userCancelled)
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .declined])
+    #expect(h.vm.failedEdits.first?.reason == .declined)
+  }
+
+  @Test func aRejectedRetryKeepsTheEditListed() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    h.library.photoIDsWithFailedEdit = []
+    h.library.applyFailure = LibraryTestError.rejected
+
+    let stillFailing = await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(stillFailing == [SessionHarness.photoID(0): .unknown])
+    #expect(h.vm.failedEdits.count == 1)
+  }
+
+  @Test func discardingAFailedEditDropsItWithoutTouchingTheLibrary() async {
+    let h = await sessionWithEdits(photoCount: 2, editedIndexes: [0, 1])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0), SessionHarness.photoID(1)]
+    await h.vm.applyChanges()
+    let applies = h.library.appliedChanges.count
+
+    h.vm.discardFailedEdit(photoID: SessionHarness.photoID(0))
+
+    #expect(h.vm.failedEdits.map(\.id) == [SessionHarness.photoID(1)])
+    #expect(h.library.appliedChanges.count == applies)
+    #expect(h.vm.editedCount == 0)
+  }
+
+  @Test func aFailedEditGetsTheFailureFeedbackInsteadOfTheCompletionOne() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+
+    await h.vm.applyChanges()
+
+    #expect(h.haptics.editFailedCount == 1)
+    #expect(h.haptics.sessionCompleteCallCount == 0)
+  }
+
+  @Test func trimmingRecordsTheOriginalSizeMinusTheClipSize() async {
+    let h = await SessionHarness.started(photoCount: 2, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 600)
+    #expect(h.vm.trimmedBytesSaved == 600)
+    #expect(h.vm.deletedBytes == 0)
+  }
+
+  @Test func trimmingSavesNothingWhenTheOriginalIsKept() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    var edit = trim
+    edit.deletesOriginal = false
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    #expect(h.vm.trimmedBytesSaved == 0)
+  }
+
+  @Test func aClipLargerThanItsOriginalSavesNothing() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 300])
+    h.library.clipSizes = [SessionHarness.assetID(0): 900]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+  }
+
+  @Test func rotatingSavesNoSpace() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    #expect(h.vm.trimmedBytesSaved == 0)
+  }
+
+  @Test func aTrimThatSucceedsOnRetryRecordsItsSavings() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.vm.applyChanges()
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    h.library.photoIDsWithFailedEdit = []
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 600)
+    #expect(h.vm.trimmedBytesSaved == 600)
+  }
+
+  @Test func aTrimmedClipIsRememberedAsKept() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(
+      h.keptStore.keptIdentifiers()
+        == ["clip-\(SessionHarness.assetID(0))", SessionHarness.assetID(0),
+          SessionHarness.assetID(1)])
+    #expect(h.vm.keptPhotoCount == 3)
+  }
+
+  @Test func aTrimmedClipWrittenOnRetryIsRememberedAsKept() async {
+    let h = await SessionHarness.started(photoCount: 1)
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    #expect(h.keptStore.keptIdentifiers() == [SessionHarness.assetID(0)])
+    h.library.photoIDsWithFailedEdit = []
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(
+      h.keptStore.keptIdentifiers()
+        == ["clip-\(SessionHarness.assetID(0))", SessionHarness.assetID(0)])
+  }
+
+  @Test func aTrimmedClipIsNotRememberedWithTrackingOff() async {
+    let h = await SessionHarness.started(photoCount: 1)
+    h.vm.tracksKeptHistory = false
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.keptStore.keptIdentifiers().isEmpty)
+  }
+
+  @Test func retryFeedbackFollowsTheOutcome() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    let keepsBefore = h.haptics.keepCallCount
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+    #expect(h.haptics.editFailedCount == 2)
+
+    h.library.photoIDsWithFailedEdit = []
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+    #expect(h.haptics.keepCallCount == keepsBefore + 1)
+  }
 }

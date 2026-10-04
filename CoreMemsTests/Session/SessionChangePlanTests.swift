@@ -47,6 +47,33 @@ struct SessionChangePlanTests {
     #expect(plan.keptCount == 2)
   }
 
+  @Test func editsOnPhotosThatArentMarkedBecomeEditsOnTheirAssets() {
+    var deck = makeDeck([.undecided, .keep, .pendingDelete])
+    var edit = MediaEdit()
+    edit.rotate()
+    for id in ["p0", "p1", "p2"] { deck.setEdit(edit, photoID: id) }
+
+    let plan = SessionChangePlan(deck: deck, assets: assets(for: deck), staging: AlbumStaging())
+
+    #expect(plan.changes.edits.keys.sorted() == ["p0", "p1"])
+    #expect(plan.changes.edits["p0"]?.asset.localIdentifier == "a0")
+    #expect(plan.changes.edits["p1"]?.edit == edit)
+    #expect(plan.editedCount == 2)
+    #expect(plan.keptCount == 1)
+    #expect(!plan.changes.isEmpty)
+  }
+
+  @Test func anEditWithoutItsAssetIsLeftOut() {
+    var deck = makeDeck([.keep])
+    var edit = MediaEdit()
+    edit.rotate()
+    deck.setEdit(edit, photoID: "p0")
+
+    let plan = SessionChangePlan(deck: deck, assets: [:], staging: AlbumStaging())
+
+    #expect(plan.changes.edits.isEmpty)
+  }
+
   @Test func aConversionWithoutItsAssetIsLeftOut() {
     let deck = makeDeck([.convertToStill], live: [0])
 

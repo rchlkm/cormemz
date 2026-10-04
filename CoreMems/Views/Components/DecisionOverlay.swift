@@ -28,6 +28,10 @@ struct DecisionOverlay: View {
     }
   }
 
+  static var edited: DecisionOverlay {
+    DecisionOverlay(icon: EditStyle.symbol, title: EditStyle.title, tint: EditStyle.tint)
+  }
+
   static var goBack: DecisionOverlay {
     DecisionOverlay(icon: "arrow.uturn.backward", title: "Go back", tint: .secondary)
   }

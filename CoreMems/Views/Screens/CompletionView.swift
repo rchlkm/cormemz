@@ -8,8 +8,15 @@ struct CompletionView: View {
   /// Staged album adds/removes that no-op'd because the album no longer existed.
   let missingAlbumCount: Int
   let convertedCount: Int
+  let editedCount: Int
+  /// Edits that couldn't be saved, offered for a retry.
+  let failedEdits: [FailedEdit]
+  /// Returns the edits still failing.
+  let onRetryEdits: ([String]) async -> [String: EditFailureReason]
+  let onDiscardEdit: (String) -> Void
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
+  let trimmedBytesSaved: Int64
   let keptPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
@@ -32,6 +39,12 @@ struct CompletionView: View {
           label: "Converted to stills", value: convertedCount.formatted(),
           systemImage: "livephoto", tint: Decision.convertToStill.tint))
     }
+    if editedCount > 0 {
+      items.append(
+        StatTileItem(
+          label: "Edited", value: editedCount.formatted(),
+          systemImage: EditStyle.symbol, tint: EditStyle.tint))
+    }
     if albumAssignedCount > 0 {
       items.append(
         StatTileItem(
@@ -53,6 +66,9 @@ struct CompletionView: View {
               .foregroundStyle(.secondary)
               .multilineTextAlignment(.center)
           }
+          if !failedEdits.isEmpty {
+            FailedEditsCard(failures: failedEdits, onRetry: onRetryEdits, onDiscard: onDiscardEdit)
+          }
           if missingAlbumCount > 0 {
             Text(
               "\(missingAlbumCount) album assignment\(missingAlbumCount == 1 ? "" : "s") "
@@ -64,8 +80,10 @@ struct CompletionView: View {
           }
           OutcomeRatioCard(
             kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
-          if deletedBytes + convertedBytesSaved > 0 {
-            SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
+          if deletedBytes + convertedBytesSaved + trimmedBytesSaved > 0 {
+            SpaceCleanedCard(
+              deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved,
+              trimmedBytes: trimmedBytesSaved)
           }
           BrowseProgressCard(kept: keptPhotoCount, total: libraryPhotoCount)
         }
@@ -100,8 +118,13 @@ struct CompletionView: View {
     albumAssignedCount: 2,
     missingAlbumCount: 1,
     convertedCount: 1,
+    editedCount: 2,
+    failedEdits: [],
+    onRetryEdits: { _ in [:] },
+    onDiscardEdit: { _ in },
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
+    trimmedBytesSaved: 95_000_000,
     keptPhotoCount: 1_206,
     libraryPhotoCount: 3_100,
     onAgain: {})

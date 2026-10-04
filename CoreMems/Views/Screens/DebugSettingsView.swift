@@ -8,6 +8,7 @@
       Form {
         DebugStateDumpSection()
         DebugNetworkStatsSection()
+        DebugEditFailuresSection()
       }
       .navigationTitle("Debug")
       .navigationBarTitleDisplayMode(.inline)

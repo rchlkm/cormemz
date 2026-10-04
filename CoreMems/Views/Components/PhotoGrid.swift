@@ -58,7 +58,7 @@ struct PhotoGridCells: View {
         }
         .overlay(alignment: .bottomLeading) {
           if showsDecisionTags {
-            DecisionTag(decision: photo.decision)
+            DecisionTag(decision: photo.decision, isEdited: photo.activeEdit != nil)
               .padding(6)
           }
         }
@@ -67,21 +67,30 @@ struct PhotoGridCells: View {
     .padding(.horizontal, 26)
     .padding(.top, 16)
     .fullScreenCover(item: $viewing) { photo in
-      FullScreenPhotoView(photo: photo, onUndo: { onRestore(photo.id) })
+      FullScreenPhotoView(
+        photo: photo,
+        actions: [
+          FullScreenPhotoAction(
+            title: "Undo", systemImage: "arrow.uturn.backward",
+            accessibilityID: AccessibilityID.photoViewerUndo,
+            run: {
+              onRestore(photo.id)
+              return nil
+            })
+        ],
+        status: photo.decision.isMarked ? DecisionOverlay(decision: photo.decision) : .edited)
     }
   }
 }
 
-/// Small badge naming what will happen to a marked photo. Empty for any other decision.
+/// Small badge naming what will happen to a marked or edited photo. Empty otherwise.
 private struct DecisionTag: View {
   let decision: Decision
+  let isEdited: Bool
 
   private var style: (symbol: String, color: Color)? {
-    switch decision {
-    case .pendingDelete: return ("trash", decision.tint)
-    case .convertToStill: return ("livephoto.slash", decision.tint)
-    case .keep, .undecided: return nil
-    }
+    if decision.isMarked { return (DecisionOverlay.content(for: decision).icon, decision.tint) }
+    return isEdited ? (EditStyle.symbol, EditStyle.tint) : nil
   }
 
   var body: some View {

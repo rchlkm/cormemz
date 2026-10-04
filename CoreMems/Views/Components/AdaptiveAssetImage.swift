@@ -12,19 +12,32 @@ import SwiftUI
 ///   `fitWithin.height`) — whichever limit is hit first wins, and the
 ///   view's own size shrinks to match. Nothing is ever cropped or
 ///   allowed to overflow. Use for the main browse card / full-screen view.
+///
+/// `still` is shown in place of the photo's own image when set.
+///
+/// The image is shown turned by the photo's edit, or by `quarterTurns` when set. Sizes are
+/// given for the turned image.
 struct AdaptiveAssetImage: View {
   let photo: SessionPhoto
   var targetSize: CGSize = CGSize(width: 600, height: 800)
   var contentMode: ContentMode = .fill
   var fitWithin: CGSize? = nil
+  var quarterTurns: Int? = nil
+  var still: UIImage? = nil
 
   @State private var phImage: UIImage?
   @State private var loadFailed = false
 
+  private var turns: Int { quarterTurns ?? photo.previewQuarterTurns }
+
   var body: some View {
+    image.rotated(quarterTurns: turns)
+  }
+
+  private var image: some View {
     Group {
-      if let phImage {
-        Image(uiImage: phImage)
+      if let shown = still ?? phImage {
+        Image(uiImage: shown)
           .resizable()
           .aspectRatio(contentMode: fitWithin != nil ? .fit : contentMode)
       } else if let url = photo.previewURL {
@@ -44,7 +57,7 @@ struct AdaptiveAssetImage: View {
         AssetPlaceholderView(state: .loading)
       }
     }
-    .modifier(SizingModifier(fitWithin: fitWithin, targetSize: targetSize))
+    .modifier(SizingModifier(fitWithin: fitWithin?.turned(by: turns), targetSize: targetSize.turned(by: turns)))
     .task(id: photo.assetIdentifier) {
       guard photo.previewURL == nil else { return }
       phImage = nil
@@ -52,7 +65,7 @@ struct AdaptiveAssetImage: View {
       let scale = UIScreen.main.scale
       // Request at whichever bounding box actually applies, so we're
       // never pulling a full-res original for a small view.
-      let requestSize = fitWithin ?? targetSize
+      let requestSize = fitWithin?.turned(by: turns) ?? targetSize.turned(by: turns)
       let pixelSize = CGSize(width: requestSize.width * scale, height: requestSize.height * scale)
       let image = await PhotoImageLoader.shared.image(
         for: photo.assetIdentifier, targetSize: pixelSize)
