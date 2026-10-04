@@ -24,8 +24,7 @@ struct PhotoCardView: View {
       )
       .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {
-      AdaptiveAssetImage(photo: photo, fitWithin: maxSize.turned(by: quarterTurns))
-        .rotated(quarterTurns: quarterTurns)
+      AdaptiveAssetImage(photo: photo, fitWithin: maxSize)
     }
   }
 }

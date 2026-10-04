@@ -101,7 +101,6 @@ struct FailedEditsCard: View {
     AdaptiveAssetImage(
       photo: photo, targetSize: CGSize(width: Self.thumbnailSize, height: Self.thumbnailSize)
     )
-    .rotated(quarterTurns: photo.previewQuarterTurns)
     .clipShape(RoundedRectangle(cornerRadius: 10))
     .contentShape(RoundedRectangle(cornerRadius: 10))
     .onTapGesture { viewing = photo }

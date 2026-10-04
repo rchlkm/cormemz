@@ -38,7 +38,6 @@ struct PhotoGridCells: View {
             .overlay(
               AdaptiveAssetImage(photo: photo, targetSize: CGSize(width: 200, height: 200))
                 .scaledToFill()
-                .rotated(quarterTurns: photo.previewQuarterTurns)
             )
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .contentShape(RoundedRectangle(cornerRadius: 14))

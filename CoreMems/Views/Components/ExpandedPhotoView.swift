@@ -147,10 +147,7 @@ struct ExpandedPhotoView: View {
         playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
         playbackRange: trimRange, showsTransport: !showsTrimBar)
     } else {
-      AdaptiveAssetImage(
-        photo: photo, fitWithin: contentBox.turned(by: quarterTurns)
-      )
-      .rotated(quarterTurns: quarterTurns)
+      AdaptiveAssetImage(photo: photo, fitWithin: contentBox, quarterTurns: quarterTurns)
     }
   }
 
