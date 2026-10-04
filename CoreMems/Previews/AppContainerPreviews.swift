@@ -63,7 +63,6 @@ import SwiftUI
         tracksKeptHistory: $vm.tracksKeptHistory,
         networkPolicy: $vm.networkPolicy,
         isLowDataModeActive: vm.isLowDataModeActive,
-        defaultSessionMode: $vm.defaultSessionMode,
         keptPhotoCount: vm.keptPhotoCount,
         libraryPhotoCount: vm.eligiblePhotoCount,
         onResetKeptPhotos: { vm.resetKeptPhotos() },
@@ -83,7 +82,7 @@ import SwiftUI
         } else {
           switch vm.screen {
           case .home:
-            HomeView(
+            OnboardingView(
               photoCount: vm.eligiblePhotoCount,
               limitedAccess: vm.isLimitedAccess,
               emptyLibrary: vm.emptyLibrary,
@@ -94,10 +93,11 @@ import SwiftUI
             )
           case .setup:
             NavigationStack {
-              SetupView(
+              HomeView(
                 maxAvailable: vm.maxAvailable,
                 isStarting: vm.isStartingSession,
                 defaultMode: vm.defaultSessionMode,
+                onSetDefaultMode: { vm.defaultSessionMode = $0 },
                 onPickRandomDate: { await vm.randomAssetDate() },
                 onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
                 onOpenSettings: { showSettings = true },

@@ -1,14 +1,13 @@
 // CoreMems/Views/Screens/SettingsView.swift
 import SwiftUI
 
-/// Lifetime stats summary and review preferences. Pushed from Setup.
+/// Lifetime stats summary and review preferences. Pushed from Home.
 struct SettingsView: View {
   @Binding var checkInInterval: Int
   @Binding var includesKeptPhotos: Bool
   @Binding var tracksKeptHistory: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
-  @Binding var defaultSessionMode: SelectionMode
   let keptPhotoCount: Int
   let libraryPhotoCount: Int
   let onResetKeptPhotos: () -> Void
@@ -30,7 +29,6 @@ struct SettingsView: View {
     Form {
       statsSection
       pinnedAlbumsSection
-      defaultSessionModeSection
       checkInSection
       keptPhotosSection
       dataUsageSection
@@ -143,20 +141,6 @@ struct SettingsView: View {
     }
   }
 
-  private var defaultSessionModeSection: some View {
-    Section {
-      Picker("Opens with", selection: $defaultSessionMode) {
-        ForEach(SelectionMode.allCases, id: \.self) { mode in
-          Text(mode.label).tag(mode)
-        }
-      }
-    } header: {
-      Text("Default session mode")
-    } footer: {
-      Text("Setup opens on this mode. \"From a Date\" and \"Album\" still need one more choice before starting.")
-    }
-  }
-
   private var pinnedAlbumsSection: some View {
     Section {
       NavigationLink {
@@ -219,7 +203,6 @@ extension NetworkPolicy {
       tracksKeptHistory: .constant(true),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,
-      defaultSessionMode: .constant(.shuffle),
       keptPhotoCount: 128,
       libraryPhotoCount: 3_100,
       onResetKeptPhotos: {},

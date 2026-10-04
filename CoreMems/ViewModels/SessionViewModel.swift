@@ -59,7 +59,7 @@ final class SessionViewModel: ObservableObject {
     get { settings.tracksKeptHistory }
     set { settings.tracksKeptHistory = newValue }
   }
-  /// Which mode Setup opens with.
+  /// Which mode Home opens with.
   var defaultSessionMode: SelectionMode {
     get { settings.defaultSessionMode }
     set { settings.defaultSessionMode = newValue }

@@ -36,7 +36,7 @@ struct SessionSettings {
     didSet { defaults.set(networkPolicy.rawValue, forKey: Self.networkPolicyKey) }
   }
 
-  /// Which mode Setup opens with.
+  /// Which mode Home opens with.
   var defaultSessionMode: SelectionMode {
     didSet { defaults.set(defaultSessionMode.rawValue, forKey: Self.defaultSessionModeKey) }
   }

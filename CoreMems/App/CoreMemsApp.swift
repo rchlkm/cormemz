@@ -45,7 +45,6 @@ struct RootView: View {
       tracksKeptHistory: $vm.tracksKeptHistory,
       networkPolicy: $vm.networkPolicy,
       isLowDataModeActive: vm.isLowDataModeActive,
-      defaultSessionMode: $vm.defaultSessionMode,
       keptPhotoCount: vm.keptPhotoCount,
       libraryPhotoCount: vm.eligiblePhotoCount,
       onResetKeptPhotos: { vm.resetKeptPhotos() },
@@ -63,7 +62,7 @@ struct RootView: View {
           vm.manageAccess(presentingFrom: UIApplication.shared.rootViewController)
         })
       } else if needsOnboarding {
-        HomeView(
+        OnboardingView(
           photoCount: vm.eligiblePhotoCount,
           limitedAccess: vm.isLimitedAccess,
           emptyLibrary: vm.emptyLibrary,
@@ -88,10 +87,11 @@ struct RootView: View {
           }
         case .setup:
           NavigationStack {
-            SetupView(
+            HomeView(
               maxAvailable: vm.maxAvailable,
               isStarting: vm.isStartingSession,
               defaultMode: vm.defaultSessionMode,
+              onSetDefaultMode: { vm.defaultSessionMode = $0 },
               onPickRandomDate: { await vm.randomAssetDate() },
               onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
               onOpenSettings: { showSettings = true },
