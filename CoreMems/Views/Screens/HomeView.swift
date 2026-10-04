@@ -25,14 +25,17 @@ struct HomeView: View {
 
   @State private var mode: SelectionMode
   @State private var selectedDate: Date?
+  /// A date carried in from earlier filters; used once in place of a random one.
+  @State private var carriedDate: Date?
   @State private var selectedAlbum: AlbumOption?
   @State private var showAlbumPicker = false
-  @State private var mediaTypes: Set<MediaType> = []
+  @State private var mediaTypes: Set<MediaType>
 
   init(
     maxAvailable: Int, isStarting: Bool = false, defaultMode: SelectionMode = .shuffle,
     onSetDefaultMode: @escaping (SelectionMode) -> Void = { _ in },
     includesKeptPhotos: Binding<Bool>,
+    initialFilters: SessionFilters? = nil,
     onPickRandomDate: @escaping () async -> Date? = { nil },
     onPrepareAlbumPicker: @escaping () async -> Void = {},
     onOpenSettings: @escaping () -> Void,
@@ -59,7 +62,10 @@ struct HomeView: View {
     self.defaultMode = defaultMode
     self.onSetDefaultMode = onSetDefaultMode
     _includesKeptPhotos = includesKeptPhotos
-    _mode = State(initialValue: defaultMode)
+    _mode = State(initialValue: initialFilters?.mode ?? defaultMode)
+    _carriedDate = State(initialValue: initialFilters?.startDate)
+    _selectedAlbum = State(initialValue: initialFilters?.album?.option)
+    _mediaTypes = State(initialValue: initialFilters?.mediaTypes ?? [])
   }
 
   private var canStart: Bool {
@@ -72,9 +78,15 @@ struct HomeView: View {
     return "Start"
   }
 
-  /// Fills in a fresh random date each time "From a Date" is chosen; the user can change it.
-  private func prefillRandomDate() async {
-    if let date = await onPickRandomDate() { selectedDate = date }
+  /// Fills in a fresh random date each time "From a Date" is chosen, unless earlier filters
+  /// carried one in; the user can change it.
+  private func prefillDate() async {
+    if let carriedDate {
+      selectedDate = carriedDate
+      self.carriedDate = nil
+    } else if let date = await onPickRandomDate() {
+      selectedDate = date
+    }
   }
 
   /// Resolves a picked album's full details from the catalog the picker drew it from.
@@ -103,7 +115,7 @@ struct HomeView: View {
         .padding(.horizontal, 24)
         .padding(.top, 20)
         .task(id: mode) {
-          if mode == .date { await prefillRandomDate() }
+          if mode == .date { await prefillDate() }
           else if mode == .album { await onPrepareAlbumPicker() }
         }
       }

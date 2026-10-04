@@ -14,7 +14,7 @@ enum Decision: String, Equatable {
 }
 
 /// How a session's photos are selected from the library.
-enum SelectionMode: String, Equatable, CaseIterable {
+enum SelectionMode: String, Codable, Equatable, CaseIterable {
   case shuffle
   case recent
   case date
@@ -33,7 +33,7 @@ enum SelectionMode: String, Equatable, CaseIterable {
 
 /// A kind of media a session can be limited to, independent of `SelectionMode`. A session
 /// limited to an empty set of types includes every type.
-enum MediaType: String, Equatable, CaseIterable {
+enum MediaType: String, Codable, Equatable, CaseIterable {
   case photos, screenshots, videos, timelapses
 }
 

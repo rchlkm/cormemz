@@ -84,6 +84,11 @@ final class SessionViewModel: ObservableObject {
   /// a subtitle under the browse progress line. `nil` for `.shuffle`.
   @Published var sessionLabel: String?
 
+  /// What the active session was started with.
+  private var sessionFilters: SessionFilters?
+  /// What an interrupted session without staged changes was started with, for Home to pre-fill.
+  private(set) var interruptedSessionFilters: SessionFilters?
+
   // Dev-panel / edge-state toggles
   @Published var limitedAccess: Bool = false
   @Published var emptyLibrary: Bool = false
@@ -251,6 +256,10 @@ final class SessionViewModel: ObservableObject {
     }
     sessionBatchSize = batchSize
     isLoadingBatch = false
+    sessionFilters = SessionFilters(
+      mode: mode, startDate: startDate, album: album.map(SessionFilters.Album.init),
+      mediaTypes: mediaTypes)
+    interruptedSessionFilters = nil
     sessionLabel = mode.sessionLabel(
       startDateText: startDate.map(Self.cardDateFormatter.string(from:)), albumName: album?.name)
     resetSessionTotals()
@@ -895,7 +904,7 @@ final class SessionViewModel: ObservableObject {
     guard screen == .browse || screen == .pendingChanges else { return }
     persistence.save(
       PersistedSessionSnapshot(
-        deck: deck, albumStaging: albumStaging))
+        deck: deck, albumStaging: albumStaging, filters: sessionFilters))
   }
 
   /// Resolves the real assets, so deleting and filing into albums work on a resumed session.
@@ -912,12 +921,36 @@ final class SessionViewModel: ObservableObject {
     imageLoader.register(Array(assetsByID.values))
   }
 
+  /// An interrupted session with staged changes reopens on Pending Changes. One without
+  /// is dropped, keeping its filters for Home to pre-fill.
   private func restoreIfInterrupted() {
     guard let snapshot = persistence.load() else { return }
     deck = snapshot.restoredDeck
     restorePickedAssets(for: deck.photos)
     albumStaging = snapshot.restoredAlbumStaging
-    screen = deck.isExhausted ? .pendingChanges : .browse
+    sessionFilters = snapshot.filters
+    guard hasStagedChanges else {
+      abandonInterruptedSession()
+      return
+    }
+    screen = .pendingChanges
     prefetchNextPhoto()
+  }
+
+  /// Marked photos or album changes that confirming would write.
+  private var hasStagedChanges: Bool {
+    let albumChanges = albumStaging.changes(excludingPhotoIDs: Set(deck.pendingItems.map(\.id)))
+    return !deck.markedPhotos.isEmpty || !albumChanges.additions.isEmpty
+      || !albumChanges.removals.isEmpty
+  }
+
+  private func abandonInterruptedSession() {
+    recordKeptPhotos()
+    persistence.clear()
+    interruptedSessionFilters = sessionFilters
+    sessionFilters = nil
+    deck = SessionDeck()
+    albumStaging = AlbumStaging()
+    pickedAssets = [:]
   }
 }

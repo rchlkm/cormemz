@@ -2,7 +2,7 @@
 import Foundation
 
 extension PersistedSessionSnapshot {
-  init(deck: SessionDeck, albumStaging: AlbumStaging) {
+  init(deck: SessionDeck, albumStaging: AlbumStaging, filters: SessionFilters? = nil) {
     self.init(
       photoIDs: deck.photos.map(\.id),
       decisions: deck.photos.map(\.decision.rawValue),
@@ -16,7 +16,8 @@ extension PersistedSessionSnapshot {
       albumRemovals: albumStaging.removals,
       heldPhotoIDs: deck.photos.filter(\.isHeldForLater).map(\.id),
       pendingNewAlbumRefs: albumStaging.pendingNewAlbums.map(\.ref),
-      edits: deck.photos.reduce(into: [:]) { edits, photo in edits[photo.id] = photo.edit }
+      edits: deck.photos.reduce(into: [:]) { edits, photo in edits[photo.id] = photo.edit },
+      filters: filters
     )
   }
 

@@ -53,6 +53,19 @@ final class SessionPersistenceTests {
     #expect(persistence.load()?.currentIndex == 9)
   }
 
+  @Test func sessionFiltersSurviveAWriteAndLoad() async {
+    let filters = SessionFilters(
+      mode: .album, startDate: nil,
+      album: .init(AlbumOption(ref: .existing(localIdentifier: "album-1"), name: "Trip")),
+      mediaTypes: [.videos, .photos])
+    var snapshot = Self.snapshot(index: 0)
+    snapshot.filters = filters
+
+    await waitForWrite { persistence.save(snapshot) }
+
+    #expect(persistence.load()?.filters == filters)
+  }
+
   @Test func savesSeparatedByMoreThanTheDebounceWriteSeparately() async {
     await waitForWrite { persistence.save(Self.snapshot(index: 1)) }
     await waitForWrite { persistence.save(Self.snapshot(index: 2)) }

@@ -92,6 +92,7 @@ struct RootView: View {
               defaultMode: vm.defaultSessionMode,
               onSetDefaultMode: { vm.defaultSessionMode = $0 },
               includesKeptPhotos: $vm.includesKeptPhotos,
+              initialFilters: vm.interruptedSessionFilters,
               onPickRandomDate: { await vm.randomAssetDate() },
               onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
               onOpenSettings: { showSettings = true },
