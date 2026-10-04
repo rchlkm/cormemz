@@ -21,6 +21,10 @@ struct ExpandedPhotoView: View {
   @State private var dismissDrag: CGSize = .zero
   @State private var inlineLivePhoto: PHLivePhoto?
   @State private var isShowingLivePhoto = false
+  @State private var frames: LivePhotoFrames?
+  /// The Live Photo moment being looked at; `nil` while its frames are closed.
+  @State private var frameTime: Double?
+  @State private var frameImage: UIImage?
   /// The edit being made in edit mode; `nil` outside it.
   @State private var draftEdit: MediaEdit?
   @State private var editTool = EditTool.rotate
@@ -126,6 +130,11 @@ struct ExpandedPhotoView: View {
     .overlay(alignment: .topTrailing) {
       if !isEditing && !isZoomed { editButton }
     }
+    .overlay(alignment: .bottom) {
+      if let frames, frameTime != nil, !isEditing { frameScrubber(frames) }
+    }
+    .task(id: isEditing) { if !isEditing { await openFrames() } }
+    .task(id: frameTime) { await loadFrameImage() }
     .overlay {
       if isEditing && !showsSavedStamp { editorChrome }
     }
@@ -140,13 +149,43 @@ struct ExpandedPhotoView: View {
       photo: photo, maxSize: contentBox, quarterTurns: quarterTurns, playbackRange: trimRange,
       playback: playback, showsTransport: !showsTrimBar,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
-      onLivePhotoEnded: { isShowingLivePhoto = false })
+      onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameImage)
+  }
+
+  private func frameScrubber(_ frames: LivePhotoFrames) -> some View {
+    LivePhotoFrameScrubber(
+      frames: frames,
+      time: Binding(get: { frameTime ?? frames.keyPhotoTime }, set: { frameTime = $0 })
+    )
+    .padding(.horizontal, 16)
+    .padding(.bottom, 40)
+  }
+
+  /// Shows a Live Photo's frames at its key photo; other photos have none.
+  private func openFrames() async {
+    guard photo.isLivePhoto, frameTime == nil else { return }
+    if frames == nil { frames = await LivePhotoLoader.shared.frames(for: photo.assetIdentifier) }
+    frameTime = frames?.keyPhotoTime
+  }
+
+  private func closeFrames() {
+    frameTime = nil
+    frameImage = nil
+  }
+
+  private func loadFrameImage() async {
+    guard let frameTime, let frames else { return }
+    let scale = UIScreen.main.scale
+    let size = UIScreen.main.bounds.size
+    frameImage = await frames.image(
+      at: frameTime, maxSize: CGSize(width: size.width * scale, height: size.height * scale))
   }
 
   private var editButton: some View {
     Button {
       resetZoom(animated: true)
       isShowingLivePhoto = false
+      closeFrames()
       editTool = availableTools[0]
       draftEdit = photo.edit ?? MediaEdit()
     } label: {

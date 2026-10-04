@@ -145,7 +145,7 @@ actor MediaEditRenderer {
 
   /// Asks for the current version as rendered, so edits made in Photos are carried over and a
   /// later Revert there restores the original.
-  private nonisolated static func contentEditingInput(
+  nonisolated static func contentEditingInput(
     for asset: PHAsset, allowsNetwork: Bool
   ) async throws -> PHContentEditingInput {
     let options = PHContentEditingInputRequestOptions()

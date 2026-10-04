@@ -18,6 +18,8 @@ struct PhotoCardView: View {
   /// The Live Photo to play in place of the still; `nil` shows the still.
   var livePhoto: PHLivePhoto?
   var onLivePhotoEnded: () -> Void = {}
+  /// Shown in place of a photo's or Live Photo's still, such as a Live Photo frame.
+  var still: UIImage?
 
   var body: some View {
     if let livePhoto {
@@ -32,7 +34,8 @@ struct PhotoCardView: View {
       )
       .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {
-      AdaptiveAssetImage(photo: photo, fitWithin: maxSize, quarterTurns: quarterTurns)
+      AdaptiveAssetImage(
+        photo: photo, fitWithin: maxSize, quarterTurns: quarterTurns, still: still)
     }
   }
 }

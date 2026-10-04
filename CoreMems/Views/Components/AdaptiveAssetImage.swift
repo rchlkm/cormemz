@@ -13,6 +13,8 @@ import SwiftUI
 ///   view's own size shrinks to match. Nothing is ever cropped or
 ///   allowed to overflow. Use for the main browse card / full-screen view.
 ///
+/// `still` is shown in place of the photo's own image when set.
+///
 /// The image is shown turned by the photo's edit, or by `quarterTurns` when set. Sizes are
 /// given for the turned image.
 struct AdaptiveAssetImage: View {
@@ -21,6 +23,7 @@ struct AdaptiveAssetImage: View {
   var contentMode: ContentMode = .fill
   var fitWithin: CGSize? = nil
   var quarterTurns: Int? = nil
+  var still: UIImage? = nil
 
   @State private var phImage: UIImage?
   @State private var loadFailed = false
@@ -33,8 +36,8 @@ struct AdaptiveAssetImage: View {
 
   private var image: some View {
     Group {
-      if let phImage {
-        Image(uiImage: phImage)
+      if let shown = still ?? phImage {
+        Image(uiImage: shown)
           .resizable()
           .aspectRatio(contentMode: fitWithin != nil ? .fit : contentMode)
       } else if let url = photo.previewURL {
