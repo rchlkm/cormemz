@@ -8,6 +8,22 @@ enum EditStyle {
   static let tint = Color.orange
 }
 
+extension View {
+  /// The frosted surface the editor's controls sit on.
+  func editorGlass<S: Shape>(in shape: S) -> some View {
+    glassEffect(.regular.interactive(), in: shape)
+  }
+
+  /// A text button on a frosted capsule, for the editor's Cancel and Done.
+  func editorPill(tint: Color = .white) -> some View {
+    fontWeight(.semibold)
+      .foregroundStyle(tint)
+      .padding(.horizontal, 20)
+      .padding(.vertical, 10)
+      .editorGlass(in: Capsule())
+  }
+}
+
 extension MediaEdit {
   /// What the edit changes, for labels like "Kept · Rotated 90°".
   var summary: String {

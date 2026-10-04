@@ -30,6 +30,8 @@ struct VideoTrimBar: View {
         PlayPauseButton(playback: playback, surface: .bare(.white))
         timeline
       }
+      .padding(.leading, 8)
+      .background(.white.opacity(0.2), in: RoundedRectangle(cornerRadius: Self.cornerRadius))
     }
   }
 
@@ -38,7 +40,6 @@ struct VideoTrimBar: View {
       let track = max(proxy.size.width - 2 * Self.handleWidth, 1)
       let x = { (seconds: Double) in CGFloat(seconds / duration) * track }
       ZStack(alignment: .leading) {
-        RoundedRectangle(cornerRadius: Self.cornerRadius).fill(.white.opacity(0.2))
         RoundedRectangle(cornerRadius: Self.cornerRadius)
           .strokeBorder(.yellow, lineWidth: 3)
           .frame(width: x(range.upperBound) - x(range.lowerBound) + 2 * Self.handleWidth)
