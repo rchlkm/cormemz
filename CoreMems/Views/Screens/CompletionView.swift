@@ -16,6 +16,7 @@ struct CompletionView: View {
   let onDiscardEdit: (String) -> Void
   let deletedBytes: Int64
   let convertedBytesSaved: Int64
+  let trimmedBytesSaved: Int64
   let keptPhotoCount: Int
   let libraryPhotoCount: Int
   let onAgain: () -> Void
@@ -79,8 +80,10 @@ struct CompletionView: View {
           }
           OutcomeRatioCard(
             kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
-          if deletedBytes + convertedBytesSaved > 0 {
-            SpaceCleanedCard(deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved)
+          if deletedBytes + convertedBytesSaved + trimmedBytesSaved > 0 {
+            SpaceCleanedCard(
+              deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved,
+              trimmedBytes: trimmedBytesSaved)
           }
           BrowseProgressCard(kept: keptPhotoCount, total: libraryPhotoCount)
         }
@@ -121,6 +124,7 @@ struct CompletionView: View {
     onDiscardEdit: { _ in },
     deletedBytes: 1_840_000_000,
     convertedBytesSaved: 310_000_000,
+    trimmedBytesSaved: 95_000_000,
     keptPhotoCount: 1_206,
     libraryPhotoCount: 3_100,
     onAgain: {})

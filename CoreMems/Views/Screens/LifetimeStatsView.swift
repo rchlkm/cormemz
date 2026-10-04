@@ -38,7 +38,8 @@ struct LifetimeStatsView: View {
           deleted: stats.totalDeleted)
         BrowseProgressCard(kept: keptPhotoCount, total: libraryPhotoCount)
         SpaceCleanedCard(
-          deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion)
+          deletedBytes: stats.bytesDeleted, convertedBytes: stats.bytesSavedByConversion,
+          trimmedBytes: stats.bytesSavedByTrimming)
         footer
         clearButton
       }
@@ -106,6 +107,7 @@ struct LifetimeStatsView: View {
         bytesDeleted: 1_840_000_000,
         livePhotosConverted: 62,
         bytesSavedByConversion: 310_000_000,
+        bytesSavedByTrimming: 95_000_000,
         mediaEdited: 18,
         sessionsCompleted: 12,
         trackingSince: Date(timeIntervalSince1970: 1_640_995_200)

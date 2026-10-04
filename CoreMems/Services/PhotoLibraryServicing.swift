@@ -58,6 +58,8 @@ struct SessionLibraryResult {
   var stillSizes: [String: Int64] = [:]
   /// Local identifier of each trimmed video's new clip, by session photo ID.
   var clipIdentifiers: [String: String] = [:]
+  /// File size in bytes of each trimmed video's new clip, by session photo ID.
+  var clipSizes: [String: Int64] = [:]
   /// Local identifiers of albums created for former `.pendingNew` refs.
   var createdAlbumIDs: Set<String> = []
   /// Identifiers of staged album adds/removes that silently no-op'd because the album no

@@ -38,6 +38,7 @@ final class SessionViewModel: ObservableObject {
   @Published var convertedLivePhotoCount: Int = 0
   @Published private(set) var deletedBytes: Int64 = 0
   @Published private(set) var convertedBytesSaved: Int64 = 0
+  @Published private(set) var trimmedBytesSaved: Int64 = 0
   @Published private(set) var editedCount: Int = 0
 
   /// The decision being shown before it's recorded; decisions and going back are ignored meanwhile.
@@ -276,6 +277,7 @@ final class SessionViewModel: ObservableObject {
     deletedBytes = 0
     convertedLivePhotoCount = 0
     convertedBytesSaved = 0
+    trimmedBytesSaved = 0
     editedCount = 0
     failedEdits = []
     albumAssignedCount = 0
@@ -517,6 +519,12 @@ final class SessionViewModel: ObservableObject {
     }
   }
 
+  private func recordTrimSavings(_ bytes: Int64) {
+    guard bytes > 0 else { return }
+    statsStore.recordTrimSavings(bytes: bytes)
+    trimmedBytesSaved += bytes
+  }
+
   /// Restores any number of marked photos to Keep and discards edits; powers the Marked
   /// Photos tray and the end-of-session grids.
   func restoreMany(ids: [String]) {
@@ -746,6 +754,7 @@ final class SessionViewModel: ObservableObject {
     case .success(let applied):
       applyConversions(plan.conversions, from: applied)
       markKept(applied.outcome.clipIdentifiers.values)
+      recordTrimSavings(applied.bytesSavedByTrimming)
       let createdAlbumIDs = applied.outcome.createdAlbumIDs
       pinnedAlbums.pin(createdAlbumIDs.sorted())
       recentAlbums.forget(Set(pendingNewAlbums.map(\.ref.identifier)))
@@ -796,6 +805,7 @@ final class SessionViewModel: ObservableObject {
     case .success(let applied):
       failures = applied.outcome.failedEdits
       markKept(applied.outcome.clipIdentifiers.values)
+      recordTrimSavings(applied.bytesSavedByTrimming)
     case .failure(let error):
       let declined = (error as? PHPhotosError)?.code == .userCancelled
       failures = edits.mapValues { _ in declined ? .declined : .unknown }

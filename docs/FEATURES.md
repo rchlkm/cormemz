@@ -57,7 +57,7 @@ Edit from a photo's full-screen view. An edit is staged like any other change an
 - Media reviewed, kept, deleted, converted, and edited
 - Sessions completed
 - Live Photos converted
-- Storage cleared
+- Storage cleared by deleting, converting, and trimming
 - Kept / deleted / converted breakdown
 - Lifetime stats with the option to reset
 

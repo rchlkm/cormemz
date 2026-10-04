@@ -124,7 +124,9 @@ extension PhotoLibraryService {
         let identifiers = created.mapValues(\.localIdentifier)
         result.stillIdentifiers = identifiers.filter { stills[$0.key] != nil }
         result.clipIdentifiers = identifiers.filter { clips[$0.key] != nil }
-        result.stillSizes = replaced.compactMapValues(\.dataSize)
+        let sizes = replaced.compactMapValues(\.contentSize)
+        result.stillSizes = sizes.filter { stills[$0.key] != nil }
+        result.clipSizes = sizes.filter { clips[$0.key] != nil }
       }
       await editRenderer.discardAll()
       return .success(result)

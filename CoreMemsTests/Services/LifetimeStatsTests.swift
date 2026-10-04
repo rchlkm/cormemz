@@ -30,6 +30,33 @@ struct LifetimeStatsTests {
     #expect(stats.keptUnchanged == 7)
   }
 
+  @Test func trimSavingsAddUpAndCountTowardTheSpaceCleaned() {
+    var stats = LifetimeSessionStats(bytesDeleted: 100, bytesSavedByConversion: 20)
+
+    stats.recordTrimSavings(bytes: 30)
+    stats.recordTrimSavings(bytes: 5)
+
+    #expect(stats.bytesSavedByTrimming == 35)
+    #expect(stats.bytesCleaned == 155)
+  }
+
+  @Test func recordingTrimSavingsStartsTracking() {
+    var stats = LifetimeSessionStats()
+
+    stats.recordTrimSavings(bytes: 30)
+
+    #expect(stats.trackingSince != nil)
+  }
+
+  @Test func statsSavedWithoutTrimSavingsLoadAsZero() throws {
+    let json = Data(#"{"schemaVersion":1,"bytesDeleted":100,"bytesSavedByConversion":20}"#.utf8)
+
+    let stats = try JSONDecoder().decode(LifetimeSessionStats.self, from: json)
+
+    #expect(stats.bytesSavedByTrimming == 0)
+    #expect(stats.bytesCleaned == 120)
+  }
+
   @Test func statsSavedWithoutAnEditedCountLoadAsZero() throws {
     let json = Data(#"{"schemaVersion":1,"totalKept":4,"totalDecided":5}"#.utf8)
 

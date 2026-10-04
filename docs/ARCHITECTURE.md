@@ -109,7 +109,7 @@ Still data for a converted Live Photo gets downloaded and each edit gets rendere
 - Trimming exports the kept range into a temporary file, passthrough with no re-encode. That file is saved as a new clip through `AssetReplacement`, which carries over the date, location, favorite flag and albums. Slo-mo videos can't be trimmed because their time mapping wouldn't survive.
 - A render that fails is retried once, then left out of the transaction and reported in `SessionLibraryResult.failedEdits` with an `EditFailureReason`. It never blocks deletions or other edits.
 - `SessionViewModel.failedEdits` holds the `FailedEdit`s for the completion screen. Retry runs a second transaction with only those edits; discard drops one and leaves its photo as it is. Failed edits are not saved across launches.
-- Edits are counted on their own in session and lifetime stats (`mediaEdited`), including edits that succeed on a retry. Trimmed clips are added to the kept history so later sessions skip them.
+- Edits are counted on their own in session and lifetime stats (`mediaEdited`), including edits that succeed on a retry. Trimmed clips are added to the kept history so later sessions skip them. When a trim deletes its original, the original's size minus the clip's counts as space cleaned (`bytesSavedByTrimming`); rotating frees none.
 
 ## Live Photo editing limits
 

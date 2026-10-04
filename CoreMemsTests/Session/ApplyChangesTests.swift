@@ -408,6 +408,70 @@ struct ApplyChangesTests {
     #expect(h.haptics.sessionCompleteCallCount == 0)
   }
 
+  @Test func trimmingRecordsTheOriginalSizeMinusTheClipSize() async {
+    let h = await SessionHarness.started(photoCount: 2, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 600)
+    #expect(h.vm.trimmedBytesSaved == 600)
+    #expect(h.vm.deletedBytes == 0)
+  }
+
+  @Test func trimmingSavesNothingWhenTheOriginalIsKept() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    var edit = trim
+    edit.deletesOriginal = false
+    h.vm.saveEdit(edit, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    #expect(h.vm.trimmedBytesSaved == 0)
+  }
+
+  @Test func aClipLargerThanItsOriginalSavesNothing() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 300])
+    h.library.clipSizes = [SessionHarness.assetID(0): 900]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+  }
+
+  @Test func rotatingSavesNoSpace() async {
+    let h = await sessionWithEdits(photoCount: 1, editedIndexes: [0])
+
+    await h.vm.applyChanges()
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    #expect(h.vm.trimmedBytesSaved == 0)
+  }
+
+  @Test func aTrimThatSucceedsOnRetryRecordsItsSavings() async {
+    let h = await SessionHarness.started(photoCount: 1, sizes: [0: 900])
+    h.library.clipSizes = [SessionHarness.assetID(0): 300]
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.vm.applyChanges()
+    #expect(h.stats.stats.bytesSavedByTrimming == 0)
+    h.library.photoIDsWithFailedEdit = []
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(h.stats.stats.bytesSavedByTrimming == 600)
+    #expect(h.vm.trimmedBytesSaved == 600)
+  }
+
   @Test func aTrimmedClipIsRememberedAsKept() async {
     let h = await SessionHarness.started(photoCount: 2)
     h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))

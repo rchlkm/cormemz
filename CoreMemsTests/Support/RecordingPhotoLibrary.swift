@@ -22,6 +22,8 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
   var storageSizes: [String: Int64] = [:]
   /// Bytes of the still copy made for each original asset identifier; unlisted assets report zero.
   var stillSizes: [String: Int64] = [:]
+  /// Bytes of the trimmed clip made for each original asset identifier; unlisted assets report zero.
+  var clipSizes: [String: Int64] = [:]
   /// When set, every apply returns this instead of succeeding.
   var applyFailure: Error?
   /// Stubbed answer for `randomAssetDate()`, defaulting to the first asset's date.
@@ -126,8 +128,11 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     let clips = changes.edits
       .filter { $0.value.edit.trimRange != nil && !photoIDsWithFailedEdit.contains($0.key) }
       .mapValues { "clip-\($0.asset.localIdentifier)" }
+    let trimmedSizes = changes.edits
+      .filter { clips[$0.key] != nil }
+      .mapValues { clipSizes[$0.asset.localIdentifier] ?? 0 }
     return .success(SessionLibraryResult(
-      stillIdentifiers: stills, stillSizes: sizes, clipIdentifiers: clips,
+      stillIdentifiers: stills, stillSizes: sizes, clipIdentifiers: clips, clipSizes: trimmedSizes,
       createdAlbumIDs: createdAlbumIDs,
       failedEdits: changes.edits.keys
         .filter { photoIDsWithFailedEdit.contains($0) }

@@ -5,10 +5,13 @@ extension Int64 {
   var fileSizeText: String { formatted(.byteCount(style: .file)) }
 }
 
-/// Space freed, split into deleted photos and Live Photo conversions, with a total.
+/// Space freed, split into deleted photos, Live Photo conversions and trimmed videos, with a total.
 struct SpaceCleanedCard: View {
   let deletedBytes: Int64
   let convertedBytes: Int64
+  let trimmedBytes: Int64
+
+  private var totalBytes: Int64 { deletedBytes + convertedBytes + trimmedBytes }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -16,8 +19,9 @@ struct SpaceCleanedCard: View {
         .font(.headline)
       LabeledContent("Deleted photos", value: deletedBytes.fileSizeText)
       LabeledContent("Live Photo conversions", value: convertedBytes.fileSizeText)
+      LabeledContent("Trimmed videos", value: trimmedBytes.fileSizeText)
       Divider()
-      LabeledContent("Total", value: (deletedBytes + convertedBytes).fileSizeText)
+      LabeledContent("Total", value: totalBytes.fileSizeText)
         .fontWeight(.semibold)
     }
     .padding(16)
@@ -27,7 +31,8 @@ struct SpaceCleanedCard: View {
 }
 
 #Preview {
-  SpaceCleanedCard(deletedBytes: 1_840_000_000, convertedBytes: 310_000_000)
+  SpaceCleanedCard(
+    deletedBytes: 1_840_000_000, convertedBytes: 310_000_000, trimmedBytes: 95_000_000)
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
 }

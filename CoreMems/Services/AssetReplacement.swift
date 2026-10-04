@@ -16,10 +16,12 @@ struct AssetReplacement {
   let albumIDs: [String]
   var deletesOriginal = true
 
-  /// The new asset's size in bytes when it's held in memory.
-  var dataSize: Int64? {
-    guard case .data(let data) = content else { return nil }
-    return Int64(data.count)
+  /// The new asset's size in bytes, or `nil` when it can't be read.
+  var contentSize: Int64? {
+    switch content {
+    case .data(let data): Int64(data.count)
+    case .file(let url): url.fileSize
+    }
   }
 
   /// Queues the new asset's creation; call inside `PHPhotoLibrary.performChanges`.

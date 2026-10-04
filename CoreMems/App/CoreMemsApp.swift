@@ -131,6 +131,7 @@ struct RootView: View {
             onDiscardEdit: { vm.discardFailedEdit(photoID: $0) },
             deletedBytes: vm.deletedBytes,
             convertedBytesSaved: vm.convertedBytesSaved,
+            trimmedBytesSaved: vm.trimmedBytesSaved,
             keptPhotoCount: vm.keptPhotoCount,
             libraryPhotoCount: vm.eligiblePhotoCount,
             onAgain: { vm.resetForAnotherSession() }
