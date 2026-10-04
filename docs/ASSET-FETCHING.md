@@ -91,4 +91,4 @@ cards are left alone; dropped photos stay undecided for a future session.
 
 - `.shuffle` isn't PhotoKit-native. `AssetBatchSource` fetches in default order and shuffles its own index array instead of the assets.
 - `.date` uses an exclusive ceiling, not an exact match, so a picked day means the whole day (`dateCeiling(for:)`).
-- `neighborAssets` uses a separate, always-chronological cached fetch (`ChronologicalImages`), independent of the session's own shuffled/filtered order.
+- `neighborAssets` uses a separate, always-chronological cached fetch (`ChronologicalAssets`), independent of the session's own shuffled/filtered order.

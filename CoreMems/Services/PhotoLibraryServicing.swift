@@ -90,7 +90,7 @@ protocol AssetLibrary {
   func totalEligibleAssetCount() -> Int
   /// A random eligible asset's creation date; `nil` if the library has no eligible assets.
   func randomAssetDate() async -> Date?
-  /// Up to `before` eligible (image) assets immediately older and `after` immediately
+  /// Up to `before` photos or videos immediately older and `after` immediately
   /// newer than the asset with `assetIdentifier`, in the library's own creation-date
   /// order, plus that asset itself — true library neighbors, independent of any
   /// session's fetch order. Empty if the asset can't be found.

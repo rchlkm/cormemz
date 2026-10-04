@@ -24,7 +24,7 @@ struct PeekPreviewView: View {
     ZStack {
       Color.black
       ForEach(mounted) { neighbor in
-        AdaptiveAssetImage(photo: neighbor, fitWithin: maxSize)
+        AdaptiveAssetImage(photo: neighbor, fitWithin: maxSize, showsLowQualityFirst: true)
           .opacity(neighbor.id == focusedID ? 1 : 0)
       }
     }

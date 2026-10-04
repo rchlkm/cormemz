@@ -27,6 +27,33 @@ nonisolated private final class FakeImageFetcher: @unchecked Sendable {
   }
 }
 
+/// Stands in for Photos delivering `results` in order; with `finishes` false the stream stays open
+/// until its consumer terminates it.
+nonisolated private final class FakeProgressiveFetcher: @unchecked Sendable {
+  private let lock = NSLock()
+  private var started = 0
+  private var terminated = 0
+  private let results: [PhotoImageLoader.LoadedImage]
+  private let finishes: Bool
+
+  init(results: [PhotoImageLoader.LoadedImage], finishes: Bool = true) {
+    self.results = results
+    self.finishes = finishes
+  }
+
+  var startedCount: Int { lock.withLock { started } }
+  var terminatedCount: Int { lock.withLock { terminated } }
+
+  func fetch(_ identifier: String, _ size: CGSize) -> AsyncStream<PhotoImageLoader.LoadedImage> {
+    lock.withLock { started += 1 }
+    return AsyncStream { continuation in
+      for result in results { continuation.yield(result) }
+      if finishes { continuation.finish() }
+      continuation.onTermination = { _ in self.lock.withLock { self.terminated += 1 } }
+    }
+  }
+}
+
 @Suite("Loading photo images")
 @MainActor
 struct PhotoImageLoaderTests {
@@ -116,5 +143,79 @@ struct PhotoImageLoaderTests {
     #expect(await eventually { fetcher.cancelledCount == 1 })
     await loader.clearCache()
     #expect(await eventually { fetcher.cancelledCount == 2 })
+  }
+
+  private func progressiveLoader(
+    _ progressive: FakeProgressiveFetcher, duration: Duration = .milliseconds(10)
+  ) -> (PhotoImageLoader, FakeImageFetcher) {
+    let fetcher = FakeImageFetcher(duration: duration)
+    let loader = PhotoImageLoader(
+      fetch: { @Sendable in await fetcher.fetch($0, $1) },
+      progressiveFetch: { @Sendable in progressive.fetch($0, $1) })
+    return (loader, fetcher)
+  }
+
+  private func collect(_ stream: AsyncStream<PhotoImageLoader.LoadedImage>) async -> [Bool] {
+    var degradedFlags: [Bool] = []
+    for await loaded in stream { degradedFlags.append(loaded.isDegraded) }
+    return degradedFlags
+  }
+
+  @Test func progressiveImagesYieldAStandInThenTheFinalImage() async {
+    let progressive = FakeProgressiveFetcher(results: [
+      .init(image: UIImage(), isDegraded: true), .init(image: UIImage(), isDegraded: false),
+    ])
+    let (loader, _) = progressiveLoader(progressive)
+
+    let flags = await collect(loader.progressiveImages(for: "a", targetSize: size))
+
+    #expect(flags == [true, false])
+  }
+
+  @Test func aFinalProgressiveImageIsCachedForLaterLoads() async {
+    let progressive = FakeProgressiveFetcher(results: [.init(image: UIImage(), isDegraded: false)])
+    let (loader, fetcher) = progressiveLoader(progressive)
+
+    _ = await collect(loader.progressiveImages(for: "a", targetSize: size))
+    let image = await loader.image(for: "a", targetSize: size)
+
+    #expect(image != nil)
+    #expect(fetcher.startedCount == 0)
+  }
+
+  @Test func aStandInAloneIsNotCached() async {
+    let progressive = FakeProgressiveFetcher(results: [.init(image: UIImage(), isDegraded: true)])
+    let (loader, fetcher) = progressiveLoader(progressive)
+
+    _ = await collect(loader.progressiveImages(for: "a", targetSize: size))
+    _ = await loader.image(for: "a", targetSize: size)
+
+    #expect(fetcher.startedCount == 1)
+  }
+
+  @Test func aCachedImageIsYieldedAloneWithoutAnotherRequest() async {
+    let progressive = FakeProgressiveFetcher(results: [.init(image: UIImage(), isDegraded: true)])
+    let (loader, _) = progressiveLoader(progressive)
+    _ = await loader.image(for: "a", targetSize: size)
+
+    let flags = await collect(loader.progressiveImages(for: "a", targetSize: size))
+
+    #expect(flags == [false])
+    #expect(progressive.startedCount == 0)
+  }
+
+  @Test func stoppingAProgressiveConsumerEndsTheRequest() async {
+    let progressive = FakeProgressiveFetcher(
+      results: [.init(image: UIImage(), isDegraded: true)], finishes: false)
+    let (loader, _) = progressiveLoader(progressive)
+    let size = size
+
+    let task = Task {
+      for await _ in await loader.progressiveImages(for: "a", targetSize: size) {}
+    }
+    #expect(await eventually { progressive.startedCount == 1 })
+    task.cancel()
+
+    #expect(await eventually { progressive.terminatedCount == 1 })
   }
 }

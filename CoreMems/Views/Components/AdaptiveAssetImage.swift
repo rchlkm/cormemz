@@ -15,6 +15,9 @@ import SwiftUI
 ///
 /// `still` is shown in place of the photo's own image when set.
 ///
+/// With `showsLowQualityFirst`, a lower-quality version Photos already has is shown while the
+/// full one is unavailable or loading, marked with a cloud badge in the adaptive mode.
+///
 /// The image is shown turned by the photo's edit, or by `quarterTurns` when set. Sizes are
 /// given for the turned image.
 struct AdaptiveAssetImage: View {
@@ -24,15 +27,22 @@ struct AdaptiveAssetImage: View {
   var fitWithin: CGSize? = nil
   var quarterTurns: Int? = nil
   var still: UIImage? = nil
+  var showsLowQualityFirst = false
 
   @State private var phImage: UIImage?
+  @State private var isLowQuality = false
   @State private var loadFailed = false
 
   private var turns: Int { quarterTurns ?? photo.previewQuarterTurns }
 
   var body: some View {
     image.rotated(quarterTurns: turns)
+      .overlay(alignment: .bottomTrailing) {
+        if isLowQuality { LowQualityBadge().padding(Self.badgePadding) }
+      }
   }
+
+  private static let badgePadding: CGFloat = 8
 
   private var image: some View {
     Group {
@@ -52,7 +62,8 @@ struct AdaptiveAssetImage: View {
           }
         }
       } else if loadFailed {
-        AssetPlaceholderView(state: .failed(icon: "photo"))
+        // An asset that can't load is assumed to be in iCloud, out of reach right now.
+        AssetPlaceholderView(state: .failed(icon: "icloud.slash"))
       } else {
         AssetPlaceholderView(state: .loading)
       }
@@ -61,20 +72,40 @@ struct AdaptiveAssetImage: View {
     .task(id: photo.assetIdentifier) {
       guard photo.previewURL == nil else { return }
       phImage = nil
+      isLowQuality = false
       loadFailed = false
       let scale = UIScreen.main.scale
       // Request at whichever bounding box actually applies, so we're
       // never pulling a full-res original for a small view.
       let requestSize = fitWithin?.turned(by: turns) ?? targetSize.turned(by: turns)
       let pixelSize = CGSize(width: requestSize.width * scale, height: requestSize.height * scale)
-      let image = await PhotoImageLoader.shared.image(
+      if showsLowQualityFirst {
+        let loads = await PhotoImageLoader.shared.progressiveImages(
+          for: photo.assetIdentifier, targetSize: pixelSize)
+        for await loaded in loads {
+          phImage = loaded.image
+          isLowQuality = loaded.isDegraded
+        }
+        loadFailed = phImage == nil
+      } else if let image = await PhotoImageLoader.shared.image(
         for: photo.assetIdentifier, targetSize: pixelSize)
-      if let image {
+      {
         phImage = image
       } else {
         loadFailed = true
       }
     }
+  }
+}
+
+/// Cloud badge on an image that is a lower-quality stand-in for the full one.
+private struct LowQualityBadge: View {
+  var body: some View {
+    Image(systemName: "icloud")
+      .font(.system(size: 10, weight: .bold))
+      .foregroundStyle(.white)
+      .frame(width: 20, height: 20)
+      .background(.black.opacity(0.6), in: Circle())
   }
 }
 

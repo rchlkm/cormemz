@@ -107,7 +107,8 @@ struct PeekFilmstripView: View {
     let isAnchor = neighbor.id == anchorID
     let isFocused = neighbor.id == focusedID
     let shape = RoundedRectangle(cornerRadius: Self.cornerRadius)
-    return AdaptiveAssetImage(photo: neighbor, targetSize: CGSize(width: 200, height: 200))
+    return AdaptiveAssetImage(
+      photo: neighbor, targetSize: CGSize(width: 200, height: 200), showsLowQualityFirst: true)
       .frame(
         width: isFocused ? Self.focusedWidth : Self.thumbnailWidth, height: Self.thumbnailHeight
       )
@@ -119,6 +120,9 @@ struct PeekFilmstripView: View {
       }
       .overlay(alignment: .topLeading) {
         if isAnchor { AnchorBadge().padding(Self.badgePadding) }
+      }
+      .overlay(alignment: .bottomTrailing) {
+        if neighbor.isVideo { VideoBadge().padding(Self.badgePadding) }
       }
       .overlay(alignment: .topTrailing) {
         if neighbor.decision != .undecided {
@@ -154,6 +158,17 @@ private struct AnchorBadge: View {
       .foregroundStyle(.white)
       .frame(width: 20, height: 20)
       .background(Color.accentColor, in: Circle())
+  }
+}
+
+/// Small round icon marking a video's thumbnail, whether or not its picture could load.
+private struct VideoBadge: View {
+  var body: some View {
+    Image(systemName: "video.fill")
+      .font(.system(size: 9, weight: .bold))
+      .foregroundStyle(.white)
+      .frame(width: 20, height: 20)
+      .background(.black.opacity(0.6), in: Circle())
   }
 }
 

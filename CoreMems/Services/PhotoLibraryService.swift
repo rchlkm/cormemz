@@ -3,9 +3,9 @@ import Photos
 import PhotosUI
 import UIKit
 
-/// The library's image assets in creation-date order. The sorted fetch is made once and
+/// The library's photos and videos in creation-date order. The sorted fetch is made once and
 /// reused until `invalidate()`, since it covers the whole library.
-private actor ChronologicalImages {
+private actor ChronologicalAssets {
   private var cached: PHFetchResult<PHAsset>?
 
   func neighbors(of assetIdentifier: String, before: Int, after: Int) -> [PHAsset] {
@@ -27,7 +27,9 @@ private actor ChronologicalImages {
 
   private static func fetch() -> PHFetchResult<PHAsset> {
     let options = PHFetchOptions()
-    options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+    options.predicate = NSPredicate(
+      format: "mediaType == %d OR mediaType == %d",
+      PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
     options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
     return PHAsset.fetchAssets(with: options)
   }
@@ -50,7 +52,7 @@ private final class LibraryChangeObserver: NSObject, PHPhotoLibraryChangeObserve
 }
 
 final class PhotoLibraryService: PhotoLibraryServicing {
-  private let chronologicalImages = ChronologicalImages()
+  private let chronologicalAssets = ChronologicalAssets()
   let networkAccess: NetworkAccessProviding
   let editRenderer: MediaEditRenderer
 
@@ -90,7 +92,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
     mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
     mediaTypes: Set<MediaType>, excluding: Set<String>
   ) async -> any AssetBatching {
-    await chronologicalImages.invalidate()
+    await chronologicalAssets.invalidate()
     let networkAccess = networkAccess
     let base = await Task.detached(priority: .userInitiated) {
       AssetBatchSource(
@@ -149,7 +151,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
   }
 
   func neighborAssets(of assetIdentifier: String, before: Int, after: Int) async -> [PHAsset] {
-    await chronologicalImages.neighbors(of: assetIdentifier, before: before, after: after)
+    await chronologicalAssets.neighbors(of: assetIdentifier, before: before, after: after)
   }
 
   /// PhotoKit has no public size API; `PHAssetResource` exposes it through the

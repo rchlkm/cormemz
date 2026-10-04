@@ -19,6 +19,17 @@ import os
 actor PhotoImageLoader {
   static let shared = PhotoImageLoader()
 
+  /// An image Photos delivered, and whether it is a lower-quality stand-in for the final one.
+  struct LoadedImage: Sendable {
+    let image: UIImage
+    let isDegraded: Bool
+  }
+
+  /// Yields the images for an identifier at a size as Photos delivers them, ending after the
+  /// final one; must stop early when its consumer terminates.
+  typealias ProgressiveFetch = @Sendable (_ identifier: String, _ targetSize: CGSize) ->
+    AsyncStream<LoadedImage>
+
   /// Produces the image for an identifier at a size; must stop early when its task is cancelled.
   typealias ImageFetch = @Sendable (_ identifier: String, _ targetSize: CGSize) async -> UIImage?
 
@@ -33,6 +44,7 @@ actor PhotoImageLoader {
 
   private let manager: PHCachingImageManager
   private let fetch: ImageFetch
+  private let progressiveFetch: ProgressiveFetch
   /// Assets the app already holds, so a request doesn't re-fetch them by identifier.
   private let knownAssets = NSCache<NSString, PHAsset>()
   private let evictionLogger = CacheEvictionLogger()
@@ -47,12 +59,20 @@ actor PhotoImageLoader {
   private var prefetchTask: Task<Void, Never>?
   private var inFlight: [String: InFlightLoad] = [:]
 
-  init(fetch: ImageFetch? = nil, networkAccess: NetworkAccessProviding = NetworkMonitor.shared) {
+  init(
+    fetch: ImageFetch? = nil, networkAccess: NetworkAccessProviding = NetworkMonitor.shared,
+    progressiveFetch: ProgressiveFetch? = nil
+  ) {
     let manager = PHCachingImageManager()
     let knownAssets = knownAssets
     self.manager = manager
     self.fetch = fetch ?? { identifier, targetSize in
       await Self.requestImage(
+        using: manager, knownAssets: knownAssets, identifier: identifier, targetSize: targetSize,
+        allowsDownloads: networkAccess.allowsDownloads)
+    }
+    self.progressiveFetch = progressiveFetch ?? { identifier, targetSize in
+      Self.requestProgressiveImages(
         using: manager, knownAssets: knownAssets, identifier: identifier, targetSize: targetSize,
         allowsDownloads: networkAccess.allowsDownloads)
     }
@@ -70,7 +90,7 @@ actor PhotoImageLoader {
   /// Callers asking for the same image at the same time share one load. The load is cancelled
   /// only once every caller waiting on it has been cancelled.
   func image(for identifier: String, targetSize: CGSize) async -> UIImage? {
-    let cacheKey = "\(identifier)-\(Int(targetSize.width))x\(Int(targetSize.height))"
+    let cacheKey = Self.cacheKey(identifier, targetSize)
     if let cached = cache.object(forKey: cacheKey as NSString) {
       Self.logger.debug("cache hit for \(cacheKey, privacy: .public)")
       return cached
@@ -82,6 +102,33 @@ actor PhotoImageLoader {
     } onCancel: {
       Task { await self.leaveLoad(key: cacheKey, id: load.id) }
     }
+  }
+
+  /// Like `image(for:targetSize:)`, but yields a lower-quality stand-in first when Photos has one,
+  /// then the final image. Only a final image is cached; a cached one is yielded alone.
+  func progressiveImages(for identifier: String, targetSize: CGSize) -> AsyncStream<LoadedImage> {
+    let cacheKey = Self.cacheKey(identifier, targetSize)
+    if let cached = cache.object(forKey: cacheKey as NSString) {
+      return AsyncStream { continuation in
+        continuation.yield(LoadedImage(image: cached, isDegraded: false))
+        continuation.finish()
+      }
+    }
+    let source = progressiveFetch(identifier, targetSize)
+    return AsyncStream { continuation in
+      let task = Task {
+        for await loaded in source {
+          if !loaded.isDegraded { store(loaded.image, key: cacheKey as NSString) }
+          continuation.yield(loaded)
+        }
+        continuation.finish()
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
+  private static func cacheKey(_ identifier: String, _ targetSize: CGSize) -> String {
+    "\(identifier)-\(Int(targetSize.width))x\(Int(targetSize.height))"
   }
 
   private func joinLoad(key: String, identifier: String, targetSize: CGSize) -> InFlightLoad {
@@ -125,16 +172,18 @@ actor PhotoImageLoader {
     return image
   }
 
+  private static func asset(for identifier: String, in knownAssets: NSCache<NSString, PHAsset>)
+    -> PHAsset?
+  {
+    knownAssets.object(forKey: identifier as NSString)
+      ?? PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject
+  }
+
   private static func requestImage(
     using manager: PHCachingImageManager, knownAssets: NSCache<NSString, PHAsset>,
     identifier: String, targetSize: CGSize, allowsDownloads: Bool
   ) async -> UIImage? {
-    guard
-      let asset = knownAssets.object(forKey: identifier as NSString)
-        ?? PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject
-    else {
-      return nil
-    }
+    guard let asset = asset(for: identifier, in: knownAssets) else { return nil }
 
     let options = PHImageRequestOptions()
     options.deliveryMode = .highQualityFormat
@@ -163,6 +212,44 @@ actor PhotoImageLoader {
       }
     } onCancel: {
       token.cancel()
+    }
+  }
+
+  private static func requestProgressiveImages(
+    using manager: PHCachingImageManager, knownAssets: NSCache<NSString, PHAsset>,
+    identifier: String, targetSize: CGSize, allowsDownloads: Bool
+  ) -> AsyncStream<LoadedImage> {
+    AsyncStream { continuation in
+      guard let asset = asset(for: identifier, in: knownAssets) else {
+        continuation.finish()
+        return
+      }
+
+      let options = PHImageRequestOptions()
+      options.deliveryMode = .opportunistic
+      options.resizeMode = .fast
+      options.isNetworkAccessAllowed = allowsDownloads
+      #if DEBUG
+        let transfer = NetworkTransferProbe()
+        options.progressHandler = { _, _, _, _ in transfer.markTransferred() }
+      #endif
+
+      let token = RequestToken()
+      continuation.onTermination = { _ in token.cancel() }
+      // A result with no image, or a final one, is the last callback.
+      let id = manager.requestImage(
+        for: asset, targetSize: targetSize, contentMode: .aspectFill, options: options
+      ) { image, info in
+        let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+        #if DEBUG
+          if image != nil, !isDegraded, transfer.didTransfer {
+            NetworkDownloadStats.recordDownload(of: asset)
+          }
+        #endif
+        if let image { continuation.yield(LoadedImage(image: image, isDegraded: isDegraded)) }
+        if image == nil || !isDegraded { continuation.finish() }
+      }
+      token.attach(id, to: manager)
     }
   }
 
