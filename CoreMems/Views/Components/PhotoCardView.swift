@@ -12,11 +12,17 @@ struct PhotoCardView: View {
   let photo: SessionPhoto
   let maxSize: CGSize
 
+  /// Held without observing it, so only the views showing playback redraw as it plays.
+  @State private var playback = VideoPlayback()
+
   var body: some View {
     let quarterTurns = photo.previewQuarterTurns
     if photo.isVideo {
-      VideoPlayerCardView(assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns)
-        .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
+      VideoPlayerCardView(
+        playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
+        playbackRange: photo.activeEdit?.trimRange
+      )
+      .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {
       AdaptiveAssetImage(photo: photo, fitWithin: maxSize.turned(by: quarterTurns))
         .rotated(quarterTurns: quarterTurns)

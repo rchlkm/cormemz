@@ -12,6 +12,15 @@ struct EditTests {
     return edit
   }
 
+  /// A session browsing just `asset`.
+  private func session(of asset: FakeAsset) async -> SessionHarness {
+    let library = RecordingPhotoLibrary()
+    library.assets = [asset]
+    let h = SessionHarness(library: library)
+    await h.vm.startSession(mode: .recent, startDate: nil)
+    return h
+  }
+
   @Test func savingAnEditStagesItWithoutDecidingThePhoto() async {
     let h = await SessionHarness.started(photoCount: 2)
 
@@ -114,6 +123,27 @@ struct EditTests {
     #expect(h.vm.photos[0].decision == .keep)
     #expect(h.vm.markedPhotos.isEmpty)
     #expect(h.haptics.trayRestoreCallCount == 1)
+  }
+
+  @Test func aVideoCanBeTrimmedAcrossItsLength() async {
+    let h = await session(
+      of: FakeAsset(identifier: SessionHarness.assetID(0), isVideo: true, duration: 12))
+
+    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == 12)
+  }
+
+  @Test func aSlowMotionVideoCannotBeTrimmed() async {
+    let h = await session(
+      of: FakeAsset(
+        identifier: SessionHarness.assetID(0), isVideo: true, isSlowMotion: true, duration: 12))
+
+    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == nil)
+  }
+
+  @Test func aPhotoCannotBeTrimmed() async {
+    let h = await session(of: FakeAsset(identifier: SessionHarness.assetID(0)))
+
+    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == nil)
   }
 
   @Test func editsAreRestoredWithTheSession() async {

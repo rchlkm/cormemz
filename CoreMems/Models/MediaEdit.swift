@@ -15,4 +15,15 @@ nonisolated struct MediaEdit: Equatable, Codable {
   mutating func rotate() {
     quarterTurns = (quarterTurns + 1) % 4
   }
+
+  /// Keeps `range` of a video `duration` seconds long; keeping all of it clears the trim and
+  /// its options.
+  mutating func trim(to range: ClosedRange<Double>, ofDuration duration: Double) {
+    guard range.lowerBound > 0 || range.upperBound < duration else {
+      trimRange = nil
+      deletesOriginal = true
+      return
+    }
+    trimRange = range
+  }
 }

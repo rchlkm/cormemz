@@ -123,8 +123,12 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
     let sizes = changes.conversions
       .filter { stills[$0.key] != nil }
       .mapValues { stillSizes[$0.localIdentifier] ?? 0 }
+    let clips = changes.edits
+      .filter { $0.value.edit.trimRange != nil && !photoIDsWithFailedEdit.contains($0.key) }
+      .mapValues { "clip-\($0.asset.localIdentifier)" }
     return .success(SessionLibraryResult(
-      stillIdentifiers: stills, stillSizes: sizes, createdAlbumIDs: createdAlbumIDs,
+      stillIdentifiers: stills, stillSizes: sizes, clipIdentifiers: clips,
+      createdAlbumIDs: createdAlbumIDs,
       failedEdits: changes.edits.keys
         .filter { photoIDsWithFailedEdit.contains($0) }
         .reduce(into: [:]) { reasons, id in reasons[id] = editFailureReason }))

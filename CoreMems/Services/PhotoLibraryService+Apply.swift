@@ -7,15 +7,16 @@ extension PhotoLibraryService {
   {
     guard !changes.isEmpty else { return .success(SessionLibraryResult()) }
 
-    let replacements: [String: AssetReplacement]
+    let stills: [String: AssetReplacement]
     do {
-      replacements = try await conversionReplacements(for: changes)
+      stills = try await conversionReplacements(for: changes)
     } catch {
       return .failure(error)
     }
 
     var result = SessionLibraryResult()
     var editOutputs: [String: PHContentEditingOutput] = [:]
+    var clips: [String: AssetReplacement] = [:]
     for (photoID, staged) in changes.edits {
       #if DEBUG
         if EditFailureSimulation.shouldFail(assetIdentifier: staged.asset.localIdentifier) {
@@ -24,10 +25,16 @@ extension PhotoLibraryService {
         }
       #endif
       switch await editRenderer.output(for: staged.edit, of: staged.asset) {
-      case .success(let output): editOutputs[photoID] = output
+      case .success(.adjustments(let output)): editOutputs[photoID] = output
+      case .success(.clip(let url)):
+        clips[photoID] = AssetReplacement(
+          original: staged.asset, resourceType: .video, content: .file(url),
+          albumIDs: Self.carriedOverAlbumIDs(of: staged.asset, photoID: photoID, in: changes),
+          deletesOriginal: staged.edit.deletesOriginal)
       case .failure(let reason): result.failedEdits[photoID] = reason
       }
     }
+    let replacements = stills.merging(clips) { still, _ in still }
 
     do {
       try await PHPhotoLibrary.shared().performChanges {
@@ -63,9 +70,10 @@ extension PhotoLibraryService {
           }
         }
 
-        // A replaced photo's removals are already left out of its replacement's albums.
+        // A deleted original's removals are already left out of its replacement's albums.
         var assetsByExistingRemoveID: [String: [PHObject]] = [:]
-        for (photoID, ids) in changes.albumRemovals where replacements[photoID] == nil {
+        for (photoID, ids) in changes.albumRemovals
+        where replacements[photoID]?.deletesOriginal != true {
           guard let asset = changes.albumAssets[photoID] else { continue }
           for id in ids {
             assetsByExistingRemoveID[id, default: []].append(asset)
@@ -108,12 +116,15 @@ extension PhotoLibraryService {
 
         // An original is only deleted alongside the asset that replaces it.
         let replaced = replacements.filter { created[$0.key] != nil }
-        let deletions = changes.deletions + replaced.values.map(\.original)
+        let deletions =
+          changes.deletions + replaced.values.filter(\.deletesOriginal).map(\.original)
         if !deletions.isEmpty {
           PHAssetChangeRequest.deleteAssets(deletions as NSArray)
         }
-        result.stillIdentifiers = created.mapValues(\.localIdentifier)
-        result.stillSizes = replaced.mapValues { Int64($0.data.count) }
+        let identifiers = created.mapValues(\.localIdentifier)
+        result.stillIdentifiers = identifiers.filter { stills[$0.key] != nil }
+        result.clipIdentifiers = identifiers.filter { clips[$0.key] != nil }
+        result.stillSizes = replaced.compactMapValues(\.dataSize)
       }
       await editRenderer.discardAll()
       return .success(result)
@@ -122,8 +133,7 @@ extension PhotoLibraryService {
     }
   }
 
-  /// A still copy of each converted Live Photo, by session photo ID, joining the original's
-  /// albums except those the session removes it from.
+  /// A still copy of each converted Live Photo, by session photo ID.
   private func conversionReplacements(for changes: SessionLibraryChanges) async throws
     -> [String: AssetReplacement]
   {
@@ -133,13 +143,20 @@ extension PhotoLibraryService {
       guard let resource = Self.stillResource(for: asset) else {
         throw PhotoLibraryError.missingStillResource
       }
-      let removed = changes.albumRemovals[photoID] ?? []
       replacements[photoID] = AssetReplacement(
         original: asset, resourceType: .photo,
-        data: try await Self.data(for: resource, allowsNetwork: allowsNetwork),
-        albumIDs: Self.editableAlbumIDs(containing: asset).filter { !removed.contains($0) })
+        content: .data(try await Self.data(for: resource, allowsNetwork: allowsNetwork)),
+        albumIDs: Self.carriedOverAlbumIDs(of: asset, photoID: photoID, in: changes))
     }
     return replacements
+  }
+
+  /// The albums a copy of `asset` joins: the original's, except those the session removes it from.
+  private static func carriedOverAlbumIDs(
+    of asset: PHAsset, photoID: String, in changes: SessionLibraryChanges
+  ) -> [String] {
+    let removed = changes.albumRemovals[photoID] ?? []
+    return editableAlbumIDs(containing: asset).filter { !removed.contains($0) }
   }
 
   /// The edited render when the Live Photo has adjustments, else its original still.

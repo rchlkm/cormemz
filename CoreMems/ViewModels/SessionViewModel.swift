@@ -418,6 +418,13 @@ final class SessionViewModel: ObservableObject {
     return true
   }
 
+  /// The length in seconds of a video that can be trimmed; `nil` for anything else.
+  func trimmableDuration(of photo: SessionPhoto) -> Double? {
+    guard photo.isVideo, let asset = pickedAssets[photo.id], asset.isTrimmable, asset.duration > 0
+    else { return nil }
+    return asset.duration
+  }
+
   /// A Live Photo can be converted when its original is on the device or may be downloaded.
   func canConvertToStill(_ photo: SessionPhoto) -> Bool {
     guard photo.isLivePhoto else { return false }
@@ -738,6 +745,7 @@ final class SessionViewModel: ObservableObject {
     switch result {
     case .success(let applied):
       applyConversions(plan.conversions, from: applied)
+      markKept(applied.outcome.clipIdentifiers.values)
       let createdAlbumIDs = applied.outcome.createdAlbumIDs
       pinnedAlbums.pin(createdAlbumIDs.sorted())
       recentAlbums.forget(Set(pendingNewAlbums.map(\.ref.identifier)))
@@ -789,6 +797,7 @@ final class SessionViewModel: ObservableObject {
     switch await applyService.apply(SessionLibraryChanges(edits: edits)) {
     case .success(let applied):
       failures = applied.outcome.failedEdits
+      markKept(applied.outcome.clipIdentifiers.values)
     case .failure(let error):
       let declined = (error as? PHPhotosError)?.code == .userCancelled
       failures = edits.mapValues { _ in declined ? .declined : .unknown }
@@ -821,11 +830,16 @@ final class SessionViewModel: ObservableObject {
   /// after applying, or if the session is abandoned, still undecided.
   /// Photos held for later are skipped too.
   private func recordKeptPhotos() {
+    markKept(
+      deck.keptPhotos
+        .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
+        .map(\.assetIdentifier))
+  }
+
+  /// Adds assets to the kept history, such as kept photos and the clips trimmed from them.
+  private func markKept(_ identifiers: some Sequence<String>) {
     guard tracksKeptHistory else { return }
-    let keptIdentifiers = deck.keptPhotos
-      .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
-      .map(\.assetIdentifier)
-    keptPhotosStore.markKept(Set(keptIdentifiers))
+    keptPhotosStore.markKept(Set(identifiers))
     keptPhotoCount = keptPhotosStore.keptIdentifiers().count
   }
 

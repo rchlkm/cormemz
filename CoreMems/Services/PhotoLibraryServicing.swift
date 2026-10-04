@@ -34,7 +34,7 @@ struct SessionLibraryChanges {
   var albumAdditions: [String: Set<AlbumRef>] = [:]
   var albumRemovals: [String: Set<String>] = [:]
   var albumAssets: [String: PHAsset] = [:]
-  /// Edits written to their assets in place, by session photo ID.
+  /// Edits to write, by session photo ID: in place, or as a new clip for a trim.
   var edits: [String: AssetEdit] = [:]
 
   var isEmpty: Bool {
@@ -48,6 +48,8 @@ struct SessionLibraryResult {
   var stillIdentifiers: [String: String] = [:]
   /// File size in bytes of each still copy, by session photo ID.
   var stillSizes: [String: Int64] = [:]
+  /// Local identifier of each trimmed video's new clip, by session photo ID.
+  var clipIdentifiers: [String: String] = [:]
   /// Local identifiers of albums created for former `.pendingNew` refs.
   var createdAlbumIDs: Set<String> = []
   /// Identifiers of staged album adds/removes that silently no-op'd because the album no
@@ -126,8 +128,8 @@ protocol LibraryEditing {
   /// Starts rendering `edit` in the background, so applying it later only has to write it.
   func prepareEdit(_ edit: MediaEdit, for asset: PHAsset)
   /// Applies everything a session changes in the library as one transaction: still
-  /// copies of converted Live Photos (the originals are deleted), edits, album changes, and
-  /// deletions. Deleted photos move to Recently Deleted. The user sees one system prompt, and
+  /// copies of converted Live Photos (the originals are deleted), edits, trimmed clips, album
+  /// changes, and deletions. Deleted photos move to Recently Deleted. The user sees one system prompt, and
   /// either all of it happens or none of it does; an edit that can't be rendered is left out
   /// rather than failing the rest.
   func applySessionChanges(_ changes: SessionLibraryChanges) async

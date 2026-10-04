@@ -25,6 +25,8 @@ struct ExpandedPhotoView: View {
   @State private var draftEdit: MediaEdit?
   @State private var editTool = EditTool.rotate
   @State private var showsSavedStamp = false
+  /// Held without observing it, so only the views showing playback redraw as it plays.
+  @State private var playback = VideoPlayback()
 
   private let dismissThreshold: CGFloat = 120
   private let fadeDistance: CGFloat = 400
@@ -32,14 +34,32 @@ struct ExpandedPhotoView: View {
   private let doubleTapZoom: CGFloat = 2.5
   private let savedStampHold: Duration = .milliseconds(450)
   /// Room kept clear for the editor's bars, so they sit on black rather than on the photo.
-  private let editorInsets = EdgeInsets(top: 150, leading: 16, bottom: 60, trailing: 16)
+  private let baseEditorInsets = EdgeInsets(top: 150, leading: 16, bottom: 60, trailing: 16)
+  /// Extra room below the photo for the trim bar, which sits above the tool picker.
+  private let trimBarExtraHeight: CGFloat = 88
 
   private var isZoomed: Bool { scale > 1.01 }
   private var isEditing: Bool { draftEdit != nil }
   private var quarterTurns: Int { draftEdit?.quarterTurns ?? photo.previewQuarterTurns }
+  private var trimRange: ClosedRange<Double>? {
+    isEditing ? draftEdit?.trimRange : photo.activeEdit?.trimRange
+  }
+  private var trimDuration: Double? { vm.trimmableDuration(of: photo) }
+  /// In the Trim tool, the trim bar stands in for the player's own transport bar.
+  private var showsTrimBar: Bool { isEditing && editTool == .trim && trimDuration != nil }
+  private var availableTools: [EditTool] {
+    EditTool.allCases.filter { $0 != .trim || trimDuration != nil }
+  }
   private var savedEdit: MediaEdit { photo.activeEdit ?? MediaEdit() }
   /// Viewing gestures are off in edit mode.
   private var viewingGestures: GestureMask { isEditing ? .subviews : .all }
+
+  /// Kept the same for every tool, so switching tools doesn't move the photo.
+  private var editorInsets: EdgeInsets {
+    var insets = baseEditorInsets
+    if availableTools.contains(.trim) { insets.bottom += trimBarExtraHeight }
+    return insets
+  }
 
   /// The space the photo fits in: the whole screen, or between the bars in edit mode.
   private var contentBox: CGSize {
@@ -123,7 +143,9 @@ struct ExpandedPhotoView: View {
       )
       .rotated(quarterTurns: quarterTurns)
     } else if photo.isVideo {
-      VideoPlayerCardView(assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns)
+      VideoPlayerCardView(
+        playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
+        playbackRange: trimRange, showsTransport: !showsTrimBar)
     } else {
       AdaptiveAssetImage(
         photo: photo, fitWithin: contentBox.turned(by: quarterTurns)
@@ -136,6 +158,7 @@ struct ExpandedPhotoView: View {
     Button {
       resetZoom(animated: true)
       isShowingLivePhoto = false
+      editTool = availableTools[0]
       draftEdit = photo.edit ?? MediaEdit()
     } label: {
       Image(systemName: EditStyle.symbol)
@@ -148,7 +171,7 @@ struct ExpandedPhotoView: View {
   }
 
   /// Cancel and Done along the top, the current tool's controls under them, and the tools
-  /// along the bottom, as in the Photos editor.
+  /// along the bottom with the trim bar above them, as in the Photos editor.
   private var editorChrome: some View {
     VStack(spacing: 0) {
       HStack {
@@ -164,17 +187,21 @@ struct ExpandedPhotoView: View {
       .padding(.horizontal, 20)
       .padding(.top, 50)
 
-      HStack {
-        toolControls
-        Spacer()
-      }
-      .padding(.horizontal, 12)
-      .padding(.top, 8)
+      toolControls
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
 
       Spacer()
 
+      if showsTrimBar, let trimDuration {
+        VideoTrimBar(
+          range: trimBinding(duration: trimDuration), duration: trimDuration, playback: playback)
+          .padding(.horizontal, 16)
+          .padding(.bottom, 20)
+      }
+
       // A single tool needs no picker; its controls are already showing.
-      if EditTool.allCases.count > 1 {
+      if availableTools.count > 1 {
         toolPicker
       }
     }
@@ -184,7 +211,7 @@ struct ExpandedPhotoView: View {
 
   private var toolPicker: some View {
     HStack(spacing: 28) {
-      ForEach(EditTool.allCases) { tool in
+      ForEach(availableTools) { tool in
         Button {
           editTool = tool
         } label: {
@@ -202,16 +229,36 @@ struct ExpandedPhotoView: View {
   @ViewBuilder
   private var toolControls: some View {
     switch editTool {
+    case .trim:
+      Toggle("Delete original", isOn: deletesOriginalBinding)
+        .tint(.yellow)
+        .disabled(draftEdit?.trimRange == nil)
     case .rotate:
-      Button {
-        draftEdit?.rotate()
-      } label: {
-        Image(systemName: "rotate.left")
+      HStack {
+        Button {
+          draftEdit?.rotate()
+        } label: {
+          Image(systemName: "rotate.left")
+        }
+        .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
+        .accessibilityLabel("Rotate")
+        .accessibilityIdentifier(AccessibilityID.editRotate)
+        Spacer()
       }
-      .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-      .accessibilityLabel("Rotate")
-      .accessibilityIdentifier(AccessibilityID.editRotate)
     }
+  }
+
+  /// The draft's trim, shown as the whole video when untrimmed.
+  private func trimBinding(duration: Double) -> Binding<ClosedRange<Double>> {
+    Binding(
+      get: { draftEdit?.trimRange ?? 0...duration },
+      set: { draftEdit?.trim(to: $0, ofDuration: duration) })
+  }
+
+  private var deletesOriginalBinding: Binding<Bool> {
+    Binding(
+      get: { draftEdit?.deletesOriginal ?? true },
+      set: { draftEdit?.deletesOriginal = $0 })
   }
 
   /// Stages the draft, or discards the photo's edit when the draft undoes it, then shows the
@@ -318,18 +365,21 @@ struct ExpandedPhotoView: View {
 
 /// The editor's tools, shown along the bottom.
 private enum EditTool: CaseIterable, Identifiable {
+  case trim
   case rotate
 
   var id: Self { self }
 
   var title: String {
     switch self {
+    case .trim: return "Trim"
     case .rotate: return "Rotate"
     }
   }
 
   var symbol: String {
     switch self {
+    case .trim: return "timeline.selection"
     case .rotate: return "crop.rotate"
     }
   }

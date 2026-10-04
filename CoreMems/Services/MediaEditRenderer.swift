@@ -10,10 +10,24 @@ nonisolated enum MediaEditError: Error {
   case unsupportedMedia
 }
 
-/// Renders staged edits into Photos edit outputs ahead of Apply, so applying only has to
-/// write them. Each asset keeps its latest render; a changed edit replaces it.
+/// A rendered edit: adjustments written to the asset in place, or a trimmed video saved as a
+/// new clip from this file.
+nonisolated enum RenderedEdit {
+  case adjustments(PHContentEditingOutput)
+  case clip(URL)
+}
+
+extension PHAsset {
+  /// Slow-motion videos play through a time-mapped composition a trimmed clip wouldn't keep.
+  nonisolated var isTrimmable: Bool {
+    mediaType == .video && !mediaSubtypes.contains(.videoHighFrameRate)
+  }
+}
+
+/// Renders staged edits into Photos edit outputs or trimmed clips ahead of Apply, so applying
+/// only has to write them. Each asset keeps its latest render; a changed edit replaces it.
 actor MediaEditRenderer {
-  typealias Rendered = Result<PHContentEditingOutput, EditFailureReason>
+  typealias Rendered = Result<RenderedEdit, EditFailureReason>
 
   private struct Render {
     let edit: MediaEdit
@@ -45,18 +59,28 @@ actor MediaEditRenderer {
   }
 
   func discardAll() {
-    renders.values.forEach { $0.task.cancel() }
+    renders.values.forEach(discard)
     renders.removeAll()
+  }
+
+  /// Cancels a render and removes the clip it made, if any.
+  private func discard(_ render: Render) {
+    render.task.cancel()
+    Task.detached {
+      if case .success(.clip(let url)) = await render.task.value {
+        try? FileManager.default.removeItem(at: url)
+      }
+    }
   }
 
   private func render(_ edit: MediaEdit, for asset: PHAsset) -> Task<Rendered, Never> {
     let id = asset.localIdentifier
     if let existing = renders[id], existing.edit == edit { return existing.task }
-    renders[id]?.task.cancel()
+    renders[id].map(discard)
     let allowsNetwork = networkAccess.allowsDownloads
     let task = Task.detached(priority: .utility) { () -> Rendered in
       do {
-        return .success(try await Self.makeOutput(edit, for: asset, allowsNetwork: allowsNetwork))
+        return .success(try await Self.make(edit, for: asset, allowsNetwork: allowsNetwork))
       } catch {
         Self.logger.error("edit render failed for \(id, privacy: .public): \(error, privacy: .public)")
         return .failure(Self.reason(for: error, allowsNetwork: allowsNetwork))
@@ -75,10 +99,25 @@ actor MediaEditRenderer {
     return .unknown
   }
 
-  private nonisolated static func makeOutput(
+  private nonisolated static func make(
     _ edit: MediaEdit, for asset: PHAsset, allowsNetwork: Bool
-  ) async throws -> PHContentEditingOutput {
+  ) async throws -> RenderedEdit {
     let input = try await contentEditingInput(for: asset, allowsNetwork: allowsNetwork)
+    guard let trimRange = edit.trimRange else {
+      return .adjustments(try await makeOutput(edit, from: input))
+    }
+    guard asset.isTrimmable else { throw MediaEditError.unsupportedMedia }
+    guard let source = input.audiovisualAsset else { throw MediaEditError.inputUnavailable }
+    let url = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString).appendingPathExtension(for: .quickTimeMovie)
+    try await exportVideo(
+      source, quarterTurns: edit.quarterTurns, trimRange: trimRange, to: url)
+    return .clip(url)
+  }
+
+  private nonisolated static func makeOutput(
+    _ edit: MediaEdit, from input: PHContentEditingInput
+  ) async throws -> PHContentEditingOutput {
     let output = PHContentEditingOutput(contentEditingInput: input)
     output.adjustmentData = PHAdjustmentData(
       formatIdentifier: adjustmentFormat, formatVersion: adjustmentFormatVersion,
@@ -94,7 +133,10 @@ actor MediaEditRenderer {
     } else if input.mediaType == .image {
       try renderPhoto(input, quarterTurns: edit.quarterTurns, to: output)
     } else if input.mediaType == .video {
-      try await renderVideo(input, quarterTurns: edit.quarterTurns, to: output)
+      guard let source = input.audiovisualAsset else { throw MediaEditError.inputUnavailable }
+      try await exportVideo(
+        source, quarterTurns: edit.quarterTurns, trimRange: nil,
+        to: try output.renderedContentURL(for: .quickTimeMovie))
     } else {
       throw MediaEditError.unsupportedMedia
     }
@@ -149,21 +191,21 @@ actor MediaEditRenderer {
     }
   }
 
-  /// Rewrites only the video track's display transform; samples are copied as-is.
-  private nonisolated static func renderVideo(
-    _ input: PHContentEditingInput, quarterTurns: Int, to output: PHContentEditingOutput
+  /// Copies `trimRange` of the video, or all of it, rewriting only the video track's display
+  /// transform; samples are copied as-is.
+  private nonisolated static func exportVideo(
+    _ source: AVAsset, quarterTurns: Int, trimRange: ClosedRange<Double>?, to url: URL
   ) async throws {
-    guard let source = input.audiovisualAsset else { throw MediaEditError.inputUnavailable }
-
+    let kept = keptTimeRange(trimRange, duration: try await source.load(.duration))
     let composition = AVMutableComposition()
     for track in try await source.load(.tracks)
     where track.mediaType == .video || track.mediaType == .audio {
-      guard
+      let timeRange = try await track.load(.timeRange).intersection(kept)
+      guard !timeRange.isEmpty,
         let copy = composition.addMutableTrack(
           withMediaType: track.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid)
       else { continue }
-      let timeRange = try await track.load(.timeRange)
-      try copy.insertTimeRange(timeRange, of: track, at: timeRange.start)
+      try copy.insertTimeRange(timeRange, of: track, at: timeRange.start - kept.start)
       if track.mediaType == .video {
         let (transform, naturalSize) = try await track.load(.preferredTransform, .naturalSize)
         copy.preferredTransform = rotatedTransform(
@@ -175,7 +217,18 @@ actor MediaEditRenderer {
       let export = AVAssetExportSession(
         asset: composition, presetName: AVAssetExportPresetPassthrough)
     else { throw MediaEditError.unsupportedMedia }
-    try await export.export(to: try output.renderedContentURL(for: .quickTimeMovie), as: .mov)
+    try await export.export(to: url, as: .mov)
+  }
+
+  /// The part of a video `duration` long that `trimRange` keeps, or all of it.
+  nonisolated static func keptTimeRange(_ trimRange: ClosedRange<Double>?, duration: CMTime)
+    -> CMTimeRange
+  {
+    guard let trimRange else { return CMTimeRange(start: .zero, duration: duration) }
+    let timescale = max(duration.timescale, 600)
+    return CMTimeRange(
+      start: CMTime(seconds: trimRange.lowerBound, preferredTimescale: timescale),
+      end: CMTime(seconds: trimRange.upperBound, preferredTimescale: timescale))
   }
 
   /// `image` turned counterclockwise by `quarterTurns` quarter turns, with its origin at zero.

@@ -1,6 +1,7 @@
 // CoreMemsTests/Services/MediaEditRendererTests.swift
 import CoreGraphics
 import CoreImage
+import CoreMedia
 import Testing
 
 @testable import CoreMems
@@ -42,6 +43,29 @@ struct MediaEditRendererTests {
       portrait, naturalSize: landscape, quarterTurns: 1)
 
     #expect(transform == .identity)
+  }
+
+  @Test func anUntrimmedVideoKeepsItsWholeLength() {
+    let duration = CMTime(value: 900, timescale: 600)
+
+    let kept = MediaEditRenderer.keptTimeRange(nil, duration: duration)
+
+    #expect(kept == CMTimeRange(start: .zero, duration: duration))
+  }
+
+  @Test func aTrimKeepsOnlyItsRange() {
+    let kept = MediaEditRenderer.keptTimeRange(
+      1.5...4, duration: CMTime(value: 6000, timescale: 600))
+
+    #expect(kept.start.seconds == 1.5)
+    #expect(kept.end.seconds == 4)
+  }
+
+  @Test func aTrimKeepsTheVideosFinerTimescale() {
+    let kept = MediaEditRenderer.keptTimeRange(
+      0.25...1, duration: CMTime(value: 44_100, timescale: 44_100))
+
+    #expect(kept.start == CMTime(value: 11_025, timescale: 44_100))
   }
 
   @Test func aQuarterTurnRotatesAnImageCounterclockwise() {

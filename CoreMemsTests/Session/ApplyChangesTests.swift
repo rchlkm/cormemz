@@ -228,6 +228,12 @@ struct ApplyChangesTests {
   }
 
   /// A started session where every photo is kept and those at `editedIndexes` are rotated once.
+  private var trim: MediaEdit {
+    var edit = MediaEdit()
+    edit.trim(to: 1...3, ofDuration: 10)
+    return edit
+  }
+
   private func sessionWithEdits(photoCount: Int, editedIndexes: [Int]) async -> SessionHarness {
     let h = await SessionHarness.started(photoCount: photoCount)
     var edit = MediaEdit()
@@ -400,6 +406,48 @@ struct ApplyChangesTests {
 
     #expect(h.haptics.editFailedCount == 1)
     #expect(h.haptics.sessionCompleteCallCount == 0)
+  }
+
+  @Test func aTrimmedClipIsRememberedAsKept() async {
+    let h = await SessionHarness.started(photoCount: 2)
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    await h.decide(1, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(
+      h.keptStore.keptIdentifiers()
+        == ["clip-\(SessionHarness.assetID(0))", SessionHarness.assetID(0),
+          SessionHarness.assetID(1)])
+    #expect(h.vm.keptPhotoCount == 3)
+  }
+
+  @Test func aTrimmedClipWrittenOnRetryIsRememberedAsKept() async {
+    let h = await SessionHarness.started(photoCount: 1)
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+    h.library.photoIDsWithFailedEdit = [SessionHarness.photoID(0)]
+    await h.vm.applyChanges()
+    #expect(h.keptStore.keptIdentifiers() == [SessionHarness.assetID(0)])
+    h.library.photoIDsWithFailedEdit = []
+
+    await h.vm.retryEdits(photoIDs: [SessionHarness.photoID(0)])
+
+    #expect(
+      h.keptStore.keptIdentifiers()
+        == ["clip-\(SessionHarness.assetID(0))", SessionHarness.assetID(0)])
+  }
+
+  @Test func aTrimmedClipIsNotRememberedWithTrackingOff() async {
+    let h = await SessionHarness.started(photoCount: 1)
+    h.vm.tracksKeptHistory = false
+    h.vm.saveEdit(trim, photoID: SessionHarness.photoID(0))
+    await h.decide(0, .keep)
+
+    await h.vm.applyChanges()
+
+    #expect(h.keptStore.keptIdentifiers().isEmpty)
   }
 
   @Test func retryFeedbackFollowsTheOutcome() async {
