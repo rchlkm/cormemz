@@ -215,7 +215,7 @@ final class SessionViewModel: ObservableObject {
   /// `checkInInterval` photos; later batches load as the user browses.
   func startSession(
     mode: SelectionMode, startDate: Date?, album: AlbumOption? = nil,
-    mediaTypeFilter: MediaTypeFilter = .all
+    mediaTypes: Set<MediaType> = []
   ) async {
     guard !isStartingSession else { return }
     isStartingSession = true
@@ -235,7 +235,7 @@ final class SessionViewModel: ObservableObject {
     let initialCount = Self.lookaheadBatches * batchSize
     let (source, assets) = await loadInitialAssets(
       mode: mode, startDate: startDate, albumIdentifier: album?.ref.identifier,
-      mediaTypeFilter: mediaTypeFilter, count: initialCount, limit: limit)
+      mediaTypes: mediaTypes, count: initialCount, limit: limit)
 
     if !assets.isEmpty {
       deck = SessionDeck(photos: registerPhotos(from: assets))
@@ -263,18 +263,18 @@ final class SessionViewModel: ObservableObject {
   /// while the library has photos, loads without the skip rather than start an empty session.
   private func loadInitialAssets(
     mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
-    mediaTypeFilter: MediaTypeFilter = .all, count: Int, limit: Int
+    mediaTypes: Set<MediaType> = [], count: Int, limit: Int
   ) async -> (source: any AssetBatching, assets: [PHAsset]) {
     let kept = includesKeptPhotos ? [] : keptPhotosStore.keptIdentifiers()
     let source = await library.makeAssetSource(
       mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
-      mediaTypeFilter: mediaTypeFilter, excluding: kept)
+      mediaTypes: mediaTypes, excluding: kept)
     let assets = await source.nextBatch(count: count)
     guard assets.isEmpty, !kept.isEmpty, limit > 0, library.totalEligibleAssetCount() > 0
     else { return (source, assets) }
     let unfiltered = await library.makeAssetSource(
       mode: mode, startDate: startDate, albumIdentifier: albumIdentifier,
-      mediaTypeFilter: mediaTypeFilter, excluding: [])
+      mediaTypes: mediaTypes, excluding: [])
     return (unfiltered, await unfiltered.nextBatch(count: count))
   }
 

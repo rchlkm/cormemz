@@ -9,7 +9,7 @@ struct HomeView: View {
   /// sessions never touch it.
   var onPrepareAlbumPicker: () async -> Void = {}
   let onOpenSettings: () -> Void
-  let onStart: (SelectionMode, Date?, AlbumOption?, MediaTypeFilter) -> Void
+  let onStart: (SelectionMode, Date?, AlbumOption?, Set<MediaType>) -> Void
   let onRefresh: () -> Void
   /// The mode Home opens with, labeled in the mode list; long press a mode to change it.
   let defaultMode: SelectionMode
@@ -27,7 +27,7 @@ struct HomeView: View {
   @State private var selectedDate: Date?
   @State private var selectedAlbum: AlbumOption?
   @State private var showAlbumPicker = false
-  @State private var mediaTypeFilter: MediaTypeFilter = .all
+  @State private var mediaTypes: Set<MediaType> = []
 
   init(
     maxAvailable: Int, isStarting: Bool = false, defaultMode: SelectionMode = .shuffle,
@@ -36,7 +36,7 @@ struct HomeView: View {
     onPickRandomDate: @escaping () async -> Date? = { nil },
     onPrepareAlbumPicker: @escaping () async -> Void = {},
     onOpenSettings: @escaping () -> Void,
-    onStart: @escaping (SelectionMode, Date?, AlbumOption?, MediaTypeFilter) -> Void,
+    onStart: @escaping (SelectionMode, Date?, AlbumOption?, Set<MediaType>) -> Void,
     onRefresh: @escaping () -> Void,
     quickAccessAlbums: [AlbumOption] = [],
     libraryAlbums: [AlbumOption]? = [],
@@ -92,14 +92,13 @@ struct HomeView: View {
 
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
-          typeFilterRow
+          filterMenu
           modeList
           if mode == .date {
             datePicker
           } else if mode == .album {
             albumChooser
           }
-          includeKeptToggle
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -112,7 +111,7 @@ struct HomeView: View {
       Button {
         onStart(
           mode, mode == .date ? selectedDate : nil, mode == .album ? selectedAlbum : nil,
-          mediaTypeFilter)
+          mediaTypes)
       } label: {
         if isStarting {
           ProgressView()
@@ -206,23 +205,65 @@ struct HomeView: View {
     }
   }
 
-  // MARK: - Media type filter
-  private var typeFilterRow: some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 8) {
-        ForEach(MediaTypeFilter.allCases, id: \.self) { filter in
-          Button(filter.label) { mediaTypeFilter = filter }
-            .buttonStyle(ChipButtonStyle(isSelected: filter == mediaTypeFilter))
-        }
-      }
+  // MARK: - Filters
+  /// `selection` with `type` turned on or off. Selecting every type collapses to the empty
+  /// selection, which already means every type.
+  static func updatedSelection(
+    _ selection: Set<MediaType>, setting type: MediaType, to isOn: Bool
+  ) -> Set<MediaType> {
+    var updated = selection
+    if isOn { updated.insert(type) } else { updated.remove(type) }
+    return updated.count == MediaType.allCases.count ? [] : updated
+  }
+
+  private func isSelected(_ type: MediaType) -> Binding<Bool> {
+    Binding(
+      get: { mediaTypes.contains(type) },
+      set: { mediaTypes = Self.updatedSelection(mediaTypes, setting: type, to: $0) })
+  }
+
+  /// Always checked when no type is picked, so the menu keeps a checkmark column.
+  private var allMediaSelected: Binding<Bool> {
+    Binding(get: { mediaTypes.isEmpty }, set: { _ in mediaTypes = [] })
+  }
+
+  private static let keptFilterLabel = "Include past keeps"
+
+  /// Button title for the active filters; names a lone filter, counts several.
+  static func filterTitle(mediaTypes: Set<MediaType>, includesKeptPhotos: Bool) -> String {
+    let names = MediaType.allCases.filter(mediaTypes.contains).map(\.label)
+      + (includesKeptPhotos ? [keptFilterLabel] : [])
+    switch names.count {
+    case 0: return "Filters"
+    case 1: return names[0]
+    default: return "\(names.count) filters"
     }
   }
 
-  // MARK: - Kept photos
-  private var includeKeptToggle: some View {
-    Toggle("Include past keeps", isOn: $includesKeptPhotos)
-    .padding(12)
-    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+  private var filterMenu: some View {
+    Menu {
+      Section("Media") {
+        Toggle("All Media", isOn: allMediaSelected)
+        ForEach(MediaType.allCases, id: \.self) { type in
+          Toggle(type.label, isOn: isSelected(type))
+        }
+      }
+      Section {
+        Toggle(Self.keptFilterLabel, isOn: $includesKeptPhotos)
+      }
+    } label: {
+      Label(
+        Self.filterTitle(mediaTypes: mediaTypes, includesKeptPhotos: includesKeptPhotos),
+        systemImage: "line.3.horizontal.decrease"
+      )
+      .font(.footnote.weight(.medium))
+      .foregroundStyle(.primary)
+      .padding(.horizontal, ButtonMetrics.chipHorizontalPadding)
+      .padding(.vertical, ButtonMetrics.chipVerticalPadding)
+      .background(Color.secondary.opacity(0.15), in: Capsule())
+    }
+    .menuActionDismissBehavior(.disabled)
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   // MARK: - Date picker ("From a Date" mode)
@@ -281,11 +322,10 @@ struct HomeView: View {
   }
 }
 
-/// Display text for each media type filter; shared by Home's filter chip row.
-extension MediaTypeFilter {
+/// Display text for each media type, shown in Home's filter menu.
+extension MediaType {
   var label: String {
     switch self {
-    case .all: return "All"
     case .photos: return "Photos"
     case .screenshots: return "Screenshots"
     case .videos: return "Videos"

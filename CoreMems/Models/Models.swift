@@ -31,9 +31,10 @@ enum SelectionMode: String, Equatable, CaseIterable {
   }
 }
 
-/// Limits a session to a subset of media types, independent of `SelectionMode`.
-enum MediaTypeFilter: String, Equatable, CaseIterable {
-  case all, photos, screenshots, videos, timelapses
+/// A kind of media a session can be limited to, independent of `SelectionMode`. A session
+/// limited to an empty set of types includes every type.
+enum MediaType: String, Equatable, CaseIterable {
+  case photos, screenshots, videos, timelapses
 }
 
 /// A single photo in a browse session. In production `assetIdentifier`

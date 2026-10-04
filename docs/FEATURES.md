@@ -8,7 +8,7 @@ See [README.md](README.md) for the overview.
 - **Most Recent** — newest first
 - **From a Date** — start from a specific date and work backward
 - **Album** — pick one Photos album and review it, newest first
-- Limit a session to screenshots only, or to photos excluding screenshots, independent of the mode chosen
+- **Filters** — limit a session to any combination of photos, screenshots, videos, and timelapses, independent of the mode chosen; no selection includes all of them
 - Periodic check-ins and a final review after 200 items
 - Previously browsed items can be skipped in future sessions
 

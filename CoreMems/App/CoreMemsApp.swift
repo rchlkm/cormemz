@@ -95,10 +95,10 @@ struct RootView: View {
               onPickRandomDate: { await vm.randomAssetDate() },
               onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
               onOpenSettings: { showSettings = true },
-              onStart: { mode, startDate, album, mediaTypeFilter in
+              onStart: { mode, startDate, album, mediaTypes in
                 Task {
                   await vm.startSession(
-                    mode: mode, startDate: startDate, album: album, mediaTypeFilter: mediaTypeFilter)
+                    mode: mode, startDate: startDate, album: album, mediaTypes: mediaTypes)
                 }
               },
               onRefresh: {

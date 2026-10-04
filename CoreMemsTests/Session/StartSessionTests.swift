@@ -78,12 +78,20 @@ struct StartSessionTests {
     #expect(h.vm.sessionLabel == "Road Trip")
   }
 
-  @Test func mediaTypeFilterReachesTheLibrary() async {
+  @Test func mediaTypesReachTheLibrary() async {
     let h = harness(assetCount: 3)
 
-    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypeFilter: .screenshots)
+    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypes: [.screenshots, .videos])
 
-    #expect(h.library.lastMediaTypeFilter == .screenshots)
+    #expect(h.library.lastMediaTypes == [.screenshots, .videos])
+  }
+
+  @Test func noMediaTypesReachTheLibraryAsAnEmptySet() async {
+    let h = harness(assetCount: 3)
+
+    await h.vm.startSession(mode: .recent, startDate: nil)
+
+    #expect(h.library.lastMediaTypes == [])
   }
 
   @Test func aVideoAssetProducesAVideoSessionPhoto() async {
@@ -92,7 +100,7 @@ struct StartSessionTests {
     let h = SessionHarness(library: library)
     h.vm.eligiblePhotoCount = 1
 
-    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypeFilter: .videos)
+    await h.vm.startSession(mode: .recent, startDate: nil, mediaTypes: [.videos])
 
     #expect(h.vm.photos.map(\.isVideo) == [true])
   }

@@ -8,7 +8,7 @@ Loads photos in batches instead of fetching the whole library.
  SelectionMode (shuffle / recent / date)
           │
           v
- PHFetchOptions              predicate: mediaType == image
+ PHFetchOptions              predicate: selected media types
  (PhotoLibraryService)       sort: creationDate, if not shuffling
           │                  .date adds a creationDate < ceiling filter
           v

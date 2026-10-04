@@ -7,7 +7,7 @@ protocol AssetBatching: Actor {
   func nextBatch(count: Int) async -> [PHAsset]
 }
 
-/// Walks the library's eligible (image-only) assets in a session's order, handing them out a
+/// Walks the library's assets of the chosen media types in a session's order, handing them out a
 /// batch at a time so a session only materializes the photos it is about to show.
 actor AssetBatchSource: AssetBatching {
   private let result: PHFetchResult<PHAsset>
@@ -18,10 +18,10 @@ actor AssetBatchSource: AssetBatching {
   /// Skips the local identifiers in `excluding`. `albumIdentifier` applies to `.album`.
   init(
     mode: SelectionMode, startDate: Date?, albumIdentifier: String?,
-    mediaTypeFilter: MediaTypeFilter = .all, excluding: Set<String>
+    mediaTypes: Set<MediaType> = [], excluding: Set<String>
   ) {
     let options = PHFetchOptions()
-    let basePredicate = Self.mediaTypePredicate(mediaTypeFilter)
+    let basePredicate = Self.mediaTypePredicate(mediaTypes)
     let result: PHFetchResult<PHAsset>
     switch mode {
     case .shuffle:
@@ -61,8 +61,14 @@ actor AssetBatchSource: AssetBatching {
     self.excluding = excluding
   }
 
-  static func mediaTypePredicate(_ filter: MediaTypeFilter) -> NSPredicate {
-    switch filter {
+  /// Matches any of `types`; an empty set matches every type.
+  static func mediaTypePredicate(_ types: Set<MediaType>) -> NSPredicate {
+    let selected = types.isEmpty ? MediaType.allCases : MediaType.allCases.filter(types.contains)
+    return NSCompoundPredicate(orPredicateWithSubpredicates: selected.map(predicate(for:)))
+  }
+
+  private static func predicate(for type: MediaType) -> NSPredicate {
+    switch type {
     case .screenshots:
       return NSPredicate(
         format: "mediaType == %d AND (mediaSubtypes & %d) != 0",
@@ -79,8 +85,6 @@ actor AssetBatchSource: AssetBatching {
       return NSPredicate(
         format: "mediaType == %d AND (mediaSubtypes & %d) != 0",
         PHAssetMediaType.video.rawValue, PHAssetMediaSubtype.videoTimelapse.rawValue)
-    case .all:
-      return NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
     }
   }
 

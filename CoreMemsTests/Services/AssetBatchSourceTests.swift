@@ -24,31 +24,52 @@ struct AssetBatchSourceTests {
 
 @Suite("Asset batch source media type predicate")
 struct AssetBatchSourceMediaTypePredicateTests {
-  @Test func screenshotsFilterRestrictsToTheScreenshotSubtype() {
-    let format = AssetBatchSource.mediaTypePredicate(.screenshots).predicateFormat
+  private func subpredicates(_ types: Set<MediaType>) -> [NSPredicate] {
+    let predicate = AssetBatchSource.mediaTypePredicate(types) as? NSCompoundPredicate
+    #expect(predicate?.compoundPredicateType == .or)
+    return predicate?.subpredicates.compactMap { $0 as? NSPredicate } ?? []
+  }
+
+  @Test func screenshotsRestrictToTheScreenshotSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate([.screenshots]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
     #expect(format.contains("!= 0"))
   }
 
-  @Test func photosFilterExcludesTheScreenshotSubtype() {
-    let format = AssetBatchSource.mediaTypePredicate(.photos).predicateFormat
+  @Test func photosExcludeTheScreenshotSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate([.photos]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
     #expect(format.contains("== 0"))
   }
 
-  @Test func allFilterDoesNotRestrictBySubtype() {
-    #expect(!AssetBatchSource.mediaTypePredicate(.all).predicateFormat.contains("mediaSubtypes"))
-  }
-
-  @Test func videosFilterExcludesTheTimelapseSubtype() {
-    let format = AssetBatchSource.mediaTypePredicate(.videos).predicateFormat
+  @Test func videosExcludeTheTimelapseSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate([.videos]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
     #expect(format.contains("== 0"))
   }
 
-  @Test func timelapsesFilterRestrictsToTheTimelapseSubtype() {
-    let format = AssetBatchSource.mediaTypePredicate(.timelapses).predicateFormat
+  @Test func timelapsesRestrictToTheTimelapseSubtype() {
+    let format = AssetBatchSource.mediaTypePredicate([.timelapses]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
     #expect(format.contains("!= 0"))
+  }
+
+  @Test func eachSelectedTypeContributesOneAlternative() {
+    #expect(subpredicates([.photos]).count == 1)
+    #expect(subpredicates([.photos, .videos]).count == 2)
+    #expect(subpredicates([.photos, .screenshots, .videos]).count == 3)
+  }
+
+  @Test func noSelectionIsEveryType() {
+    #expect(subpredicates([]).count == MediaType.allCases.count)
+    #expect(
+      AssetBatchSource.mediaTypePredicate([])
+        == AssetBatchSource.mediaTypePredicate(Set(MediaType.allCases)))
+  }
+
+  @Test func theSameSelectionAlwaysBuildsTheSamePredicate() {
+    #expect(
+      AssetBatchSource.mediaTypePredicate([.videos, .photos])
+        == AssetBatchSource.mediaTypePredicate([.photos, .videos]))
   }
 }
