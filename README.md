@@ -17,6 +17,7 @@ It’s an iOS app for cleaning up and organizing your photos, with some fun alon
 - **Review:** Shuffle your library, start with recent photos, or pick a date.
 - **Keep or delete:** Swipe through photos and mark them for deletion. Review everything before confirming.
 - **Organize:** Favorite photos and add them to albums as you go, with quick access to your pinned albums.
+- **Edit:** Rotate photos, videos, and Live Photos, or trim videos, and save the edits when you confirm.
 - **Live Photos:** Convert Live Photos to stills.
 - **Works offline:** With no connection, or a connection you've limited, review photos at whatever quality is already on your device, and pick up anything uncached later.
 - **Progress:** Track what you’ve reviewed and how much storage you’ve cleared.

@@ -25,23 +25,36 @@ Review one item at a time in full screen.
 - Pin and reorder frequently used albums
 - Sort pinned albums in the album picker: **My order** or **Recently used**
 - Mark Live Photos for conversion to stills
+- Scrub through a Live Photo's frames in full screen
 - Undo deletion or conversion marks
 - Flag a photo for later so it isn't remembered as browsed and shows up in future sessions
 - Hide the keep/delete/back buttons to browse by swipe alone, freeing up screen space
 
+## Editing
+
+Edit from a photo's full-screen view. An edit is staged like any other change and written when you confirm; it isn't a Keep or Delete decision.
+
+- **Rotate** — turn photos, videos, and Live Photos in quarter turns; Revert in Photos restores the original
+- **Trim** — cut a video or timelapse to the part you want, saved as a new clip (not available for slo-mo videos or Live Photos)
+- **Delete original** — choose whether a trimmed video's original is deleted once its clip is saved, on by default
+- Editing a photo marked for deletion or conversion keeps it instead
+- Undo an edit before confirming
+- Retry or discard edits that couldn't be saved, with the reason shown
+- An edit that can't be saved never blocks the rest of your changes
+
 ## Review & Confirmation
 
-- Review everything marked for deletion or conversion
-- Filter by All, Delete, or Convert
-- Restore items before confirming
-- See what will be kept, deleted, or converted
+- Review everything marked for deletion or conversion, plus your edits
+- Filter by All, Delete, Convert, or Edited
+- Restore items or discard edits before confirming
+- See what will be kept, deleted, converted, or edited
 - See how much storage will be cleared
 - Nothing changes in Apple Photos until explicit confirmation
 - Deleted media goes through Apple's Recently Deleted
 
 ## Progress
 
-- Media reviewed, kept, deleted, and converted
+- Media reviewed, kept, deleted, converted, and edited
 - Sessions completed
 - Live Photos converted
 - Storage cleared
@@ -73,7 +86,6 @@ Review one item at a time in full screen.
 ### Editing
 
 - **Photo editing** — crop and adjust photos while preserving the original
-- **Video editing** — trim videos while preserving the original
 - **Paste filter presets**
 
 ### Future User Settings

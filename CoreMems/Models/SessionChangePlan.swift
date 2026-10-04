@@ -24,8 +24,7 @@ struct SessionChangePlan {
       conversions: assets.filter { convertedIDs.contains($0.key) },
       albumAdditions: additions, albumRemovals: removals, albumAssets: assets,
       edits: deck.pendingEdits.reduce(into: [:]) { byID, photo in
-        guard let asset = assets[photo.id], let edit = photo.activeEdit else { return }
-        byID[photo.id] = AssetEdit(asset: asset, edit: edit)
+        byID[photo.id] = AssetEdit(photo: photo, asset: assets[photo.id])
       })
     editedCount = changes.edits.count
   }

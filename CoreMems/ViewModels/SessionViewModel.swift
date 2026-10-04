@@ -786,10 +786,8 @@ final class SessionViewModel: ObservableObject {
   @discardableResult
   func retryEdits(photoIDs: [String]) async -> [String: EditFailureReason] {
     let edits: [String: AssetEdit] = failedEdits.reduce(into: [:]) { byID, failed in
-      guard photoIDs.contains(failed.id), let asset = pickedAssets[failed.id],
-        let edit = failed.photo.activeEdit
-      else { return }
-      byID[failed.id] = AssetEdit(asset: asset, edit: edit)
+      guard photoIDs.contains(failed.id) else { return }
+      byID[failed.id] = AssetEdit(photo: failed.photo, asset: pickedAssets[failed.id])
     }
     guard !edits.isEmpty else { return [:] }
 

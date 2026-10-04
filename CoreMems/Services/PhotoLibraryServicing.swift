@@ -25,6 +25,14 @@ struct AssetEdit {
   let edit: MediaEdit
 }
 
+extension AssetEdit {
+  /// Nil when the photo has no active edit or no asset to write it to.
+  init?(photo: SessionPhoto, asset: PHAsset?) {
+    guard let asset, let edit = photo.activeEdit else { return nil }
+    self.init(asset: asset, edit: edit)
+  }
+}
+
 /// Everything a session changes in the library. `albumAssets` maps a session photo ID
 /// to its `PHAsset` for the album changes.
 struct SessionLibraryChanges {
