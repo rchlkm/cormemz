@@ -242,9 +242,7 @@ struct BrowseCardView: View {
 
       HStack {
         if !subject.dateLabel.isEmpty {
-          Text(subject.dateLabel)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
+          CaptureDateBadge(date: subject.dateLabel, time: subject.timeLabel)
         }
         Spacer()
         peekToggleButton

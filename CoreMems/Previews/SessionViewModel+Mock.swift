@@ -13,7 +13,8 @@ extension SessionViewModel {
         previewURL: URL(string: "https://picsum.photos/seed/coremems-\(i)/420/580"),
         isFavorite: i % 4 == 1,
         isLivePhoto: i % 5 == 2,
-        dateLabel: cardDateFormatter.string(from: date)
+        dateLabel: cardDateFormatter.string(from: date),
+        timeLabel: cardTimeFormatter.string(from: date)
       )
     }
   }

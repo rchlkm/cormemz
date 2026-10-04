@@ -151,7 +151,7 @@ struct ExpandedPhotoView: View {
       Image(systemName: EditStyle.symbol)
     }
     .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-    .editorGlass(in: Circle())
+    .frostedGlass(in: Circle())
     .accessibilityLabel("Edit")
     .accessibilityIdentifier(AccessibilityID.editStart)
   }

@@ -103,7 +103,7 @@ struct EditorChrome: View {
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 12)
-    .editorGlass(in: Capsule())
+    .frostedGlass(in: Capsule())
     .padding(.bottom, 40)
   }
 
@@ -116,7 +116,7 @@ struct EditorChrome: View {
         .disabled(draftEdit?.trimRange == nil)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        .editorGlass(in: Capsule())
+        .frostedGlass(in: Capsule())
     case .crop:
       HStack {
         HStack(spacing: 0) {
@@ -132,11 +132,11 @@ struct EditorChrome: View {
           .accessibilityIdentifier(AccessibilityID.editRotate)
         }
         .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-        .editorGlass(in: Capsule())
+        .frostedGlass(in: Capsule())
         Spacer()
         Button {} label: { Image(systemName: "aspectratio") }
           .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-          .editorGlass(in: Capsule())
+          .frostedGlass(in: Capsule())
           .disabled(true)
           .accessibilityLabel("Aspect ratio")
       }

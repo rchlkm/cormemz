@@ -55,6 +55,7 @@ struct SessionPhoto: Identifiable, Equatable {
   /// mark brings it back.
   var edit: MediaEdit?
   var dateLabel: String = ""
+  var timeLabel: String = ""
 
   /// The edit confirming the session writes, if any.
   var activeEdit: MediaEdit? { decision.isMarked ? nil : edit }

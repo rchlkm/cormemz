@@ -130,6 +130,12 @@ final class SessionViewModel: ObservableObject {
     return formatter
   }()
 
+  static let cardTimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.setLocalizedDateFormatFromTemplate("jmmz")
+    return formatter
+  }()
+
   var lifetimeStats: LifetimeSessionStats {
     statsStore.currentStats()
   }
@@ -304,7 +310,8 @@ final class SessionViewModel: ObservableObject {
         isFavorite: asset.isFavorite,
         isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
         isVideo: asset.mediaType == .video,
-        dateLabel: asset.creationDate.map(cardDateFormatter.string) ?? ""
+        dateLabel: asset.creationDate.map(cardDateFormatter.string) ?? "",
+        timeLabel: asset.creationDate.map(cardTimeFormatter.string) ?? ""
       )
     }
   }

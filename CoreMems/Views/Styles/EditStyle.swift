@@ -9,18 +9,13 @@ enum EditStyle {
 }
 
 extension View {
-  /// The frosted surface the editor's controls sit on.
-  func editorGlass<S: Shape>(in shape: S) -> some View {
-    glassEffect(.regular.interactive(), in: shape)
-  }
-
   /// A text button on a frosted capsule, for the editor's Cancel and Done.
   func editorPill(tint: Color = .white) -> some View {
     fontWeight(.semibold)
       .foregroundStyle(tint)
       .padding(.horizontal, 20)
       .padding(.vertical, 10)
-      .editorGlass(in: Capsule())
+      .frostedGlass(in: Capsule())
   }
 }
 
