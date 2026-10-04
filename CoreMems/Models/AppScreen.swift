@@ -13,6 +13,7 @@ enum AppScreen: Equatable {
 enum ApplyState: Equatable {
   case idle
   case applying
+  case declined
   case failed(String)
 
   var failureMessage: String? {

@@ -35,6 +35,7 @@ final class SessionViewModel: ObservableObject {
   @Published private(set) var applyState: ApplyState = .idle
   var isDeleting: Bool { applyState == .applying }
   var deletionError: String? { applyState.failureMessage }
+  var isApplyDeclined: Bool { applyState == .declined }
   @Published var convertedLivePhotoCount: Int = 0
   @Published private(set) var deletedBytes: Int64 = 0
   @Published private(set) var convertedBytesSaved: Int64 = 0
@@ -750,6 +751,11 @@ final class SessionViewModel: ObservableObject {
       kept: plan.keptCount, deleted: deletedCount, edited: editedCount, bytesDeleted: deletedBytes)
   }
 
+  /// Clears a declined system prompt once the user has seen it.
+  func acknowledgeDeclinedApply() {
+    if applyState == .declined { applyState = .idle }
+  }
+
   /// Runs the plan's changes as one library transaction and brings the session in line with the result.
   /// Returns whether the session can finish; on failure it stays open, as it was.
   private func applyPlan(_ plan: SessionChangePlan) async -> Bool {
@@ -789,9 +795,9 @@ final class SessionViewModel: ObservableObject {
       return true
     case .failure(let error):
       // Declining the system prompt isn't an error, but the session stays open.
-      if (error as? PHPhotosError)?.code != .userCancelled {
-        applyState = .failed(error.localizedDescription)
-      }
+      applyState =
+        (error as? PHPhotosError)?.code == .userCancelled
+        ? .declined : .failed(error.localizedDescription)
       return false
     }
   }

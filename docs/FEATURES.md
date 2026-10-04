@@ -50,6 +50,7 @@ Edit from a photo's full-screen view. An edit is staged like any other change an
 - See what will be kept, deleted, converted, or edited
 - See how much storage will be cleared
 - Nothing changes in Apple Photos until explicit confirmation
+- Choosing Don't Allow on the system prompt changes nothing and offers Try Again or Review Changes
 - Deleted media goes through Apple's Recently Deleted
 
 ## Progress

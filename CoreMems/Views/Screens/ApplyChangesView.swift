@@ -85,6 +85,14 @@ struct ApplyChangesView: View {
           .padding(.horizontal, 26)
       }
 
+      if !marked.isEmpty {
+        Text("iOS will ask you to approve these changes. Tapping Don't Allow cancels them.")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .padding(.horizontal, 26)
+      }
+
       Button {
         Task { await vm.applyChanges() }
       } label: {
@@ -102,6 +110,19 @@ struct ApplyChangesView: View {
       .disabled(vm.isDeleting)
       .padding(26)
     }
+    .alert("Nothing was changed", isPresented: declinedBinding) {
+      Button("Try Again") { Task { await vm.applyChanges() } }
+      Button("Review Changes", role: .cancel) {}
+    } message: {
+      Text("Your photos weren't changed. Apply the changes now?")
+    }
+  }
+
+  private var declinedBinding: Binding<Bool> {
+    Binding(
+      get: { vm.isApplyDeclined },
+      set: { if !$0 { vm.acknowledgeDeclinedApply() } }
+    )
   }
 
   /// Swipeable pages keep each grid alive, so switching filters doesn't reload thumbnails.

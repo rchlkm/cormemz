@@ -205,9 +205,25 @@ struct ApplyChangesTests {
     await h.vm.applyChanges()
 
     #expect(h.vm.deletionError == nil)
+    #expect(h.vm.isApplyDeclined)
     #expect(h.vm.screen == .pendingChanges)
     #expect(h.vm.photos[0].decision == .pendingDelete)
     #expect(h.stats.stats.sessionsCompleted == 0)
+  }
+
+  @Test func acknowledgingADeclinedPromptAllowsAnotherAttempt() async {
+    let h = await finishedSession(
+      photoCount: 2, decisions: [(0, .pendingDelete), (1, .keep)])
+    h.library.applyFailure = PHPhotosError(.userCancelled)
+    await h.vm.applyChanges()
+
+    h.vm.acknowledgeDeclinedApply()
+    h.library.applyFailure = nil
+    await h.vm.applyChanges()
+
+    #expect(h.vm.isApplyDeclined == false)
+    #expect(h.vm.screen == .completion)
+    #expect(h.vm.deletedCount == 1)
   }
 
   @Test func aMissingStillCopyReportsAnErrorAndStaysOnPendingChanges() async {
