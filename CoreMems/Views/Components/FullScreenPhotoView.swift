@@ -20,45 +20,23 @@ struct FullScreenPhotoView: View {
   @State private var runningActionTitle: String?
   @State private var actionError: String?
 
-  @State private var scale: CGFloat = 1.0
-  @State private var lastScale: CGFloat = 1.0
-  @State private var panOffset: CGSize = .zero
-  @State private var lastPanOffset: CGSize = .zero
-  @State private var dismissDrag: CGSize = .zero
-
-  private let dismissThreshold: CGFloat = 120
-  private let fadeDistance: CGFloat = 400
-  private let maxScale: CGFloat = 5.0
-  private let doubleTapZoom: CGFloat = 2.5
-
-  private var isZoomed: Bool { scale > 1.01 }
+  @State private var zoom = ZoomPanState()
 
   var body: some View {
-    let dismissDistance = hypot(dismissDrag.width, dismissDrag.height)
-    let backgroundOpacity = isZoomed ? 1 : max(0, 1 - dismissDistance / fadeDistance)
-
     ZStack {
       Color.black
-        .opacity(backgroundOpacity)
+        .opacity(zoom.backgroundOpacity)
         .ignoresSafeArea()
 
       AdaptiveAssetImage(
         photo: photo, targetSize: UIScreen.main.bounds.size, contentMode: .fit
       )
-      .scaleEffect(scale)
-      .offset(x: panOffset.width + dismissDrag.width, y: panOffset.height + dismissDrag.height)
-      .gesture(magnification)
-      .simultaneousGesture(dragGesture)
-      .onTapGesture(count: 2) { toggleZoom() }
+      .zoomPanDismiss($zoom) { dismiss() }
     }
-    .overlay(alignment: .topTrailing) { closeButton.opacity(chromeOpacity) }
-    .overlay(alignment: .bottom) { footer.opacity(chromeOpacity) }
+    .overlay(alignment: .topTrailing) { closeButton.opacity(zoom.chromeOpacity) }
+    .overlay(alignment: .bottom) { footer.opacity(zoom.chromeOpacity) }
     .statusBarHidden()
     .uiTestContainer(AccessibilityID.photoViewer)
-  }
-
-  private var chromeOpacity: Double {
-    isZoomed ? 0 : max(0, 1 - hypot(dismissDrag.width, dismissDrag.height) / fadeDistance)
   }
 
   private var closeButton: some View {
@@ -69,7 +47,7 @@ struct FullScreenPhotoView: View {
     }
     .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     .accessibilityLabel("Close")
-    .disabled(isZoomed)
+    .disabled(zoom.isZoomed)
     .padding(16)
   }
 
@@ -109,7 +87,7 @@ struct FullScreenPhotoView: View {
           }
           .buttonStyle(ActionButtonStyle(role: action.role))
           .accessibilityIdentifier(action.accessibilityID)
-          .disabled(isZoomed || runningActionTitle != nil)
+          .disabled(zoom.isZoomed || runningActionTitle != nil)
         }
       }
       .environment(\.colorScheme, .dark)
@@ -135,71 +113,6 @@ struct FullScreenPhotoView: View {
       } else {
         dismiss()
       }
-    }
-  }
-
-  private var magnification: some Gesture {
-    MagnificationGesture()
-      .onChanged { value in
-        scale = min(max(lastScale * value, 1.0), maxScale)
-      }
-      .onEnded { _ in
-        lastScale = scale
-        if scale <= 1.05 {
-          resetZoom(animated: true)
-        }
-      }
-  }
-
-  private var dragGesture: some Gesture {
-    DragGesture()
-      .onChanged { value in
-        if isZoomed {
-          panOffset = CGSize(
-            width: lastPanOffset.width + value.translation.width,
-            height: lastPanOffset.height + value.translation.height)
-        } else {
-          dismissDrag = value.translation
-        }
-      }
-      .onEnded { value in
-        if isZoomed {
-          lastPanOffset = panOffset
-        } else {
-          let distance = hypot(value.translation.width, value.translation.height)
-          if distance > dismissThreshold {
-            dismiss()
-          } else {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-              dismissDrag = .zero
-            }
-          }
-        }
-      }
-  }
-
-  private func toggleZoom() {
-    if isZoomed {
-      resetZoom(animated: true)
-    } else {
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-        scale = doubleTapZoom
-        lastScale = doubleTapZoom
-      }
-    }
-  }
-
-  private func resetZoom(animated: Bool) {
-    let apply = {
-      scale = 1.0
-      lastScale = 1.0
-      panOffset = .zero
-      lastPanOffset = .zero
-    }
-    if animated {
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75), apply)
-    } else {
-      apply()
     }
   }
 }
