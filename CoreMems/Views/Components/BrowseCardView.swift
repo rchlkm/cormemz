@@ -84,8 +84,7 @@ struct BrowseCardView: View {
 
   private var cardForeground: some View {
     PhotoCardView(
-      photo: photo, maxSize: maxSize, quarterTurns: photo.previewQuarterTurns,
-      playbackRange: photo.activeEdit?.trimRange, playback: playback,
+      photo: photo, maxSize: maxSize, playback: playback,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
       onLivePhotoEnded: { isShowingLivePhoto = false }
     )

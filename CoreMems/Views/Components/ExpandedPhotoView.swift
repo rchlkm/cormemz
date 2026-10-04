@@ -37,17 +37,14 @@ struct ExpandedPhotoView: View {
   private let maxScale: CGFloat = 5.0
   private let doubleTapZoom: CGFloat = 2.5
   private let savedStampHold: Duration = .milliseconds(450)
-  /// Room kept clear for the editor's bars, so they sit on black rather than on the photo.
-  private let baseEditorInsets = EdgeInsets(top: 150, leading: 16, bottom: 60, trailing: 16)
-  /// Extra room below the photo for the trim bar, which sits above the tool picker.
-  private let trimBarExtraHeight: CGFloat = 88
+  /// Room kept clear for the editor's bars, including the video trim bar above the tool
+  /// picker, so they sit on black rather than on the photo and the photo sits the same for
+  /// every kind of media.
+  private let editorInsets = EdgeInsets(top: 150, leading: 16, bottom: 148, trailing: 16)
 
   private var isZoomed: Bool { scale > 1.01 }
   private var isEditing: Bool { draftEdit != nil }
   private var quarterTurns: Int { draftEdit?.quarterTurns ?? photo.previewQuarterTurns }
-  private var trimRange: ClosedRange<Double>? {
-    isEditing ? draftEdit?.trimRange : photo.activeEdit?.trimRange
-  }
   private var trimDuration: Double? { vm.trimmableDuration(of: photo) }
   /// In the Trim tool, the trim bar stands in for the player's own transport bar.
   private var showsTrimBar: Bool { isEditing && editTool == .trim && trimDuration != nil }
@@ -57,13 +54,6 @@ struct ExpandedPhotoView: View {
   private var savedEdit: MediaEdit { photo.activeEdit ?? MediaEdit() }
   /// Viewing gestures are off in edit mode.
   private var viewingGestures: GestureMask { isEditing ? .subviews : .all }
-
-  /// Kept the same for every tool, so switching tools doesn't move the photo.
-  private var editorInsets: EdgeInsets {
-    var insets = baseEditorInsets
-    if availableTools.contains(.trim) { insets.bottom += trimBarExtraHeight }
-    return insets
-  }
 
   /// The space the photo fits in: the whole screen, or between the bars in edit mode.
   private var contentBox: CGSize {
@@ -143,8 +133,8 @@ struct ExpandedPhotoView: View {
 
   private var content: some View {
     PhotoCardView(
-      photo: photo, maxSize: contentBox, quarterTurns: quarterTurns, playbackRange: trimRange,
-      playback: playback, showsTransport: !showsTrimBar,
+      photo: photo, maxSize: contentBox, playback: playback, draftEdit: draftEdit,
+      showsTransport: !showsTrimBar,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
       onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameImage)
   }
@@ -231,10 +221,7 @@ struct ExpandedPhotoView: View {
           .padding(.bottom, 20)
       }
 
-      // A single tool needs no picker; its controls are already showing.
-      if availableTools.count > 1 {
-        toolPicker
-      }
+      toolPicker
     }
     .foregroundStyle(.white)
     .environment(\.colorScheme, .dark)
@@ -286,6 +273,7 @@ struct ExpandedPhotoView: View {
       HStack {
         HStack(spacing: 0) {
           Button {} label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
+            .disabled(true)
             .accessibilityLabel("Flip")
           Button {
             draftEdit?.rotate()
@@ -301,6 +289,7 @@ struct ExpandedPhotoView: View {
         Button {} label: { Image(systemName: "aspectratio") }
           .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
           .editorGlass(in: Capsule())
+          .disabled(true)
           .accessibilityLabel("Aspect ratio")
       }
     }

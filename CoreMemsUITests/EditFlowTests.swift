@@ -53,6 +53,15 @@ final class EditFlowTests: BrowseUITestCase {
     waitForDisappearance(of: restore)
   }
 
+  func testPhotoEditorShowsToolBarWithOnlyWorkingControlsEnabled() {
+    openEditor()
+
+    XCTAssertTrue(app.buttons["Crop"].exists)
+    XCTAssertTrue(button(AccessibilityID.editRotate).isEnabled)
+    XCTAssertFalse(app.buttons["Flip"].isEnabled)
+    XCTAssertFalse(app.buttons["Aspect ratio"].isEnabled)
+  }
+
   func testCancellingLeavesThePhotoUndecided() {
     openEditor()
     button(AccessibilityID.editRotate).tap()
