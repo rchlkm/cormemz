@@ -59,7 +59,6 @@ import SwiftUI
     private var settingsView: some View {
       SettingsView(
         checkInInterval: $vm.checkInInterval,
-        includesKeptPhotos: $vm.includesKeptPhotos,
         tracksKeptHistory: $vm.tracksKeptHistory,
         networkPolicy: $vm.networkPolicy,
         isLowDataModeActive: vm.isLowDataModeActive,
@@ -98,6 +97,7 @@ import SwiftUI
                 isStarting: vm.isStartingSession,
                 defaultMode: vm.defaultSessionMode,
                 onSetDefaultMode: { vm.defaultSessionMode = $0 },
+                includesKeptPhotos: $vm.includesKeptPhotos,
                 onPickRandomDate: { await vm.randomAssetDate() },
                 onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
                 onOpenSettings: { showSettings = true },

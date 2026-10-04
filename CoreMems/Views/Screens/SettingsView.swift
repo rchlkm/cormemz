@@ -4,7 +4,6 @@ import SwiftUI
 /// Lifetime stats summary and review preferences. Pushed from Home.
 struct SettingsView: View {
   @Binding var checkInInterval: Int
-  @Binding var includesKeptPhotos: Bool
   @Binding var tracksKeptHistory: Bool
   @Binding var networkPolicy: NetworkPolicy
   let isLowDataModeActive: Bool
@@ -39,11 +38,11 @@ struct SettingsView: View {
     }
     .navigationTitle("Settings")
     .navigationBarTitleDisplayMode(.inline)
-    .alert("Reset kept history?", isPresented: $showResetConfirmation) {
+    .alert("Reset past keeps?", isPresented: $showResetConfirmation) {
       Button("Cancel", role: .cancel) {}
       Button("Reset", role: .destructive, action: onResetKeptPhotos)
     } message: {
-      Text("Every kept photo becomes eligible to appear again. Your photos aren't changed.")
+      Text("Every photo you've kept becomes eligible to appear again. Your photos aren't changed.")
     }
     .task {
       appDataBytes = await Task.detached { LocalStorageSize.totalBytes() }.value
@@ -101,18 +100,17 @@ struct SettingsView: View {
 
   private var keptPhotosSection: some View {
     Section {
-      Toggle("Track kept history", isOn: $tracksKeptHistory)
-      Toggle("Include kept photos", isOn: $includesKeptPhotos)
+      Toggle("Remember past keeps", isOn: $tracksKeptHistory)
       LabeledContent("Kept so far", value: keptPhotoCount.formatted())
-      Button("Reset kept history", role: .destructive) {
+      Button("Reset past keeps", role: .destructive) {
         showResetConfirmation = true
       }
       .disabled(keptPhotoCount == 0)
     } header: {
-      Text("Kept photos")
+      Text("Past keeps")
     } footer: {
       Text(
-        "Photos you've kept in earlier sessions are skipped, so each session picks up where the last one left off. Turning off tracking stops remembering new ones."
+        "Photos you've kept are skipped unless you include them on Home, so each session picks up where the last one left off. Turning this off stops remembering new ones."
       )
     }
   }
@@ -199,7 +197,6 @@ extension NetworkPolicy {
   NavigationStack {
     SettingsView(
       checkInInterval: .constant(12),
-      includesKeptPhotos: .constant(false),
       tracksKeptHistory: .constant(true),
       networkPolicy: .constant(.wifiAndCellular),
       isLowDataModeActive: false,

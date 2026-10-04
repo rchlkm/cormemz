@@ -14,6 +14,7 @@ struct HomeView: View {
   /// The mode Home opens with, labeled in the mode list; long press a mode to change it.
   let defaultMode: SelectionMode
   var onSetDefaultMode: (SelectionMode) -> Void = { _ in }
+  @Binding var includesKeptPhotos: Bool
   /// Pinned albums, then unpinned recents, for the album picker's quick-access sections.
   var quickAccessAlbums: [AlbumOption] = []
   /// The whole library, nil until loaded.
@@ -31,6 +32,7 @@ struct HomeView: View {
   init(
     maxAvailable: Int, isStarting: Bool = false, defaultMode: SelectionMode = .shuffle,
     onSetDefaultMode: @escaping (SelectionMode) -> Void = { _ in },
+    includesKeptPhotos: Binding<Bool>,
     onPickRandomDate: @escaping () async -> Date? = { nil },
     onPrepareAlbumPicker: @escaping () async -> Void = {},
     onOpenSettings: @escaping () -> Void,
@@ -56,6 +58,7 @@ struct HomeView: View {
     self.pinnedAlbums = pinnedAlbums
     self.defaultMode = defaultMode
     self.onSetDefaultMode = onSetDefaultMode
+    _includesKeptPhotos = includesKeptPhotos
     _mode = State(initialValue: defaultMode)
   }
 
@@ -96,6 +99,7 @@ struct HomeView: View {
           } else if mode == .album {
             albumChooser
           }
+          includeKeptToggle
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -214,6 +218,13 @@ struct HomeView: View {
     }
   }
 
+  // MARK: - Kept photos
+  private var includeKeptToggle: some View {
+    Toggle("Include past keeps", isOn: $includesKeptPhotos)
+    .padding(12)
+    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+  }
+
   // MARK: - Date picker ("From a Date" mode)
   /// Appears once the random date has loaded.
   private var datePicker: some View {
@@ -319,16 +330,16 @@ extension SelectionMode {
 
 #Preview("Light Mode") {
   HomeView(
-    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _, _ in }, onRefresh: {},
-    pinnedAlbums: .mock()
+    maxAvailable: 200, includesKeptPhotos: .constant(false), onOpenSettings: {},
+    onStart: { _, _, _, _ in }, onRefresh: {}, pinnedAlbums: .mock()
   )
   .preferredColorScheme(.light)
 }
 
 #Preview("Dark Mode") {
   HomeView(
-    maxAvailable: 200, onOpenSettings: {}, onStart: { _, _, _, _ in }, onRefresh: {},
-    pinnedAlbums: .mock()
+    maxAvailable: 200, includesKeptPhotos: .constant(false), onOpenSettings: {},
+    onStart: { _, _, _, _ in }, onRefresh: {}, pinnedAlbums: .mock()
   )
   .preferredColorScheme(.dark)
 }

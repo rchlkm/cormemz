@@ -41,7 +41,6 @@ struct RootView: View {
   private var settingsView: some View {
     SettingsView(
       checkInInterval: $vm.checkInInterval,
-      includesKeptPhotos: $vm.includesKeptPhotos,
       tracksKeptHistory: $vm.tracksKeptHistory,
       networkPolicy: $vm.networkPolicy,
       isLowDataModeActive: vm.isLowDataModeActive,
@@ -92,6 +91,7 @@ struct RootView: View {
               isStarting: vm.isStartingSession,
               defaultMode: vm.defaultSessionMode,
               onSetDefaultMode: { vm.defaultSessionMode = $0 },
+              includesKeptPhotos: $vm.includesKeptPhotos,
               onPickRandomDate: { await vm.randomAssetDate() },
               onPrepareAlbumPicker: { await vm.preloadLibraryAlbums() },
               onOpenSettings: { showSettings = true },
