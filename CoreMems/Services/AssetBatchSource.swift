@@ -73,6 +73,7 @@ actor AssetBatchSource: AssetBatching {
     format: "mediaType == %d OR mediaType == %d",
     PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
 
+  /// Excluding a subtype is written `NOT (… != 0)`: PhotoKit's `(… & bit) == 0` skips many assets.
   private static func predicate(for type: MediaType) -> NSPredicate {
     switch type {
     case .screenshots:
@@ -81,11 +82,11 @@ actor AssetBatchSource: AssetBatching {
         PHAssetMediaType.image.rawValue, PHAssetMediaSubtype.photoScreenshot.rawValue)
     case .photos:
       return NSPredicate(
-        format: "mediaType == %d AND (mediaSubtypes & %d) == 0",
+        format: "mediaType == %d AND NOT ((mediaSubtypes & %d) != 0)",
         PHAssetMediaType.image.rawValue, PHAssetMediaSubtype.photoScreenshot.rawValue)
     case .videos:
       return NSPredicate(
-        format: "mediaType == %d AND (mediaSubtypes & %d) == 0",
+        format: "mediaType == %d AND NOT ((mediaSubtypes & %d) != 0)",
         PHAssetMediaType.video.rawValue, PHAssetMediaSubtype.videoTimelapse.rawValue)
     case .timelapses:
       return NSPredicate(

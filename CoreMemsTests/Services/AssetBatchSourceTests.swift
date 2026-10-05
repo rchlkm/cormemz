@@ -39,13 +39,15 @@ struct AssetBatchSourceMediaTypePredicateTests {
   @Test func photosExcludeTheScreenshotSubtype() {
     let format = AssetBatchSource.mediaTypePredicate([.photos]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
-    #expect(format.contains("== 0"))
+    #expect(format.contains("NOT"))
+    #expect(!format.contains("== 0"))
   }
 
   @Test func videosExcludeTheTimelapseSubtype() {
     let format = AssetBatchSource.mediaTypePredicate([.videos]).predicateFormat
     #expect(format.contains("mediaSubtypes"))
-    #expect(format.contains("== 0"))
+    #expect(format.contains("NOT"))
+    #expect(!format.contains("== 0"))
   }
 
   @Test func timelapsesRestrictToTheTimelapseSubtype() {
