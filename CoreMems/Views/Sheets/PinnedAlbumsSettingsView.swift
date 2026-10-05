@@ -12,8 +12,7 @@ struct PinnedAlbumsSettingsView: View {
   @State private var openedGroup: AlbumGroup?
   @State private var hasLoaded = false
 
-  /// Handles and moves wait for this visit's load to finish, so a reload can't reshuffle rows
-  /// mid-drag. The list stays in edit mode throughout, so nothing relayouts when they appear.
+  /// Moves wait for this visit's load to finish, so a reload can't reshuffle rows mid-drag.
   private var canReorder: Bool { pinnedAlbums.sort == .myOrder && hasLoaded }
 
   var body: some View {

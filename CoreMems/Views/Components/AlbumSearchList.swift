@@ -76,11 +76,13 @@ struct AlbumSearchList<Content: View>: View {
   /// False hides the create-a-new-album affordance entirely, e.g. when there's no photo yet
   /// to put in a newly created album.
   let allowsCreate: Bool
-  /// Puts the list in edit mode so `reorderable` rows show handles; off while searching.
+  /// Lets the list enter edit mode, via `ReorderButton`, so `reorderable` rows show handles;
+  /// off while searching.
   let isReorderable: Bool
   let content: (AlbumSearchQuery) -> Content
 
   @State private var searchText = ""
+  @State private var isReordering = false
 
   init(
     albums: [AlbumOption],
@@ -158,6 +160,10 @@ struct AlbumSearchList<Content: View>: View {
         content(query)
       }
     }
-    .environment(\.editMode, .constant(isReorderable && !query.isSearching ? .active : .inactive))
+    .environment(
+      \.editMode,
+      Binding(
+        get: { isReorderable && !query.isSearching && isReordering ? .active : .inactive },
+        set: { isReordering = $0.isEditing }))
   }
 }

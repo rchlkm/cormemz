@@ -103,6 +103,7 @@ final class SessionViewModel: ObservableObject {
   @Published var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
   let library: PhotoLibraryServicing
+  private var albumContentsCache: [String: AlbumContents] = [:]
   private let applyService: SessionApplyService
   let pinnedAlbums: PinnedAlbumsViewModel
   private var pinnedAlbumsObservation: AnyCancellable?
@@ -179,10 +180,11 @@ final class SessionViewModel: ObservableObject {
     libraryChangeObservation = library.observeLibraryChanges { [weak self] in
       Task { @MainActor in await self?.refreshLibraryAlbumsIfLoaded() }
     }
-    // Only the state `quickAccessAlbums` reads re-renders this object's observers.
-    pinnedAlbumsObservation = Publishers.Merge(
+    // Only the state the album views read re-renders this object's observers.
+    pinnedAlbumsObservation = Publishers.Merge3(
       pinnedAlbums.$identifiers.removeDuplicates().dropFirst().map { _ in },
-      pinnedAlbums.$sort.removeDuplicates().dropFirst().map { _ in }
+      pinnedAlbums.$sort.removeDuplicates().dropFirst().map { _ in },
+      pinnedAlbums.libraryChanges
     ).sink { [weak self] in self?.objectWillChange.send() }
     peekController.loadNeighbors = { [weak self] anchorID, before, after in
       await self?.neighborPhotos(of: anchorID, before: before, after: after) ?? []
@@ -599,6 +601,7 @@ final class SessionViewModel: ObservableObject {
 
   /// `pinnedAlbums.load()` also prunes pins no longer in the library.
   func refreshLibraryAlbums() async {
+    albumContentsCache = [:]
     if let task = pinnedAlbums.load() { await task.value }
   }
 
@@ -643,6 +646,14 @@ final class SessionViewModel: ObservableObject {
 
   /// A random eligible photo's date, for starting a `.date` session without picking one.
   func randomAssetDate() async -> Date? { await library.randomAssetDate() }
+
+  /// An album's contents, read once per library snapshot since it touches every asset in the album.
+  func albumContents(of album: AlbumRef) async -> AlbumContents? {
+    if let cached = albumContentsCache[album.identifier] { return cached }
+    let contents = await library.albumContents(of: album)
+    albumContentsCache[album.identifier] = contents
+    return contents
+  }
 
   // MARK: Peek
 

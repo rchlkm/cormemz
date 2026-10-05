@@ -21,6 +21,26 @@ extension PhotoLibraryService {
     }.value
   }
 
+  func albumContents(of album: AlbumRef) async -> AlbumContents? {
+    await Task.detached(priority: .userInitiated) { () -> AlbumContents? in
+      guard
+        let collection = PHAssetCollection.fetchAssetCollections(
+          withLocalIdentifiers: [album.identifier], options: nil
+        ).firstObject
+      else { return nil }
+      let options = PHFetchOptions()
+      options.predicate = AssetBatchSource.mediaTypePredicate([])
+      var photos = 0
+      var videos = 0
+      var bytes: Int64? = 0
+      PHAsset.fetchAssets(in: collection, options: options).enumerateObjects { asset, _, _ in
+        if asset.mediaType == .video { videos += 1 } else { photos += 1 }
+        if let size = Self.fileSize(of: asset) { bytes? += size } else { bytes = nil }
+      }
+      return AlbumContents(photoCount: photos, videoCount: videos, bytes: bytes)
+    }.value
+  }
+
   /// Every folder that holds albums, at any depth; subfolders are referenced by `groupIdentifiers`.
   func fetchAlbumGroups() async -> [AlbumGroup] {
     await Task.detached(priority: .userInitiated) {

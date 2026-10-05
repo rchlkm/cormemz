@@ -1,7 +1,8 @@
 // CoreMems/Views/Components/PinnedSectionHeader.swift
 import SwiftUI
 
-/// The "Pinned" section header, with the menu that chooses how pinned albums are ordered.
+/// The "Pinned" section header, with the menu that chooses how pinned albums are ordered and,
+/// for a hand-arranged order, the button that starts reordering.
 struct PinnedSectionHeader: View {
   @Binding var sort: PinnedAlbumSort
 
@@ -9,6 +10,11 @@ struct PinnedSectionHeader: View {
     HStack {
       Text("Pinned")
       Spacer()
+      if sort == .myOrder {
+        ReorderButton()
+          .font(.footnote)
+          .textCase(nil)
+      }
       Menu {
         Picker("Sort pinned by", selection: $sort) {
           ForEach(PinnedAlbumSort.allCases) { Text($0.title).tag($0) }

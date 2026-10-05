@@ -71,6 +71,12 @@ final class PinnedAlbumsViewModel: ObservableObject {
   /// Whether the library has been fetched at least once.
   var isLoaded: Bool { catalog.isLoaded }
 
+  /// Fires when the album list or folders load or change; a reload that finds nothing new
+  /// stays silent.
+  var libraryChanges: AnyPublisher<Void, Never> {
+    $catalog.dropFirst().map { _ in }.eraseToAnyPublisher()
+  }
+
   /// The albums for `identifiers`, in that order, skipping any not in the catalog.
   func albums(withIdentifiers identifiers: [String]) -> [AlbumOption] {
     catalog.albums(withIdentifiers: identifiers)

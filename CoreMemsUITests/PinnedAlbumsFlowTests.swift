@@ -12,8 +12,11 @@ final class PinnedAlbumsFlowTests: LargeAlbumLibraryUITestCase {
     XCTAssertTrue(app.navigationBars["Folder 0"].waitForExistence(timeout: Self.uiTimeout))
   }
 
-  func testPinnedAlbumsShowReorderHandles() {
+  func testReorderShowsHandlesOnPinnedAlbums() {
     openPinnedAlbums()
+    XCTAssertFalse(app.buttons["Reorder Album 0"].exists)
+
+    app.buttons["Reorder"].tap()
 
     XCTAssertTrue(app.buttons["Reorder Album 0"].waitForExistence(timeout: Self.uiTimeout))
   }
@@ -35,5 +38,29 @@ final class PinnedAlbumsFlowTests: LargeAlbumLibraryUITestCase {
 
     XCTAssertTrue(app.buttons["Unpin Album 120"].waitForExistence(timeout: Self.uiTimeout))
     XCTAssertLessThan(pinning.frame.minY, unpinned.frame.minY)
+  }
+
+  func testSwipingAnAlbumLeftRevealsUnpinAndRightRevealsDetails() {
+    openPinnedAlbums()
+    let row = app.staticTexts["Album 0"]
+
+    row.swipeLeft()
+    XCTAssertTrue(app.buttons["Unpin"].waitForExistence(timeout: Self.uiTimeout))
+    row.tap()
+
+    row.swipeRight()
+    XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: Self.uiTimeout))
+  }
+
+  func testSwipingAnAlbumInAFolderRevealsPinAndDetails() {
+    openFolder0()
+    let row = app.staticTexts["Album 30"]
+
+    row.swipeLeft()
+    XCTAssertTrue(app.buttons["Pin"].waitForExistence(timeout: Self.uiTimeout))
+    row.tap()
+
+    row.swipeRight()
+    XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: Self.uiTimeout))
   }
 }

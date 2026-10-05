@@ -101,6 +101,12 @@ final class RecordingPhotoLibrary: PhotoLibraryServicing {
 
   func fetchAllUserAlbums() async -> [AlbumOption] { albums }
 
+  var albumContents: [String: AlbumContents] = [:]
+
+  func albumContents(of album: AlbumRef) async -> AlbumContents? {
+    albumContents[album.identifier]
+  }
+
   var albumGroups: [AlbumGroup] = []
 
   func fetchAlbumGroups() async -> [AlbumGroup] { albumGroups }

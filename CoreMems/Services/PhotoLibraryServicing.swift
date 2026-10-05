@@ -106,6 +106,9 @@ protocol AlbumLibrary {
   /// Every user-created album (names and counts only); `.albumRegular`
   /// excludes smart albums like Favorites. Runs off the main thread.
   func fetchAllUserAlbums() async -> [AlbumOption]
+  /// The album's photo and video counts and stored size. Reads every asset in the album, so call
+  /// it for one album at a time. Runs off the main thread; `nil` if the album is gone.
+  func albumContents(of album: AlbumRef) async -> AlbumContents?
   /// Top-level Photos folders and their regular albums; folders with none are omitted.
   /// Runs off the main thread.
   func fetchAlbumGroups() async -> [AlbumGroup]

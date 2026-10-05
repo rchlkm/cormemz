@@ -3,7 +3,7 @@ import SwiftUI
 
 extension AlbumOption {
   var countLabel: String? {
-    assetCount.map { "\($0) photo\($0 == 1 ? "" : "s")" }
+    assetCount.map { "\($0) item\($0 == 1 ? "" : "s")" }
   }
 }
 

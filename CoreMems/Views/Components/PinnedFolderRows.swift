@@ -20,6 +20,7 @@ struct PinnedEntryRow: View {
   /// Marks an already-selected album, e.g. a checkmark for a photo's current albums.
   var isSelected: (AlbumOption) -> Bool = { _ in false }
   @Environment(\.openFolder) private var openFolder
+  @State private var detailsAlbum: AlbumOption?
 
   private var isPinned: Bool { pinnedIDs.contains(entry.id) }
 
@@ -31,6 +32,16 @@ struct PinnedEntryRow: View {
     } else {
       pinnableRow
     }
+  }
+
+  private var pinButton: some View {
+    AlbumPinButton(isPinned: isPinned) { pinnedAlbums.toggle(entry.id) }
+      .tint(.orange)
+  }
+
+  private func detailsButton(for album: AlbumOption) -> some View {
+    Button("Details", systemImage: "info.circle") { detailsAlbum = album }
+      .tint(.blue)
   }
 
   @ViewBuilder
@@ -55,9 +66,13 @@ struct PinnedEntryRow: View {
       }
       .contextMenu {
         if canPin {
-          AlbumPinButton(isPinned: isPinned) { pinnedAlbums.toggle(entry.id) }
+          pinButton
+          detailsButton(for: album)
         }
       }
+      .swipeActions(edge: .leading) { if canPin { detailsButton(for: album) } }
+      .swipeActions(edge: .trailing) { if canPin { pinButton } }
+      .sheet(item: $detailsAlbum) { AlbumDetailsView(album: $0) }
     case .collapsedFolder:
       EmptyView()
     }
@@ -118,6 +133,7 @@ struct PinnedGroupView: View {
   var isSelected: (AlbumOption) -> Bool = { _ in false }
 
   @State private var openedGroup: AlbumGroup?
+  @State private var editMode = EditMode.inactive
 
   private var canReorder: Bool { pinnedAlbums.sort == .myOrder && !pinnedAlbums.isLoading }
 
@@ -185,7 +201,6 @@ struct PinnedGroupView: View {
         }
       }
     }
-    .environment(\.editMode, .constant(pinnedAlbums.sort == .myOrder ? .active : .inactive))
     .overlay {
       if subfolders.isEmpty && pinnedEntries.isEmpty && otherEntries.isEmpty {
         ContentUnavailableView("No Albums", systemImage: "folder")
@@ -208,5 +223,11 @@ struct PinnedGroupView: View {
     }
     .navigationTitle(group.name)
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      if canReorder && !pinnedEntries.isEmpty {
+        ToolbarItem(placement: .topBarTrailing) { ReorderButton() }
+      }
+    }
+    .environment(\.editMode, $editMode)
   }
 }

@@ -41,6 +41,10 @@ final class MockPhotoLibraryService: PhotoLibraryServicing {
 
   func fetchAllUserAlbums() async -> [AlbumOption] { mockAlbums }
 
+  func albumContents(of album: AlbumRef) async -> AlbumContents? {
+    AlbumContents(photoCount: 0, videoCount: 0, bytes: 0)
+  }
+
   func fetchAlbumGroups() async -> [AlbumGroup] { mockAlbumGroups }
 
   func fetchAlbumIdentifiers(containingAssetIdentifier identifier: String) async -> Set<String> {

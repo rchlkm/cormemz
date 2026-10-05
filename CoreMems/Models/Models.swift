@@ -120,6 +120,14 @@ struct AlbumOption: Identifiable, Equatable {
   }
 }
 
+/// What an album holds, read on demand since it touches every asset in the album.
+struct AlbumContents: Equatable {
+  let photoCount: Int
+  let videoCount: Int
+  /// Combined stored size in bytes; `nil` if the system doesn't report sizes.
+  let bytes: Int64?
+}
+
 /// A Photos folder of albums, as shown by the Photos app's album groups.
 struct AlbumGroup: Identifiable, Hashable {
   let identifier: String  // PHCollectionList.localIdentifier

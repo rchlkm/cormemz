@@ -85,6 +85,20 @@ struct PinnedAlbumTests {
     #expect(notifications == 1)
   }
 
+  @Test func loadedLibraryAlbumsNotifySessionObservers() async {
+    let library = RecordingPhotoLibrary()
+    library.albums = [trips]
+    let h = SessionHarness(library: library)
+    var notifications = 0
+    let observation = h.vm.objectWillChange.sink { notifications += 1 }
+    defer { observation.cancel() }
+
+    await h.vm.preloadLibraryAlbums()
+
+    #expect(notifications > 0)
+    #expect(h.vm.libraryAlbums == [trips])
+  }
+
   @Test func loadingPinnedAlbumsDoesNotNotifySessionObservers() async {
     let h = await SessionHarness.started(photoCount: 2)
     var notifications = 0

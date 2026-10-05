@@ -141,6 +141,7 @@ struct RootView: View {
         }
       }
     }
+    .environment(\.loadAlbumContents) { await vm.albumContents(of: $0) }
     .task {
       vm.refreshAuthorizationStatus()
       #if DEBUG
