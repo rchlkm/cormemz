@@ -8,6 +8,7 @@
       Form {
         DebugStateDumpSection()
         DebugNetworkStatsSection()
+        DebugLibraryCountsSection()
         DebugEditFailuresSection()
       }
       .navigationTitle("Debug")
