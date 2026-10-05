@@ -19,9 +19,7 @@ nonisolated enum RenderedEdit {
 
 extension PHAsset {
   /// Slow-motion videos play through a time-mapped composition a trimmed clip wouldn't keep.
-  nonisolated var isTrimmable: Bool {
-    mediaType == .video && !mediaSubtypes.contains(.videoHighFrameRate)
-  }
+  nonisolated var isTrimmable: Bool { mediaType == .video && mediaKind != .slowMo }
 }
 
 /// Renders staged edits into Photos edit outputs or trimmed clips ahead of Apply, so applying

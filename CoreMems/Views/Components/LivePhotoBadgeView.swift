@@ -33,7 +33,7 @@ struct LivePhotoBadgeView: View {
           .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
       case .pill:
         Button(action: toggle) {
-          Label("LIVE", systemImage: glyph).font(.footnote.weight(.semibold))
+          Label("LIVE", systemImage: glyph)
         }
         .buttonStyle(LivePhotoPillButtonStyle())
       }
@@ -57,16 +57,12 @@ struct LivePhotoBadgeView: View {
   }
 }
 
-/// Dark capsule matching Photos' full-screen "LIVE" badge.
 private struct LivePhotoPillButtonStyle: ButtonStyle {
   @Environment(\.isEnabled) private var isEnabled
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
-      .foregroundStyle(.white)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 7)
-      .background(Capsule().fill(.black.opacity(0.55)))
+      .fullScreenBadgeStyle()
       .opacity(ButtonMetrics.opacity(isPressed: configuration.isPressed, isEnabled: isEnabled))
   }
 }

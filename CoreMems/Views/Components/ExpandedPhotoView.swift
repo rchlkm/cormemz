@@ -33,9 +33,9 @@ struct ExpandedPhotoView: View {
 
   private var isEditing: Bool { draftEdit != nil }
   private var quarterTurns: Int { draftEdit?.quarterTurns ?? photo.previewQuarterTurns }
-  private var trimDuration: Double? { vm.trimmableDuration(of: photo) }
+  private var trim: TrimSupport { vm.trimSupport(of: photo) }
   /// In the Trim tool, the trim bar stands in for the player's own transport bar.
-  private var showsTrimBar: Bool { isEditing && editTool == .trim && trimDuration != nil }
+  private var showsTrimBar: Bool { isEditing && editTool == .trim && trim.duration != nil }
   private var savedEdit: MediaEdit { photo.activeEdit ?? MediaEdit() }
   /// Viewing gestures are off in edit mode.
   private var viewingGestures: GestureMask { isEditing ? .subviews : .all }
@@ -69,18 +69,10 @@ struct ExpandedPhotoView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: quarterTurns)
         .zoomPanDismiss($zoom, gestures: viewingGestures, onDismiss: close)
 
-      if photo.isLivePhoto && !isEditing {
+      if (photo.isLivePhoto || photo.kind != nil) && !isEditing {
         VStack {
           HStack {
-            LivePhotoBadgeView(
-              assetIdentifier: photo.assetIdentifier,
-              targetSize: UIScreen.main.bounds.size,
-              inlineLivePhoto: $inlineLivePhoto,
-              isShowingLivePhoto: $isShowingLivePhoto,
-              canConvertToStill: vm.canConvertToStill(photo),
-              onConvertToStill: convertToStill,
-              style: .pill
-            )
+            mediaBadge
             Spacer()
           }
           Spacer()
@@ -104,7 +96,7 @@ struct ExpandedPhotoView: View {
       if isEditing && !showsSavedStamp {
         EditorChrome(
           draftEdit: $draftEdit, tool: $editTool, savedEdit: savedEdit,
-          trimDuration: trimDuration, playback: playback, onDone: finishEditing)
+          trim: trim, playback: playback, onDone: finishEditing)
       }
     }
     .animation(.easeOut(duration: 0.15), value: vm.markingDecision)
@@ -119,6 +111,22 @@ struct ExpandedPhotoView: View {
       showsTransport: !showsTrimBar,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
       onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameState.image)
+  }
+
+  @ViewBuilder private var mediaBadge: some View {
+    if photo.isLivePhoto {
+      LivePhotoBadgeView(
+        assetIdentifier: photo.assetIdentifier,
+        targetSize: UIScreen.main.bounds.size,
+        inlineLivePhoto: $inlineLivePhoto,
+        isShowingLivePhoto: $isShowingLivePhoto,
+        canConvertToStill: vm.canConvertToStill(photo),
+        onConvertToStill: convertToStill,
+        style: .pill
+      )
+    } else if let kind = photo.kind {
+      MediaKindBadge(kind: kind)
+    }
   }
 
   /// The Live Photo's frame scrubber, when open, above the Edit button.
@@ -145,7 +153,7 @@ struct ExpandedPhotoView: View {
       resetZoom(animated: true)
       isShowingLivePhoto = false
       frameState.close()
-      editTool = EditTool.available(canTrim: trimDuration != nil)[0]
+      editTool = EditTool.initial(for: trim)
       draftEdit = photo.edit ?? MediaEdit()
     } label: {
       Image(systemName: EditStyle.symbol)

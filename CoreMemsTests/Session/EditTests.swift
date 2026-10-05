@@ -129,21 +129,34 @@ struct EditTests {
     let h = await session(
       of: FakeAsset(identifier: SessionHarness.assetID(0), isVideo: true, duration: 12))
 
-    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == 12)
+    #expect(h.vm.trimSupport(of: h.vm.photos[0]) == .supported(duration: 12))
+    #expect(h.vm.photos[0].kind == nil)
   }
 
   @Test func aSlowMotionVideoCannotBeTrimmed() async {
     let h = await session(
       of: FakeAsset(
-        identifier: SessionHarness.assetID(0), isVideo: true, isSlowMotion: true, duration: 12))
+        identifier: SessionHarness.assetID(0), isVideo: true, kind: .slowMo, duration: 12))
 
-    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == nil)
+    #expect(h.vm.trimSupport(of: h.vm.photos[0]) == .unsupported)
+    #expect(h.vm.photos[0].kind == .slowMo)
+  }
+
+  @Test func aTimelapseAndACinematicVideoCanBeTrimmed() async {
+    for kind in [MediaKind.timelapse, .cinematic] {
+      let h = await session(
+        of: FakeAsset(
+          identifier: SessionHarness.assetID(0), isVideo: true, kind: kind, duration: 12))
+
+      #expect(h.vm.trimSupport(of: h.vm.photos[0]) == .supported(duration: 12))
+      #expect(h.vm.photos[0].kind == kind)
+    }
   }
 
   @Test func aPhotoCannotBeTrimmed() async {
     let h = await session(of: FakeAsset(identifier: SessionHarness.assetID(0)))
 
-    #expect(h.vm.trimmableDuration(of: h.vm.photos[0]) == nil)
+    #expect(h.vm.trimSupport(of: h.vm.photos[0]) == .unavailable)
   }
 
   @Test func editsAreRestoredWithTheSession() async {

@@ -320,6 +320,7 @@ final class SessionViewModel: ObservableObject {
         isFavorite: asset.isFavorite,
         isLivePhoto: asset.mediaSubtypes.contains(.photoLive),
         isVideo: asset.mediaType == .video,
+        kind: asset.mediaKind,
         dateLabel: asset.creationDate.map(cardDateFormatter.string) ?? "",
         timeLabel: asset.creationDate.map(cardTimeFormatter.string) ?? ""
       )
@@ -437,11 +438,12 @@ final class SessionViewModel: ObservableObject {
     return true
   }
 
-  /// The length in seconds of a video that can be trimmed; `nil` for anything else.
-  func trimmableDuration(of photo: SessionPhoto) -> Double? {
-    guard photo.isVideo, let asset = pickedAssets[photo.id], asset.isTrimmable, asset.duration > 0
-    else { return nil }
-    return asset.duration
+  /// Whether, and how far, the photo can be trimmed.
+  func trimSupport(of photo: SessionPhoto) -> TrimSupport {
+    guard photo.isVideo, let asset = pickedAssets[photo.id], asset.duration > 0 else {
+      return .unavailable
+    }
+    return asset.isTrimmable ? .supported(duration: asset.duration) : .unsupported
   }
 
   /// A Live Photo can be converted when its original is on the device or may be downloaded.

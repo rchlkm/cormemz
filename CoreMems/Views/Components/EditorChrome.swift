@@ -8,9 +8,19 @@ enum EditTool: CaseIterable, Identifiable {
 
   var id: Self { self }
 
-  /// The tools that apply to the media being edited, in display order.
-  static func available(canTrim: Bool) -> [EditTool] {
-    allCases.filter { $0 != .trim || canTrim }
+  /// The tools shown for the media being edited, in display order.
+  static func available(for trim: TrimSupport) -> [EditTool] {
+    allCases.filter { $0 != .trim || trim != .unavailable }
+  }
+
+  /// The tool the editor opens on: the first one that can be used.
+  static func initial(for trim: TrimSupport) -> EditTool {
+    available(for: trim).first { $0.disabledNotice(for: trim) == nil } ?? .crop
+  }
+
+  /// Why a shown tool can't be used, or `nil` when it can.
+  func disabledNotice(for trim: TrimSupport) -> String? {
+    self == .trim && trim == .unsupported ? "Slo-mo videos can't be trimmed" : nil
   }
 
   var title: String {
@@ -34,12 +44,16 @@ struct EditorChrome: View {
   @Binding var draftEdit: MediaEdit?
   @Binding var tool: EditTool
   let savedEdit: MediaEdit
-  /// Length of the video being edited; `nil` when the media can't be trimmed.
-  let trimDuration: Double?
+  let trim: TrimSupport
   let playback: VideoPlayback
   let onDone: () -> Void
 
-  private var tools: [EditTool] { EditTool.available(canTrim: trimDuration != nil) }
+  private static let noticeHold: Duration = .seconds(2)
+
+  /// Explains why the tool just tapped can't be used.
+  @State private var notice: String?
+
+  private var tools: [EditTool] { EditTool.available(for: trim) }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -62,17 +76,33 @@ struct EditorChrome: View {
 
       Spacer()
 
-      if tool == .trim, let trimDuration {
+      if tool == .trim, let duration = trim.duration {
         VideoTrimBar(
-          range: trimBinding(duration: trimDuration), duration: trimDuration, playback: playback)
+          range: trimBinding(duration: duration), duration: duration, playback: playback)
           .padding(.horizontal, 16)
           .padding(.bottom, 20)
+      }
+
+      if let notice {
+        Text(notice)
+          .font(.footnote.weight(.medium))
+          .padding(.horizontal, 14)
+          .padding(.vertical, 8)
+          .frostedGlass(in: Capsule())
+          .padding(.bottom, 12)
+          .transition(.opacity)
       }
 
       toolPicker
     }
     .foregroundStyle(.white)
     .environment(\.colorScheme, .dark)
+    .animation(.easeOut(duration: 0.15), value: notice)
+    .task(id: notice) {
+      guard notice != nil else { return }
+      try? await Task.sleep(for: Self.noticeHold)
+      notice = nil
+    }
   }
 
   /// A capsule of tools; the selected one is bright with a yellow marker above it.
@@ -80,14 +110,21 @@ struct EditorChrome: View {
     HStack(spacing: 24) {
       ForEach(tools) { tool in
         let isSelected = tool == self.tool
+        let disabledNotice = tool.disabledNotice(for: trim)
         Button {
-          self.tool = tool
+          if let disabledNotice {
+            notice = disabledNotice
+          } else {
+            self.tool = tool
+          }
         } label: {
           VStack(spacing: 4) {
             Image(systemName: tool.symbol).font(.title2)
             Text(tool.title).font(.caption.weight(.medium))
           }
-          .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.5))
+          .foregroundStyle(
+            isSelected ? Color.white : Color.white.opacity(disabledNotice == nil ? 0.5 : 0.25)
+          )
           .frame(minWidth: 56)
           .overlay(alignment: .top) {
             if isSelected {
@@ -99,6 +136,7 @@ struct EditorChrome: View {
           }
         }
         .accessibilityLabel(tool.title)
+        .accessibilityHint(disabledNotice ?? "")
       }
     }
     .padding(.horizontal, 20)

@@ -9,17 +9,17 @@ final class FakeAsset: PHAsset, @unchecked Sendable {
   private let identifier: String
   private let isLive: Bool
   private let isVideo: Bool
-  private let isSlowMotion: Bool
+  private let kind: MediaKind?
   private let length: TimeInterval
 
   init(
-    identifier: String, isLive: Bool = false, isVideo: Bool = false, isSlowMotion: Bool = false,
+    identifier: String, isLive: Bool = false, isVideo: Bool = false, kind: MediaKind? = nil,
     duration: TimeInterval = 0
   ) {
     self.identifier = identifier
     self.isLive = isLive
     self.isVideo = isVideo
-    self.isSlowMotion = isSlowMotion
+    self.kind = kind
     self.length = duration
     super.init()
   }
@@ -29,7 +29,7 @@ final class FakeAsset: PHAsset, @unchecked Sendable {
   override var mediaSubtypes: PHAssetMediaSubtype {
     var subtypes: PHAssetMediaSubtype = []
     if isLive { subtypes.insert(.photoLive) }
-    if isSlowMotion { subtypes.insert(.videoHighFrameRate) }
+    if let kind { subtypes.insert(kind.subtype) }
     return subtypes
   }
   override var duration: TimeInterval { length }
