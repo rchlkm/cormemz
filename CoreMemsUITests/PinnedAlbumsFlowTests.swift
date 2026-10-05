@@ -33,11 +33,25 @@ final class PinnedAlbumsFlowTests: LargeAlbumLibraryUITestCase {
     let unpinned = app.staticTexts["Album 30"]
     let pinning = app.staticTexts["Album 120"]
     XCTAssertLessThan(unpinned.frame.minY, pinning.frame.minY)
+    let pinButton = app.buttons["Pin Album 120"]
 
-    app.buttons["Pin Album 120"].tap()
+    pinButton.tap()
 
-    XCTAssertTrue(app.buttons["Unpin Album 120"].waitForExistence(timeout: Self.uiTimeout))
+    XCTAssertTrue(pinButton.waitForNonExistence(timeout: Self.uiTimeout))
     XCTAssertLessThan(pinning.frame.minY, unpinned.frame.minY)
+  }
+
+  func testTappingAPinnedAlbumsIconPicksItsEmojiInsteadOfUnpinning() {
+    openPinnedAlbums()
+
+    app.buttons["Choose emoji for Album 0"].tap()
+    let field = app.textFields[AccessibilityID.emojiPickerField]
+    XCTAssertTrue(field.waitForExistence(timeout: Self.uiTimeout))
+    field.typeText("🔥")
+    XCTAssertEqual(field.value as? String, "🔥")
+    app.buttons["Done"].tap()
+
+    XCTAssertTrue(app.buttons["Choose emoji for Album 0"].waitForExistence(timeout: Self.uiTimeout))
   }
 
   func testSwipingAnAlbumLeftRevealsUnpinAndRightRevealsDetails() {

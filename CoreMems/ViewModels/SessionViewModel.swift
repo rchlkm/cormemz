@@ -181,9 +181,10 @@ final class SessionViewModel: ObservableObject {
       Task { @MainActor in await self?.refreshLibraryAlbumsIfLoaded() }
     }
     // Only the state the album views read re-renders this object's observers.
-    pinnedAlbumsObservation = Publishers.Merge3(
+    pinnedAlbumsObservation = Publishers.Merge4(
       pinnedAlbums.$identifiers.removeDuplicates().dropFirst().map { _ in },
       pinnedAlbums.$sort.removeDuplicates().dropFirst().map { _ in },
+      pinnedAlbums.$albumEmoji.removeDuplicates().dropFirst().map { _ in },
       pinnedAlbums.libraryChanges
     ).sink { [weak self] in self?.objectWillChange.send() }
     peekController.loadNeighbors = { [weak self] anchorID, before, after in

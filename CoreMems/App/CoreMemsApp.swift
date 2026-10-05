@@ -142,6 +142,7 @@ struct RootView: View {
       }
     }
     .environment(\.loadAlbumContents) { await vm.albumContents(of: $0) }
+    .environment(\.albumEmoji, vm.pinnedAlbums.albumEmoji)
     .task {
       vm.refreshAuthorizationStatus()
       #if DEBUG

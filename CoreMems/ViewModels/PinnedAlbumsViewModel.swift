@@ -32,6 +32,9 @@ final class PinnedAlbumsViewModel: ObservableObject {
     didSet { defaults.set(sort.rawValue, forKey: Self.sortDefaultsKey) }
   }
 
+  /// Emoji that replace an album's icon, by album identifier.
+  @Published private(set) var albumEmoji: [String: AlbumEmoji]
+
   /// Called after an album is created, so other album lists can refresh.
   var onAlbumCreated: (() async -> Void)?
 
@@ -39,6 +42,7 @@ final class PinnedAlbumsViewModel: ObservableObject {
   private let store: PinnedAlbumsStoring
   private let defaults: UserDefaults
   private static let sortDefaultsKey = "cm_pinnedAlbumSort"
+  private static let albumEmojiDefaultsKey = "cm_albumEmoji"
 
   init(
     library: AlbumLibrary, store: PinnedAlbumsStoring,
@@ -49,6 +53,14 @@ final class PinnedAlbumsViewModel: ObservableObject {
     self.defaults = defaults
     identifiers = store.pinnedAlbumIdentifiers()
     sort = defaults.string(forKey: Self.sortDefaultsKey).flatMap(PinnedAlbumSort.init) ?? .myOrder
+    albumEmoji = (defaults.dictionary(forKey: Self.albumEmojiDefaultsKey) as? [String: String] ?? [:])
+      .compactMapValues(AlbumEmoji.init)
+  }
+
+  /// Sets the emoji that replaces an album's icon; nil restores the default icon.
+  func setEmoji(_ emoji: AlbumEmoji?, forAlbum identifier: String) {
+    albumEmoji[identifier] = emoji
+    defaults.set(albumEmoji.mapValues(\.value), forKey: Self.albumEmojiDefaultsKey)
   }
 
   /// `identifiers` arranged by `sort`; recency comes from `recents`, newest first.

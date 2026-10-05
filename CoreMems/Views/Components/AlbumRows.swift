@@ -17,21 +17,30 @@ struct FolderIcon: View {
   }
 }
 
-/// A photo-stack icon; a pin badge marks a pinned album. Albums yet to be created show a sparkle.
+/// A photo-stack icon, or the album's emoji once it has one; a pin badge marks a pinned album.
+/// Albums yet to be created show a sparkle.
 struct AlbumIcon: View {
   let album: AlbumOption
   let isPinned: Bool
 
+  @Environment(\.albumEmoji) private var emojis
+
   private var isPendingNew: Bool { album.ref.kind == .pendingNew }
+  private var emoji: AlbumEmoji? { isPinned ? emojis[album.ref.identifier] : nil }
 
   var body: some View {
     RoundedRectangle(cornerRadius: 9)
       .fill(isPendingNew ? AnyShapeStyle(Color.orange.gradient) : AnyShapeStyle(Color(.tertiarySystemFill)))
       .frame(width: 38, height: 38)
       .overlay {
-        Image(systemName: isPendingNew ? "sparkles" : "photo.stack.fill")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(isPendingNew ? Color.white : Color(.secondaryLabel))
+        if let emoji {
+          Text(emoji.value)
+            .font(.system(size: 22))
+        } else {
+          Image(systemName: isPendingNew ? "sparkles" : "photo.stack.fill")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(isPendingNew ? Color.white : Color(.secondaryLabel))
+        }
       }
       .overlay(alignment: .topTrailing) {
         if isPinned {
@@ -49,27 +58,28 @@ struct AlbumIcon: View {
   }
 }
 
-/// An album row shared by the album sheet and Pinned Albums settings. The icon toggles the pin;
-/// `onTap` covers the rest of the row.
+/// An album row shared by the album sheet and Pinned Albums settings. `onIconTap` handles the
+/// icon, which pins an unpinned album and picks the emoji of a pinned one; `onTap` covers the rest
+/// of the row.
 struct AlbumRow<Trailing: View>: View {
   let album: AlbumOption
   let isPinned: Bool
   /// The containing folders, outermost first; shown when rows are listed outside their folder.
   let folderPath: [AlbumGroup]
   /// Nil for albums that can't be pinned.
-  let onTogglePin: (() -> Void)?
+  let onIconTap: (() -> Void)?
   let onTap: (() -> Void)?
   let trailing: Trailing
 
   init(
     album: AlbumOption, isPinned: Bool, folderPath: [AlbumGroup] = [],
-    onTogglePin: (() -> Void)? = nil, onTap: (() -> Void)? = nil,
+    onIconTap: (() -> Void)? = nil, onTap: (() -> Void)? = nil,
     @ViewBuilder trailing: () -> Trailing
   ) {
     self.album = album
     self.isPinned = isPinned
     self.folderPath = folderPath
-    self.onTogglePin = onTogglePin
+    self.onIconTap = onIconTap
     self.onTap = onTap
     self.trailing = trailing()
   }
@@ -97,10 +107,10 @@ struct AlbumRow<Trailing: View>: View {
 
   @ViewBuilder
   private var icon: some View {
-    if let onTogglePin {
-      Button(action: onTogglePin) { AlbumIcon(album: album, isPinned: isPinned) }
+    if let onIconTap {
+      Button(action: onIconTap) { AlbumIcon(album: album, isPinned: isPinned) }
         .buttonStyle(.borderless)
-        .accessibilityLabel(isPinned ? "Unpin \(album.name)" : "Pin \(album.name)")
+        .accessibilityLabel(isPinned ? "Choose emoji for \(album.name)" : "Pin \(album.name)")
     } else {
       AlbumIcon(album: album, isPinned: isPinned)
     }
@@ -129,10 +139,10 @@ struct AlbumRow<Trailing: View>: View {
 extension AlbumRow where Trailing == EmptyView {
   init(
     album: AlbumOption, isPinned: Bool, folderPath: [AlbumGroup] = [],
-    onTogglePin: (() -> Void)? = nil, onTap: (() -> Void)? = nil
+    onIconTap: (() -> Void)? = nil, onTap: (() -> Void)? = nil
   ) {
     self.init(
-      album: album, isPinned: isPinned, folderPath: folderPath, onTogglePin: onTogglePin,
+      album: album, isPinned: isPinned, folderPath: folderPath, onIconTap: onIconTap,
       onTap: onTap
     ) { EmptyView() }
   }

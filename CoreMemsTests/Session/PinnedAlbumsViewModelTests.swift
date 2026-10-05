@@ -169,6 +169,17 @@ struct PinnedAlbumsViewModelTests {
     #expect(makeViewModel().sort == .recentlyUsed)
   }
 
+  @Test func albumEmojiPersistsAndClears() {
+    let pinned = makeViewModel()
+    #expect(pinned.albumEmoji.isEmpty)
+
+    pinned.setEmoji(AlbumEmoji("🔥"), forAlbum: "trips")
+    #expect(makeViewModel().albumEmoji == ["trips": AlbumEmoji("🔥")!])
+
+    pinned.setEmoji(nil, forAlbum: "trips")
+    #expect(makeViewModel().albumEmoji.isEmpty)
+  }
+
   @Test func recentlyUsedPutsNewestFirstThenUnusedInPinOrder() {
     let pinned = makeViewModel()
     pinned.pin(["a", "b", "c", "d"])

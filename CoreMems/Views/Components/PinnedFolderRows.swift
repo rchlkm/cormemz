@@ -7,8 +7,9 @@ extension EnvironmentValues {
 }
 
 /// A pinnable, foldered album row shared by every screen that lists albums: Pinned Albums
-/// settings and the session's album picker. Pinning toggles from the pin icon or the
-/// long-press menu, never a plain row tap, so dragging a row to reorder can't unpin it.
+/// settings and the session's album picker. An album's icon pins it, or picks its emoji once
+/// pinned; unpinning is only from the long-press menu or swipe action, never a tap, so dragging a
+/// row to reorder or tapping its icon can't unpin it.
 struct PinnedEntryRow: View {
   let entry: PinnedDisplayItem
   /// The containing folders, outermost first; shown when rows are listed outside their folder.
@@ -20,7 +21,19 @@ struct PinnedEntryRow: View {
   /// Marks an already-selected album, e.g. a checkmark for a photo's current albums.
   var isSelected: (AlbumOption) -> Bool = { _ in false }
   @Environment(\.openFolder) private var openFolder
-  @State private var detailsAlbum: AlbumOption?
+  @State private var sheet: AlbumSheet?
+
+  private enum AlbumSheet: Identifiable {
+    case details(AlbumOption)
+    case emoji(AlbumOption)
+
+    var id: String {
+      switch self {
+      case .details(let album): return "details:" + album.ref.identifier
+      case .emoji(let album): return "emoji:" + album.ref.identifier
+      }
+    }
+  }
 
   private var isPinned: Bool { pinnedIDs.contains(entry.id) }
 
@@ -40,7 +53,7 @@ struct PinnedEntryRow: View {
   }
 
   private func detailsButton(for album: AlbumOption) -> some View {
-    Button("Details", systemImage: "info.circle") { detailsAlbum = album }
+    Button("Details", systemImage: "info.circle") { sheet = .details(album) }
       .tint(.blue)
   }
 
@@ -55,7 +68,7 @@ struct PinnedEntryRow: View {
       let canPin = album.ref.kind == .existing
       AlbumRow(
         album: album, isPinned: isPinned, folderPath: folderPath,
-        onTogglePin: canPin ? { pinnedAlbums.toggle(entry.id) } : nil,
+        onIconTap: canPin ? { isPinned ? sheet = .emoji(album) : pinnedAlbums.pin([entry.id]) } : nil,
         onTap: onSelectAlbum.map { select in { select(album) } }
       ) {
         if isSelected(album) {
@@ -72,7 +85,12 @@ struct PinnedEntryRow: View {
       }
       .swipeActions(edge: .leading) { if canPin { detailsButton(for: album) } }
       .swipeActions(edge: .trailing) { if canPin { pinButton } }
-      .sheet(item: $detailsAlbum) { AlbumDetailsView(album: $0) }
+      .sheet(item: $sheet) {
+        switch $0 {
+        case .details(let album): AlbumDetailsView(album: album)
+        case .emoji(let album): AlbumEmojiPickerView(album: album, pinnedAlbums: pinnedAlbums)
+        }
+      }
     case .collapsedFolder:
       EmptyView()
     }

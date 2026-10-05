@@ -93,11 +93,17 @@ struct AlbumQuickStripView: View {
     .onChange(of: photoID) { heldEntries = nil }
   }
 
-  private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> String {
-    if isChecked { return "checkmark.circle.fill" }
-    if album.ref.kind == .pendingNew { return "sparkles" }
-    let isPinned = vm.pinnedAlbums.identifiers.contains(album.ref.identifier)
-    return isPinned ? "pin.fill" : "clock.arrow.circlepath"
+  @ViewBuilder
+  private func chipIcon(_ album: AlbumOption, isChecked: Bool) -> some View {
+    if isChecked {
+      Image(systemName: "checkmark.circle.fill")
+    } else if album.ref.kind == .pendingNew {
+      Image(systemName: "sparkles")
+    } else if vm.pinnedAlbums.identifiers.contains(album.ref.identifier) {
+      PinGlyph(albumID: album.ref.identifier)
+    } else {
+      Image(systemName: "clock.arrow.circlepath")
+    }
   }
 
   private func chipButton(_ album: AlbumOption, isChecked: Bool) -> some View {
@@ -106,7 +112,7 @@ struct AlbumQuickStripView: View {
       vm.toggleAlbumMembership(photoID: photoID, ref: album.ref)
     } label: {
       HStack(spacing: 5) {
-        Image(systemName: chipIcon(album, isChecked: isChecked))
+        chipIcon(album, isChecked: isChecked)
         Text(album.name)
           .lineLimit(1)
       }

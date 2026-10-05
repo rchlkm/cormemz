@@ -27,6 +27,7 @@ enum AccessibilityID {
   static let photoViewerUndo = "photoViewer.undo"
   static let applyConfirm = "apply.confirm"
   static let completion = "completion.root"
+  static let emojiPickerField = "emojiPicker.field"
   static let failedEditPhoto = "completion.failedEdit"
   static let failedEditRetry = "photoViewer.retry"
   static let failedEditDiscard = "photoViewer.discard"
