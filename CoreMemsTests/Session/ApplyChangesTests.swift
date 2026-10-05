@@ -76,6 +76,26 @@ struct ApplyChangesTests {
         == [SessionHarness.assetID(0), SessionHarness.assetID(2)])
   }
 
+  @Test func photosHeldForLaterDontCountAsKeptInTheSessionOrLifetimeStats() async {
+    let h = await finishedSession(photoCount: 3, decisions: [(0, .keep), (1, .keep), (2, .keep)])
+    h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(1))
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.appliedKeptCount == 2)
+    #expect(h.stats.stats.totalKept == 2)
+  }
+
+  @Test func deletedCountMatchesWhatWasDeleted() async {
+    let h = await finishedSession(
+      photoCount: 3, decisions: [(0, .pendingDelete), (1, .pendingDelete), (2, .keep)])
+
+    await h.vm.applyChanges()
+
+    #expect(h.vm.deletedCount == 2)
+    #expect(h.stats.stats.totalDeleted == 2)
+  }
+
   @Test func togglingHeldForLaterTwiceRemembersThePhotoAgain() async {
     let h = await finishedSession(photoCount: 1, decisions: [(0, .keep)])
     h.vm.toggleHeldForLater(photoID: SessionHarness.photoID(0))

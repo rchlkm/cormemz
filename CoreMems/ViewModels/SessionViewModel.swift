@@ -211,6 +211,8 @@ final class SessionViewModel: ObservableObject {
   var pendingEdits: [SessionPhoto] { deck.pendingEdits }
   var markedPhotos: [SessionPhoto] { deck.markedPhotos }
   var keptCount: Int { deck.keptCount }
+  /// Kept photos the finished session counts, leaving out those held for later.
+  var appliedKeptCount: Int { deck.keptPhotos(resolvedIn: pickedAssets).count }
   var canGoBack: Bool { !deck.history.isEmpty && !isPeeking }
 
   // MARK: Session lifecycle
@@ -793,7 +795,7 @@ final class SessionViewModel: ObservableObject {
         applied.outcome.failedEdits[photo.id].map { FailedEdit(photo: photo, reason: $0) }
       }
       albumStaging.clearStaged()
-      deletedCount = plan.deletions.count
+      deletedCount = plan.changes.deletions.count
       deletedBytes = applied.bytesDeleted
       deck.remove(photoIDs: Set(plan.deletions.map(\.id)))
       deck.clearHistory()  // reversible window closes here
@@ -862,10 +864,7 @@ final class SessionViewModel: ObservableObject {
   /// after applying, or if the session is abandoned, still undecided.
   /// Photos held for later are skipped too.
   private func recordKeptPhotos() {
-    markKept(
-      deck.keptPhotos
-        .filter { pickedAssets[$0.id] != nil && !$0.isHeldForLater }
-        .map(\.assetIdentifier))
+    markKept(deck.keptPhotos(resolvedIn: pickedAssets).map(\.assetIdentifier))
   }
 
   /// Adds assets to the kept history, such as kept photos and the clips trimmed from them.

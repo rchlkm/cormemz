@@ -3,6 +3,7 @@ import Photos
 
 /// What confirming a session changes in the library, worked out from the deck.
 struct SessionChangePlan {
+  /// Marked photos, including any whose asset is gone and so can't be deleted.
   let deletions: [SessionPhoto]
   /// Marked Live Photos that still have their asset.
   let conversions: [SessionPhoto]
@@ -14,7 +15,7 @@ struct SessionChangePlan {
   init(deck: SessionDeck, assets: [String: PHAsset], staging: AlbumStaging) {
     deletions = deck.pendingItems
     conversions = deck.pendingConversions.filter { assets[$0.id] != nil }
-    keptCount = deck.keptCount
+    keptCount = deck.keptPhotos(resolvedIn: assets).count
 
     // Album changes on a photo that's being deleted are moot.
     let (additions, removals) = staging.changes(excludingPhotoIDs: Set(deletions.map(\.id)))

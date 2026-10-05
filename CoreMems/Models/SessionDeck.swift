@@ -19,8 +19,11 @@ struct SessionDeck {
     photos.filter { $0.decision.isMarked || $0.activeEdit != nil }
   }
   var keptCount: Int { photos.filter { $0.decision.isKept }.count }
-  /// Photos decided Keep, not counting conversions.
-  var keptPhotos: [SessionPhoto] { photos.filter { $0.decision == .keep } }
+  /// Kept photos that still have their asset and aren't held for later: the ones a session
+  /// counts as kept once applied.
+  func keptPhotos<Asset>(resolvedIn assets: [String: Asset]) -> [SessionPhoto] {
+    photos.filter { $0.decision.isKept && assets[$0.id] != nil && !$0.isHeldForLater }
+  }
   var nextPhoto: SessionPhoto? { photos.indices.contains(currentIndex + 1) ? photos[currentIndex + 1] : nil }
 
   func index(ofPhotoID photoID: String) -> Int? { photos.firstIndex { $0.id == photoID } }

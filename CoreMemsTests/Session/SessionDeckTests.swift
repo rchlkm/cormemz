@@ -168,14 +168,18 @@ struct SessionDeckTests {
     #expect(deck.nextPhoto == nil)
   }
 
-  @Test func keptPhotosLeaveOutConversionsAndDeletions() {
-    var deck = makeDeck(liveIndexes: [1])
+  @Test func resolvedKeptPhotosLeaveOutDeletionsMissingAssetsAndHeldPhotos() {
+    var deck = makeDeck(count: 5, liveIndexes: [1])
     deck.record(index: 0, decision: .keep)
     deck.record(index: 1, decision: .convertToStill)
     deck.record(index: 2, decision: .pendingDelete)
+    deck.record(index: 3, decision: .keep)
+    deck.record(index: 4, decision: .keep)
+    deck.setHeldForLater(true, photoID: "p4")
+    let assets = ["p0": 0, "p1": 1, "p2": 2, "p4": 4]
 
-    #expect(deck.keptPhotos.map(\.id) == ["p0"])
-    #expect(deck.keptCount == 2)
+    #expect(deck.keptPhotos(resolvedIn: assets).map(\.id) == ["p0", "p1"])
+    #expect(deck.keptCount == 4)
   }
 
   @Test func photosAreFoundByID() {

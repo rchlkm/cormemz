@@ -121,7 +121,7 @@ struct RootView: View {
           ApplyChangesView(vm: vm)
         case .completion:
           CompletionView(
-            keptCount: vm.keptCount,
+            keptCount: vm.appliedKeptCount,
             deletedCount: vm.deletedCount,
             albumAssignedCount: vm.albumAssignedCount,
             missingAlbumCount: vm.missingAlbumCount,

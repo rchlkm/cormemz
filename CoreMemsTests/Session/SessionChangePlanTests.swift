@@ -83,6 +83,28 @@ struct SessionChangePlanTests {
     #expect(plan.changes.conversions.isEmpty)
   }
 
+  @Test func deletionsWithoutAssetsStayPlannedButArentDeleted() {
+    let deck = makeDeck([.pendingDelete, .pendingDelete])
+    var library = assets(for: deck)
+    library["p1"] = nil
+
+    let plan = SessionChangePlan(deck: deck, assets: library, staging: AlbumStaging())
+
+    #expect(plan.deletions.count == 2)
+    #expect(plan.changes.deletions.count == 1)
+  }
+
+  @Test func keptCountLeavesOutPhotosWithoutAssetsOrHeldForLater() {
+    var deck = makeDeck([.keep, .keep, .keep, .convertToStill], live: [3])
+    deck.setHeldForLater(true, photoID: "p1")
+    var library = assets(for: deck)
+    library["p2"] = nil
+
+    let plan = SessionChangePlan(deck: deck, assets: library, staging: AlbumStaging())
+
+    #expect(plan.keptCount == 2)
+  }
+
   @Test func albumChangesOnDeletedPhotosAreDropped() {
     let deck = makeDeck([.pendingDelete, .keep])
     var staging = AlbumStaging()
