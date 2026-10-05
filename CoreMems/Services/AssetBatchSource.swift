@@ -63,9 +63,15 @@ actor AssetBatchSource: AssetBatching {
 
   /// Matches any of `types`; an empty set matches every type.
   static func mediaTypePredicate(_ types: Set<MediaType>) -> NSPredicate {
-    let selected = types.isEmpty ? MediaType.allCases : MediaType.allCases.filter(types.contains)
-    return NSCompoundPredicate(orPredicateWithSubpredicates: selected.map(predicate(for:)))
+    if types.isEmpty || types.count == MediaType.allCases.count { return allMediaPredicate }
+    return NSCompoundPredicate(
+      orPredicateWithSubpredicates: MediaType.allCases.filter(types.contains).map(predicate(for:)))
   }
+
+  /// Every photo and video, whatever its subtype.
+  private static let allMediaPredicate = NSPredicate(
+    format: "mediaType == %d OR mediaType == %d",
+    PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
 
   private static func predicate(for type: MediaType) -> NSPredicate {
     switch type {

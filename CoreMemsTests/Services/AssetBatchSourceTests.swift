@@ -60,8 +60,10 @@ struct AssetBatchSourceMediaTypePredicateTests {
     #expect(subpredicates([.photos, .screenshots, .videos]).count == 3)
   }
 
-  @Test func noSelectionIsEveryType() {
-    #expect(subpredicates([]).count == MediaType.allCases.count)
+  @Test func noSelectionIsEveryPhotoAndVideo() {
+    let format = AssetBatchSource.mediaTypePredicate([]).predicateFormat
+    #expect(format.contains("mediaType"))
+    #expect(!format.contains("mediaSubtypes"))
     #expect(
       AssetBatchSource.mediaTypePredicate([])
         == AssetBatchSource.mediaTypePredicate(Set(MediaType.allCases)))

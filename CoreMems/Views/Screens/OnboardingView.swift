@@ -63,7 +63,7 @@ struct OnboardingView: View {
       Spacer()
 
       VStack(alignment: .leading, spacing: 14) {
-        Text("\(photoCount, format: .number.grouping(.automatic)) photos")
+        Text("\(photoCount, format: .number.grouping(.automatic)) photos and videos")
           .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
           .padding(.horizontal, 14)

@@ -78,9 +78,9 @@ protocol PhotoAuthorization {
   func presentLimitedLibraryPicker(from viewController: UIViewController)
 }
 
-/// Read access to the library's eligible (image-only) assets.
+/// Read access to the library's eligible assets (photos and videos).
 protocol AssetLibrary {
-  /// Opens the eligible (image-only) assets for `mode` as a lazily loaded stream,
+  /// Opens the eligible assets (photos and videos) for `mode` as a lazily loaded stream,
   /// skipping the local identifiers in 'excluding'. `startDate` applies to `.date`,
   /// `albumIdentifier` to `.album`, `mediaTypes` narrows further (e.g. screenshots only); empty means every type.
   func makeAssetSource(

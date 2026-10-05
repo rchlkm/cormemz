@@ -8,6 +8,7 @@ final class SessionViewModel: ObservableObject {
 
   // MARK: Published UI state
   @Published var screen: AppScreen = .home
+  // TODO: rename; this counts videos as well as photos.
   @Published var eligiblePhotoCount: Int = 0
   @Published private var deck = SessionDeck()
   @Published var isStartingSession: Bool = false
@@ -65,6 +66,7 @@ final class SessionViewModel: ObservableObject {
     get { settings.defaultSessionMode }
     set { settings.defaultSessionMode = newValue }
   }
+  // TODO: rename; this counts videos as well as photos.
   @Published private(set) var keptPhotoCount: Int = 0
 
   /// Where photos missing from the device may be downloaded from.

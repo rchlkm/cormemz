@@ -136,7 +136,7 @@ final class PhotoLibraryService: PhotoLibraryServicing {
 
   func totalEligibleAssetCount() -> Int {
     let options = PHFetchOptions()
-    options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+    options.predicate = AssetBatchSource.mediaTypePredicate([])
     return PHAsset.fetchAssets(with: options).count
   }
 

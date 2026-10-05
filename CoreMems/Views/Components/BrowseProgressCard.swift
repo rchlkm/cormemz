@@ -1,7 +1,7 @@
 // CoreMems/Views/Components/BrowseProgressCard.swift
 import SwiftUI
 
-/// How much of the library has been kept.
+/// How much of the library, photos and videos, has been kept.
 struct BrowseProgressCard: View {
   let kept: Int
   let total: Int
@@ -27,7 +27,7 @@ struct BrowseProgressCard: View {
           .monospacedDigit()
       }
       bar
-      Text("\(shownKept.formatted()) of \(total.formatted()) photos")
+      Text("\(shownKept.formatted()) of \(total.formatted()) photos and videos")
         .font(.footnote)
         .foregroundStyle(.secondary)
     }

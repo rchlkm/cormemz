@@ -13,7 +13,7 @@ struct HomeSplashView: View {
       Spacer()
       Text("\(photoCount, format: .number.grouping(.automatic))")
         .font(.system(size: 44, weight: .bold))
-      Text("photos on this phone")
+      Text("photos and videos on this phone")
         .font(.subheadline)
         .foregroundStyle(.secondary)
       ProgressView()
