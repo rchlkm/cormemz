@@ -5,7 +5,7 @@ import XCTest
 final class ConversionFlowTests: BrowseUITestCase {
   private static let firstLivePhotoPosition = 2
   private static let convertMenuItem = "Convert to Still Photo"
-  private static let conversionSummary = "1 to convert"
+  private static let conversionFilter = "Convert 1"
  
   private func reachFirstLivePhoto() {
     XCTAssertFalse(element(AccessibilityID.liveBadge).exists)
@@ -56,7 +56,7 @@ final class ConversionFlowTests: BrowseUITestCase {
     XCTAssertTrue(viewer.waitForExistence(timeout: Self.uiTimeout))
     viewer.buttons[AccessibilityID.photoViewerUndo].tap()
 
-    XCTAssertTrue(app.staticTexts[Self.conversionSummary].waitForExistence(timeout: Self.uiTimeout))
+    XCTAssertTrue(app.segmentedControls.firstMatch.buttons[Self.conversionFilter].waitForExistence(timeout: Self.uiTimeout))
   }
 
   func testConvertingALivePhotoMarksItInTheTray() {
@@ -73,7 +73,7 @@ final class ConversionFlowTests: BrowseUITestCase {
 
     element(AccessibilityID.browseDone).tap()
 
-    XCTAssertTrue(app.staticTexts[Self.conversionSummary].waitForExistence(timeout: Self.uiTimeout))
+    XCTAssertTrue(app.segmentedControls.firstMatch.buttons[Self.conversionFilter].waitForExistence(timeout: Self.uiTimeout))
     element(AccessibilityID.applyConfirm).tap()
     XCTAssertTrue(element(AccessibilityID.completion).waitForExistence(timeout: Self.uiTimeout))
   }

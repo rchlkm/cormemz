@@ -13,17 +13,6 @@ struct ApplyChangesView: View {
     case convert = "Convert"
     case edit = "Edited"
     var id: String { rawValue }
-
-    /// The summary shown when this is the only kind of change; `nil` for `.all`.
-    func summary(count: Int) -> (title: String, symbol: String, tint: Color)? {
-      switch self {
-      case .all: return nil
-      case .delete: return ("\(count) to delete", "trash", Decision.pendingDelete.tint)
-      case .convert:
-        return ("\(count) to convert", "livephoto.slash", Decision.convertToStill.tint)
-      case .edit: return ("\(count) edited", EditStyle.symbol, EditStyle.tint)
-      }
-    }
   }
 
   private var items: [SessionPhoto] { vm.pendingItems }
@@ -31,14 +20,6 @@ struct ApplyChangesView: View {
   private var marked: [SessionPhoto] { items + conversions + vm.pendingEdits }
   private var hasItems: Bool { !items.isEmpty }
   private var favoritesCount: Int { items.filter(\.isFavorite).count }
-
-  /// "All" plus each kind of change present.
-  private var filters: [Filter] {
-    Filter.allCases.filter { $0 == .all || !photos(for: $0).isEmpty }
-  }
-  /// Only offered when more than one kind is present; otherwise everything is shown.
-  private var showsFilter: Bool { filters.count > 2 }
-  private var activeFilter: Filter { showsFilter ? filter : .all }
 
   private func photos(for filter: Filter) -> [SessionPhoto] {
     switch filter {
@@ -126,19 +107,14 @@ struct ApplyChangesView: View {
   }
 
   /// Swipeable pages keep each grid alive, so switching filters doesn't reload thumbnails.
-  @ViewBuilder
   private var pages: some View {
-    if showsFilter {
-      TabView(selection: $filter) {
-        ForEach(filters) { option in
-          gridPage(photos(for: option)).tag(option)
-        }
+    TabView(selection: $filter) {
+      ForEach(Filter.allCases) { option in
+        gridPage(photos(for: option)).tag(option)
       }
-      .tabViewStyle(.page(indexDisplayMode: .never))
-      .animation(.default, value: filter)
-    } else {
-      gridPage(marked)
     }
+    .tabViewStyle(.page(indexDisplayMode: .never))
+    .animation(.default, value: filter)
   }
 
   private func gridPage(_ photos: [SessionPhoto]) -> some View {
@@ -162,17 +138,13 @@ struct ApplyChangesView: View {
 
   private var summary: some View {
     VStack(alignment: .leading, spacing: 8) {
-      if showsFilter {
-        filterPicker
-      } else if let summary = filters.last?.summary(count: marked.count) {
-        summaryLabel(summary.title, symbol: summary.symbol, tint: summary.tint)
-      }
+      filterPicker
       if hasItems || !conversions.isEmpty {
         Text("Deleted items stay in Recently Deleted for 30 days.")
           .font(.subheadline)
           .foregroundStyle(.secondary)
       }
-      if favoritesCount > 0 && (activeFilter == .all || activeFilter == .delete) {
+      if favoritesCount > 0 && (filter == .all || filter == .delete) {
         Label(
           "\(favoritesCount) \(favoritesCount == 1 ? "is" : "are") marked as a favorite",
           systemImage: "heart.fill"
@@ -187,19 +159,10 @@ struct ApplyChangesView: View {
 
   private var filterPicker: some View {
     Picker("Show", selection: $filter) {
-      ForEach(filters) { option in
+      ForEach(Filter.allCases) { option in
         Text("\(option.rawValue) \(photos(for: option).count)").tag(option)
       }
     }
     .pickerStyle(.segmented)
-  }
-
-  private func summaryLabel(_ title: String, symbol: String, tint: Color) -> some View {
-    Label {
-      Text(title)
-    } icon: {
-      Image(systemName: symbol).foregroundStyle(tint)
-    }
-    .font(.title3.bold())
   }
 }

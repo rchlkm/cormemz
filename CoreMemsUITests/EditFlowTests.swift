@@ -37,7 +37,7 @@ final class EditFlowTests: BrowseUITestCase {
     element(AccessibilityID.browseKeep).tap()
     waitForProgress("1 reviewed")
     element(AccessibilityID.browseDone).tap()
-    XCTAssertTrue(app.staticTexts["1 edited"].waitForExistence(timeout: Self.uiTimeout))
+    XCTAssertTrue(app.segmentedControls.firstMatch.buttons["Edited 1"].waitForExistence(timeout: Self.uiTimeout))
   }
 
   func testUndoingAnEditFromTheTrayRemovesIt() {

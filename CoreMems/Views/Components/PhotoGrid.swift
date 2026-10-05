@@ -62,6 +62,13 @@ struct PhotoGridCells: View {
               .padding(6)
           }
         }
+        .overlay(alignment: .bottomTrailing) {
+          if photo.isFavorite {
+            GridBadge(symbol: "heart.fill", color: .pink)
+              .accessibilityLabel("Favorite")
+              .padding(6)
+          }
+        }
       }
     }
     .padding(.horizontal, 26)
@@ -83,6 +90,20 @@ struct PhotoGridCells: View {
   }
 }
 
+/// Small round icon badge laid over a grid thumbnail.
+private struct GridBadge: View {
+  let symbol: String
+  let color: Color
+
+  var body: some View {
+    Image(systemName: symbol)
+      .font(.system(size: 12, weight: .semibold))
+      .foregroundStyle(.white)
+      .frame(width: 26, height: 26)
+      .background(color.opacity(0.85), in: Circle())
+  }
+}
+
 /// Small badge naming what will happen to a marked or edited photo. Empty otherwise.
 private struct DecisionTag: View {
   let decision: Decision
@@ -95,11 +116,7 @@ private struct DecisionTag: View {
 
   var body: some View {
     if let style {
-      Image(systemName: style.symbol)
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(.white)
-        .frame(width: 26, height: 26)
-        .background(style.color.opacity(0.85), in: Circle())
+      GridBadge(symbol: style.symbol, color: style.color)
     }
   }
 }
