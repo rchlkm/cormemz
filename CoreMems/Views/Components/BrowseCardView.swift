@@ -111,6 +111,7 @@ struct BrowseCardView: View {
         .padding(.top, Self.topBarHeight + Self.decisionTagGap)
     }
     .overlay(alignment: .bottomLeading) {
+      // TODO: Badge the card with the photo's MediaKind, as the full-screen view does.
       if subject.isLivePhoto {
         LivePhotoBadgeView(
           assetIdentifier: subject.assetIdentifier,

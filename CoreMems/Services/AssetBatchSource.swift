@@ -73,6 +73,7 @@ actor AssetBatchSource: AssetBatching {
     format: "mediaType == %d OR mediaType == %d",
     PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
 
+  // TODO: Take subtypes from MediaKind and offer slo-mo, cinematic and panorama as filters.
   /// Excluding a subtype is written `NOT (… != 0)`: PhotoKit's `(… & bit) == 0` skips many assets.
   private static func predicate(for type: MediaType) -> NSPredicate {
     switch type {

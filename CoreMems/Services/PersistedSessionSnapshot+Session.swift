@@ -26,6 +26,7 @@ extension PersistedSessionSnapshot {
   }
 
   private var restoredPhotos: [SessionPhoto] {
+    // TODO: Rebuild kind, isVideo, isLivePhoto and isFavorite from the asset; restored photos lose them.
     (0..<min(photoIDs.count, decisions.count, assetIdentifiers.count)).map { i in
       var photo = SessionPhoto(id: photoIDs[i], assetIdentifier: assetIdentifiers[i], previewURL: nil)
       photo.decision = Decision(rawValue: decisions[i]) ?? .undecided

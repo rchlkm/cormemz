@@ -46,6 +46,7 @@ struct SessionPhoto: Identifiable, Equatable {
   let previewURL: URL?
   var decision: Decision = .undecided
   var isFavorite: Bool = false
+  // TODO: Fold into MediaKind as a .live case so one value says what sets a photo apart.
   var isLivePhoto: Bool = false
   /// PhotoKit videos (including timelapses) are never Live Photos, so this and
   /// `isLivePhoto` are mutually exclusive.

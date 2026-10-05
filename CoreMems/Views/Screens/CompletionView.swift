@@ -24,34 +24,22 @@ struct CompletionView: View {
   /// Converted photos are also counted in `keptCount`; they get their own tile.
   private var keptUnchangedCount: Int { max(keptCount - convertedCount, 0) }
 
-  private var tiles: [StatTileItem] {
-    var items = [
-      StatTileItem(
-        label: "Kept", value: keptUnchangedCount.formatted(),
-        systemImage: "checkmark", tint: Decision.keep.tint),
-      StatTileItem(
-        label: "Deleted", value: deletedCount.formatted(), systemImage: "trash",
-        tint: Decision.pendingDelete.tint),
+  /// Tiles for the outcomes that happened; the kept tile alone when none did.
+  var tiles: [StatTileItem] {
+    func tile(_ label: String, _ count: Int, _ systemImage: String, _ tint: Color? = nil)
+      -> (count: Int, item: StatTileItem)
+    {
+      (count, StatTileItem(label: label, value: count.formatted(), systemImage: systemImage, tint: tint))
+    }
+    let outcomes = [
+      tile("Kept", keptUnchangedCount, "checkmark", Decision.keep.tint),
+      tile("Deleted", deletedCount, "trash", Decision.pendingDelete.tint),
+      tile("Converted to stills", convertedCount, "livephoto", Decision.convertToStill.tint),
+      tile("Edited", editedCount, EditStyle.symbol, EditStyle.tint),
+      tile("Added to albums", albumAssignedCount, "rectangle.stack"),
     ]
-    if convertedCount > 0 {
-      items.append(
-        StatTileItem(
-          label: "Converted to stills", value: convertedCount.formatted(),
-          systemImage: "livephoto", tint: Decision.convertToStill.tint))
-    }
-    if editedCount > 0 {
-      items.append(
-        StatTileItem(
-          label: "Edited", value: editedCount.formatted(),
-          systemImage: EditStyle.symbol, tint: EditStyle.tint))
-    }
-    if albumAssignedCount > 0 {
-      items.append(
-        StatTileItem(
-          label: "Added to albums", value: albumAssignedCount.formatted(),
-          systemImage: "rectangle.stack"))
-    }
-    return items
+    let happened = outcomes.filter { $0.count > 0 }.map(\.item)
+    return happened.isEmpty ? [outcomes[0].item] : happened
   }
 
   var body: some View {
@@ -59,6 +47,8 @@ struct CompletionView: View {
       ScrollView {
         VStack(spacing: 20) {
           header
+          OutcomeRatioCard(
+            kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
           StatTileGrid(items: tiles)
           if deletedCount > 0 {
             Text("Deleted photos stay in Recently Deleted for 30 days.")
@@ -78,8 +68,6 @@ struct CompletionView: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
           }
-          OutcomeRatioCard(
-            kept: keptUnchangedCount, converted: convertedCount, deleted: deletedCount)
           if deletedBytes + convertedBytesSaved + trimmedBytesSaved > 0 {
             SpaceCleanedCard(
               deletedBytes: deletedBytes, convertedBytes: convertedBytesSaved,

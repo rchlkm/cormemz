@@ -122,6 +122,7 @@ actor MediaEditRenderer {
       data: try JSONEncoder().encode(edit))
 
     // The Live Photo context also accepts a still's input, then fails to save it.
+    // TODO: Branch on MediaKind, and reject trimming Cinematic if it loses its depth data.
     if input.mediaSubtypes.contains(.photoLive),
       let context = PHLivePhotoEditingContext(livePhotoEditingInput: input)
     {

@@ -63,6 +63,7 @@ struct PhotoGridCells: View {
           }
         }
         .overlay(alignment: .bottomTrailing) {
+          // TODO: Add a MediaKind badge to the thumbnail.
           if photo.isFavorite {
             GridBadge(symbol: "heart.fill", color: .pink)
               .accessibilityLabel("Favorite")

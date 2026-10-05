@@ -12,7 +12,13 @@ struct ApplyChangesView: View {
     case delete = "Delete"
     case convert = "Convert"
     case edit = "Edited"
+    case favorite = "Favorites"
     var id: String { rawValue }
+
+    /// Segment label; favorites use a heart so five segments fit.
+    func label(count: Int) -> Text {
+      self == .favorite ? Text("\(Image(systemName: "heart.fill")) \(count)") : Text("\(rawValue) \(count)")
+    }
   }
 
   private var items: [SessionPhoto] { vm.pendingItems }
@@ -21,12 +27,18 @@ struct ApplyChangesView: View {
   private var hasItems: Bool { !items.isEmpty }
   private var favoritesCount: Int { items.filter(\.isFavorite).count }
 
+  /// "All" plus each kind of change present.
+  private var filters: [Filter] {
+    Filter.allCases.filter { $0 == .all || !photos(for: $0).isEmpty }
+  }
+
   private func photos(for filter: Filter) -> [SessionPhoto] {
     switch filter {
     case .all: return marked
     case .delete: return items
     case .convert: return conversions
     case .edit: return vm.pendingEdits
+    case .favorite: return marked.filter(\.isFavorite)
     }
   }
 
@@ -91,6 +103,9 @@ struct ApplyChangesView: View {
       .disabled(vm.isDeleting)
       .padding(26)
     }
+    .onChange(of: filters) { _, available in
+      if !available.contains(filter) { filter = .all }
+    }
     .alert("Nothing was changed", isPresented: declinedBinding) {
       Button("Try Again") { Task { await vm.applyChanges() } }
       Button("Review Changes", role: .cancel) {}
@@ -109,7 +124,7 @@ struct ApplyChangesView: View {
   /// Swipeable pages keep each grid alive, so switching filters doesn't reload thumbnails.
   private var pages: some View {
     TabView(selection: $filter) {
-      ForEach(Filter.allCases) { option in
+      ForEach(filters) { option in
         gridPage(photos(for: option)).tag(option)
       }
     }
@@ -159,8 +174,11 @@ struct ApplyChangesView: View {
 
   private var filterPicker: some View {
     Picker("Show", selection: $filter) {
-      ForEach(Filter.allCases) { option in
-        Text("\(option.rawValue) \(photos(for: option).count)").tag(option)
+      ForEach(filters) { option in
+        let count = photos(for: option).count
+        option.label(count: count)
+          .accessibilityLabel("\(option.rawValue) \(count)")
+          .tag(option)
       }
     }
     .pickerStyle(.segmented)

@@ -9,7 +9,7 @@ struct OutcomeRatioCard: View {
 
   @State private var showsCounts = false
 
-  private struct Segment: Identifiable {
+  struct Segment: Identifiable {
     let label: String
     let count: Int
     let color: Color
@@ -26,6 +26,11 @@ struct OutcomeRatioCard: View {
     ]
   }
 
+  private var nonEmptySegments: [Segment] { segments.filter { $0.count > 0 } }
+
+  /// Outcomes that happened; every outcome when none did, so the card isn't blank.
+  var legendSegments: [Segment] { nonEmptySegments.isEmpty ? segments : nonEmptySegments }
+
   private var total: Int { segments.reduce(0) { $0 + $1.count } }
 
   var body: some View {
@@ -34,7 +39,7 @@ struct OutcomeRatioCard: View {
         .font(.headline)
       bar
       HStack(spacing: 16) {
-        ForEach(segments) { legendItem($0) }
+        ForEach(legendSegments) { legendItem($0) }
       }
     }
     .padding(16)
@@ -51,7 +56,7 @@ struct OutcomeRatioCard: View {
 
   private var bar: some View {
     GeometryReader { proxy in
-      let visible = segments.filter { $0.count > 0 }
+      let visible = nonEmptySegments
       let gaps = CGFloat(max(visible.count - 1, 0)) * Self.barSpacing
       let available = proxy.size.width - gaps
       HStack(spacing: Self.barSpacing) {

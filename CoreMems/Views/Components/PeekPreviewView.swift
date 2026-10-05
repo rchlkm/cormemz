@@ -25,11 +25,24 @@ struct PeekPreviewView: View {
       Color.black
       ForEach(mounted) { neighbor in
         AdaptiveAssetImage(photo: neighbor, fitWithin: maxSize, showsLowQualityFirst: true)
+          // TODO: Show the neighbor's MediaKind symbol instead of the generic video icon.
+          .overlay { if neighbor.isVideo { PeekVideoIcon() } }
           .opacity(neighbor.id == focusedID ? 1 : 0)
       }
     }
     .opacity(isVisible ? 1 : 0)
     .allowsHitTesting(false)
+  }
+}
+
+/// Centered icon on a video's still, which plays only once opened full screen.
+private struct PeekVideoIcon: View {
+  var body: some View {
+    Image(systemName: "video.fill")
+      .font(.system(size: 26, weight: .bold))
+      .foregroundStyle(.white)
+      .frame(width: 64, height: 64)
+      .background(.black.opacity(0.6), in: Circle())
   }
 }
 

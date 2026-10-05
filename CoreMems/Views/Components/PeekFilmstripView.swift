@@ -122,6 +122,7 @@ struct PeekFilmstripView: View {
         if isAnchor { AnchorBadge().padding(Self.badgePadding) }
       }
       .overlay(alignment: .bottomTrailing) {
+        // TODO: Show the neighbor's MediaKind symbol instead of the generic video icon.
         if neighbor.isVideo { VideoBadge().padding(Self.badgePadding) }
       }
       .overlay(alignment: .topTrailing) {
