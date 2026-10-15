@@ -3,7 +3,8 @@ import AVFoundation
 import SwiftUI
 
 /// Autoplaying playback of a video asset, with sound, a play/pause button, a
-/// mute toggle, and a scrub bar between the current time and the length.
+/// mute toggle, a 2× speed lock, and a scrub bar between the current time and the length.
+/// Holding the picture plays at 2× for as long as it is held.
 /// Loads through `playback`, which controls outside the player can share,
 /// analogous to how `LivePhotoPlayerView` is fed an already-loaded `PHLivePhoto`.
 struct VideoPlayerView: View {
@@ -15,6 +16,12 @@ struct VideoPlayerView: View {
   var playbackRange: ClosedRange<Double>?
   /// Off when other controls, such as the editor's trim bar, stand in for the transport bar.
   var showsTransport = true
+  /// Space kept clear below the transport bar.
+  var transportBottomInset = VideoPlayerView.defaultTransportInset
+
+  static let defaultTransportInset: CGFloat = 12
+
+  private static let holdDuration: TimeInterval = 0.3
 
   var body: some View {
     Group {
@@ -22,6 +29,10 @@ struct VideoPlayerView: View {
         ZStack(alignment: .bottom) {
           PlayerLayerRepresentable(player: player)
             .rotated(quarterTurns: quarterTurns)
+            .onLongPressGesture(
+              minimumDuration: Self.holdDuration,
+              perform: { playback.setSpeedHeld(true) },
+              onPressingChanged: { if !$0 { playback.setSpeedHeld(false) } })
           if showsTransport { transportBar }
         }
       } else if playback.loadFailed {
@@ -48,17 +59,28 @@ struct VideoPlayerView: View {
       ScrubBar(progress: scrubBinding, isScrubbing: $playback.isScrubbing)
       PlaybackTimeLabel(seconds: playback.duration)
 
+      Button(action: playback.toggleSpeedLock) {
+        Image(systemName: "forward.fill")
+      }
+      .buttonStyle(IconButtonStyle(size: .small, surface: speedLockSurface))
+      .accessibilityLabel("Lock 2× speed")
+      .accessibilityValue(playback.isSpeedLocked ? "On" : "Off")
+
       Button(action: playback.toggleMute) {
         Image(systemName: playback.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
       }
       .buttonStyle(IconButtonStyle(size: .small, surface: .scrim))
     }
     .padding(.horizontal, 12)
-    .padding(.bottom, 12)
+    .padding(.bottom, transportBottomInset)
     .padding(.top, 24)
     .background(
       LinearGradient(colors: [.clear, .black.opacity(0.5)], startPoint: .top, endPoint: .bottom)
     )
+  }
+
+  private var speedLockSurface: IconButtonSurface {
+    playback.isSpeedLocked ? .material(.yellow) : .scrim
   }
 
   /// Reads the live playback position as a fraction; writes seek to wherever the scrub bar

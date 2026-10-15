@@ -14,6 +14,8 @@ struct PhotoCardView: View {
   var draftEdit: MediaEdit?
   /// Off when other controls stand in for the video's transport bar.
   var showsTransport = true
+  /// Space kept clear below a video's transport bar.
+  var transportBottomInset = VideoPlayerView.defaultTransportInset
   /// The Live Photo to play in place of the still; `nil` shows the still.
   var livePhoto: PHLivePhoto?
   var onLivePhotoEnded: () -> Void = {}
@@ -28,7 +30,8 @@ struct PhotoCardView: View {
       // The player turns only its picture, so its controls stay upright.
       VideoPlayerView(
         playback: playback, assetIdentifier: photo.assetIdentifier, quarterTurns: quarterTurns,
-        playbackRange: shownEdit?.trimRange, showsTransport: showsTransport
+        playbackRange: shownEdit?.trimRange, showsTransport: showsTransport,
+        transportBottomInset: transportBottomInset
       )
       .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {

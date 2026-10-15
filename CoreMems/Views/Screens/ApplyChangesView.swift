@@ -15,9 +15,10 @@ struct ApplyChangesView: View {
     case favorite = "Favorites"
     var id: String { rawValue }
 
-    /// Segment label; favorites use a heart so five segments fit.
+    /// Segment label; favorites use a heart glyph so five segments fit. Segmented controls
+    /// drop images inlined in text, so the heart is a character.
     func label(count: Int) -> Text {
-      self == .favorite ? Text("\(Image(systemName: "heart.fill")) \(count)") : Text("\(rawValue) \(count)")
+      Text(self == .favorite ? "♥︎ \(count)" : "\(rawValue) \(count)")
     }
   }
 

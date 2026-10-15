@@ -31,6 +31,10 @@ struct ExpandedPhotoView: View {
   /// every kind of media.
   private let editorInsets = EdgeInsets(top: 150, leading: 16, bottom: 148, trailing: 16)
 
+  /// Below the viewing controls' Edit button, which the transport bar sits above.
+  private static let viewingControlsInset: CGFloat = 40
+  private static let transportGap: CGFloat = 16
+
   private var isEditing: Bool { draftEdit != nil }
   private var quarterTurns: Int { draftEdit?.quarterTurns ?? photo.previewQuarterTurns }
   private var trim: TrimSupport { vm.trimSupport(of: photo) }
@@ -108,7 +112,7 @@ struct ExpandedPhotoView: View {
   private var content: some View {
     PhotoCardView(
       photo: photo, maxSize: contentBox, playback: playback, draftEdit: draftEdit,
-      showsTransport: !showsTrimBar,
+      showsTransport: !showsTrimBar, transportBottomInset: transportBottomInset,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
       onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameState.image)
   }
@@ -137,7 +141,14 @@ struct ExpandedPhotoView: View {
       }
       if !zoom.isZoomed { editButton }
     }
-    .padding(.bottom, 40)
+    .padding(.bottom, Self.viewingControlsInset)
+  }
+
+  /// Lifts the video's transport bar clear of the Edit button and the home indicator.
+  private var transportBottomInset: CGFloat {
+    isEditing
+      ? VideoPlayerView.defaultTransportInset
+      : Self.viewingControlsInset + IconButtonSize.medium.diameter + Self.transportGap
   }
 
   private func frameScrubber(_ frames: LivePhotoFrames) -> some View {

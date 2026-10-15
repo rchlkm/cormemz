@@ -22,6 +22,7 @@ Review one item at a time in full screen.
 - Swipe left → Go back
 - Swipe up → Browse nearby media
 - Favorite media
+- Hold a video to play it at 2× while held, or lock 2× with the speed button
 - Add media to Photos albums or create new ones
 - Pin and reorder frequently used albums
 - Sort pinned albums in the album picker: **My order** or **Recently used**

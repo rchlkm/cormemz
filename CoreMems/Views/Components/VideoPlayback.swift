@@ -8,6 +8,10 @@ final class VideoPlayback: ObservableObject {
   @Published private(set) var player: AVPlayer?
   @Published private(set) var isPlaying = true
   @Published private(set) var isMuted = false
+  /// Fast-forward kept on until switched off.
+  @Published private(set) var isSpeedLocked = false
+  /// Fast-forward while a finger holds the picture.
+  @Published private(set) var isSpeedHeld = false
   @Published private(set) var duration: Double = 0
   /// The playback position in seconds.
   @Published private(set) var position: Double = 0
@@ -17,11 +21,14 @@ final class VideoPlayback: ObservableObject {
   /// The part played, in seconds; `nil` plays all of it.
   private(set) var range: ClosedRange<Double>?
 
+  static let fastRate: Float = 2
+
   private var timeObserver: Any?
   private var endObserver: AnyCancellable?
 
   var start: Double { range?.lowerBound ?? 0 }
   var end: Double { range?.upperBound ?? duration }
+  var rate: Float { isSpeedLocked || isSpeedHeld ? Self.fastRate : 1 }
 
   func load(assetIdentifier: String, range: ClosedRange<Double>?) async {
     reset()
@@ -40,6 +47,7 @@ final class VideoPlayback: ObservableObject {
     try? AVAudioSession.sharedInstance().setCategory(.playback)
     let newPlayer = AVPlayer(playerItem: item)
     newPlayer.isMuted = isMuted
+    newPlayer.defaultRate = rate
     player = newPlayer
     observeTime(on: newPlayer)
     observeEnd(of: item)
@@ -90,6 +98,22 @@ final class VideoPlayback: ObservableObject {
     player?.isMuted = isMuted
   }
 
+  func toggleSpeedLock() {
+    isSpeedLocked.toggle()
+    applyRate()
+  }
+
+  func setSpeedHeld(_ isHeld: Bool) {
+    isSpeedHeld = isHeld
+    applyRate()
+  }
+
+  /// Takes effect on the next play, and now if already playing.
+  private func applyRate() {
+    player?.defaultRate = rate
+    if isPlaying { player?.rate = rate }
+  }
+
   /// Ends playback at the end of the part played.
   private func limitPlayback() {
     player?.currentItem?.forwardPlaybackEndTime =
@@ -126,6 +150,8 @@ final class VideoPlayback: ObservableObject {
     endObserver = nil
     player = nil
     isPlaying = true
+    isSpeedLocked = false
+    isSpeedHeld = false
     position = 0
     duration = 0
     loadFailed = false
