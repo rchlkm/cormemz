@@ -78,8 +78,8 @@ struct MediaEditRendererTests {
 
     #expect(turned.extent == CGRect(x: 0, y: 0, width: 1, height: 2))
     // Core Image's origin is bottom-left, so turning counterclockwise puts red at the bottom.
-    #expect(pixel(of: turned, at: CGPoint(x: 0, y: 0)) == [255, 0, 0])
-    #expect(pixel(of: turned, at: CGPoint(x: 0, y: 1)) == [0, 0, 255])
+    #expect(turned.pixel(at: CGPoint(x: 0, y: 0)) == [255, 0, 0])
+    #expect(turned.pixel(at: CGPoint(x: 0, y: 1)) == [0, 0, 255])
   }
 
   @Test func turningASizeSwapsItOnOddTurnsOnly() {
@@ -89,15 +89,5 @@ struct MediaEditRendererTests {
     #expect(size.turned(by: 1) == CGSize(width: 4, height: 3))
     #expect(size.turned(by: 2) == size)
     #expect(size.turned(by: 3) == CGSize(width: 4, height: 3))
-  }
-
-  private func pixel(of image: CIImage, at point: CGPoint) -> [UInt8] {
-    var rgba = [UInt8](repeating: 0, count: 4)
-    let context = CIContext(options: [.workingColorSpace: NSNull(), .outputColorSpace: NSNull()])
-    context.render(
-      image, toBitmap: &rgba, rowBytes: 4,
-      bounds: CGRect(origin: point, size: CGSize(width: 1, height: 1)), format: .RGBA8,
-      colorSpace: nil)
-    return Array(rgba.prefix(3))
   }
 }

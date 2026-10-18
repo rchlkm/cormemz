@@ -13,14 +13,9 @@ extension View {
 
 extension CGSize {
   /// The size after `quarterTurns` quarter turns: width and height swap on odd turns.
-  func turned(by quarterTurns: Int) -> CGSize {
+  nonisolated func turned(by quarterTurns: Int) -> CGSize {
     quarterTurns.isMultiple(of: 2) ? self : CGSize(width: height, height: width)
   }
-}
-
-extension SessionPhoto {
-  /// Quarter turns the photo is shown with, matching what confirming the session writes.
-  var previewQuarterTurns: Int { activeEdit?.quarterTurns ?? 0 }
 }
 
 /// Offers its child the turned space and reports the child's size turned back.

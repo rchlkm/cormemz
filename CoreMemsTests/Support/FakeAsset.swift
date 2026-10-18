@@ -11,16 +11,18 @@ final class FakeAsset: PHAsset, @unchecked Sendable {
   private let isVideo: Bool
   private let kind: MediaKind?
   private let length: TimeInterval
+  private let pixelSize: CGSize
 
   init(
     identifier: String, isLive: Bool = false, isVideo: Bool = false, kind: MediaKind? = nil,
-    duration: TimeInterval = 0
+    duration: TimeInterval = 0, pixelSize: CGSize = .zero
   ) {
     self.identifier = identifier
     self.isLive = isLive
     self.isVideo = isVideo
     self.kind = kind
     self.length = duration
+    self.pixelSize = pixelSize
     super.init()
   }
 
@@ -33,6 +35,8 @@ final class FakeAsset: PHAsset, @unchecked Sendable {
     return subtypes
   }
   override var duration: TimeInterval { length }
+  override var pixelWidth: Int { Int(pixelSize.width) }
+  override var pixelHeight: Int { Int(pixelSize.height) }
   override var isFavorite: Bool { false }
   override var creationDate: Date? { nil }
 }

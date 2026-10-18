@@ -36,7 +36,6 @@ struct PhotoCardView: View {
       .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     } else {
       picture
-        .rotated(quarterTurns: quarterTurns)
         .frame(maxWidth: maxSize.width, maxHeight: maxSize.height)
     }
   }
@@ -45,9 +44,9 @@ struct PhotoCardView: View {
     if let livePhoto {
       LivePhotoPlayerView(livePhoto: livePhoto, onPlaybackEnded: onLivePhotoEnded)
         .aspectRatio(livePhoto.size, contentMode: .fit)
+        .rotated(quarterTurns: quarterTurns)
     } else {
-      AdaptiveAssetImage(
-        photo: photo, fitWithin: maxSize.turned(by: quarterTurns), quarterTurns: 0, still: still)
+      AdaptiveAssetImage(photo: photo, fitWithin: maxSize, edit: shownEdit, still: still)
     }
   }
 }

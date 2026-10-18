@@ -58,8 +58,15 @@ final class EditFlowTests: BrowseUITestCase {
 
     XCTAssertTrue(app.buttons["Crop"].exists)
     XCTAssertTrue(button(AccessibilityID.editRotate).isEnabled)
-    XCTAssertFalse(app.buttons["Flip"].isEnabled)
-    XCTAssertFalse(app.buttons["Aspect ratio"].isEnabled)
+    XCTAssertTrue(app.buttons["Aspect ratio"].exists)
+  }
+
+  func testAMediaThatCannotBeCroppedExplainsWhenAspectRatioIsTapped() {
+    openEditor()
+
+    app.buttons["Aspect ratio"].tap()
+
+    XCTAssertTrue(app.staticTexts["Only still photos can be cropped"].waitForExistence(timeout: Self.uiTimeout))
   }
 
   func testCancellingLeavesThePhotoUndecided() {

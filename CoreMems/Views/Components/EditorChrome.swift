@@ -9,18 +9,18 @@ enum EditTool: CaseIterable, Identifiable {
   var id: Self { self }
 
   /// The tools shown for the media being edited, in display order.
-  static func available(for trim: TrimSupport) -> [EditTool] {
-    allCases.filter { $0 != .trim || trim != .unavailable }
+  static func available(for support: EditSupport) -> [EditTool] {
+    allCases.filter { $0 != .trim || support.trim != .unavailable }
   }
 
   /// The tool the editor opens on: the first one that can be used.
-  static func initial(for trim: TrimSupport) -> EditTool {
-    available(for: trim).first { $0.disabledNotice(for: trim) == nil } ?? .crop
+  static func initial(for support: EditSupport) -> EditTool {
+    available(for: support).first { $0.disabledNotice(for: support) == nil } ?? .crop
   }
 
   /// Why a shown tool can't be used, or `nil` when it can.
-  func disabledNotice(for trim: TrimSupport) -> String? {
-    self == .trim && trim == .unsupported ? "Slo-mo videos can't be trimmed" : nil
+  func disabledNotice(for support: EditSupport) -> String? {
+    self == .trim && support.trim == .unsupported ? "Slo-mo videos can't be trimmed" : nil
   }
 
   var title: String {
@@ -44,7 +44,7 @@ struct EditorChrome: View {
   @Binding var draftEdit: MediaEdit?
   @Binding var tool: EditTool
   let savedEdit: MediaEdit
-  let trim: TrimSupport
+  let support: EditSupport
   let playback: VideoPlayback
   let onDone: () -> Void
 
@@ -53,7 +53,7 @@ struct EditorChrome: View {
   /// Explains why the tool just tapped can't be used.
   @State private var notice: String?
 
-  private var tools: [EditTool] { EditTool.available(for: trim) }
+  private var tools: [EditTool] { EditTool.available(for: support) }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -76,7 +76,7 @@ struct EditorChrome: View {
 
       Spacer()
 
-      if tool == .trim, let duration = trim.duration {
+      if tool == .trim, let duration = support.trim.duration {
         VideoTrimBar(
           range: trimBinding(duration: duration), duration: duration, playback: playback)
           .padding(.horizontal, 16)
@@ -110,7 +110,7 @@ struct EditorChrome: View {
     HStack(spacing: 24) {
       ForEach(tools) { tool in
         let isSelected = tool == self.tool
-        let disabledNotice = tool.disabledNotice(for: trim)
+        let disabledNotice = tool.disabledNotice(for: support)
         Button {
           if let disabledNotice {
             notice = disabledNotice
@@ -157,27 +157,48 @@ struct EditorChrome: View {
         .frostedGlass(in: Capsule())
     case .crop:
       HStack {
-        HStack(spacing: 0) {
-          Button {} label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
-            .disabled(true)
-            .accessibilityLabel("Flip")
-          Button {
-            draftEdit?.rotate()
-          } label: {
-            Image(systemName: "rotate.left")
-          }
-          .accessibilityLabel("Rotate")
-          .accessibilityIdentifier(AccessibilityID.editRotate)
+        Button {
+          draftEdit?.rotate()
+        } label: {
+          Image(systemName: "rotate.left")
         }
         .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-        .frostedGlass(in: Capsule())
+        .frostedGlass(in: Circle())
+        .accessibilityLabel("Rotate")
+        .accessibilityIdentifier(AccessibilityID.editRotate)
         Spacer()
-        Button {} label: { Image(systemName: "aspectratio") }
-          .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
-          .frostedGlass(in: Capsule())
-          .disabled(true)
-          .accessibilityLabel("Aspect ratio")
+        aspectControl
       }
+    }
+  }
+
+  /// The aspect ratios a photo can be cropped to, or a button that explains why it can't be.
+  @ViewBuilder
+  private var aspectControl: some View {
+    let icon = Image(systemName: "aspectratio")
+    if let sourceSize = support.stillSize {
+      Menu {
+        Picker("Aspect ratio", selection: aspectBinding(sourceSize: sourceSize)) {
+          ForEach(CropAspect.allCases) { Text($0.title) }
+        }
+      } label: {
+        icon
+      }
+      .menuStyle(.button)
+      .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
+      .frostedGlass(in: Circle())
+      .accessibilityLabel("Aspect ratio")
+    } else {
+      Button {
+        notice = support.cropNotice
+      } label: {
+        icon
+      }
+      .buttonStyle(IconButtonStyle(size: .medium, surface: .bare(.white)))
+      .opacity(0.5)
+      .frostedGlass(in: Circle())
+      .accessibilityLabel("Aspect ratio")
+      .accessibilityHint(support.cropNotice ?? "")
     }
   }
 
@@ -186,6 +207,12 @@ struct EditorChrome: View {
     Binding(
       get: { draftEdit?.trimRange ?? 0...duration },
       set: { draftEdit?.trim(to: $0, ofDuration: duration) })
+  }
+
+  private func aspectBinding(sourceSize: CGSize) -> Binding<CropAspect> {
+    Binding(
+      get: { draftEdit.flatMap { CropAspect.matching($0, sourceSize: sourceSize) } ?? .original },
+      set: { draftEdit?.crop(to: $0, ofSourceSize: sourceSize) })
   }
 
   private var deletesOriginalBinding: Binding<Bool> {
