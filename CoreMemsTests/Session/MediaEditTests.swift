@@ -75,4 +75,123 @@ struct MediaEditTests {
 
     #expect(decoded == edit)
   }
+
+  @Test func aNewEditHasNoCrop() {
+    let edit = MediaEdit()
+
+    #expect(edit.displayedCropRect == .wholeImage)
+    #expect(!edit.changesPixels)
+  }
+
+  @Test func aCropAloneIsAnEdit() {
+    var edit = MediaEdit()
+    edit.displayedCropRect = CGRect(x: 0, y: 0, width: 0.5, height: 1)
+
+    #expect(!edit.isEmpty)
+    #expect(edit.changesPixels)
+  }
+
+  @Test func cropRectHoldsTheSameAreaAtEveryTurn() {
+    // The left half of the upright source, then where each turn displays it.
+    let leftHalf = CGRect(x: 0, y: 0, width: 0.5, height: 1)
+    let shown = [
+      leftHalf,
+      CGRect(x: 0, y: 0.5, width: 1, height: 0.5),
+      CGRect(x: 0.5, y: 0, width: 0.5, height: 1),
+      CGRect(x: 0, y: 0, width: 1, height: 0.5),
+    ]
+    var edit = MediaEdit()
+    edit.displayedCropRect = leftHalf
+
+    for turns in 0..<4 {
+      #expect(edit.displayedCropRect == shown[turns])
+      #expect(edit.cropRect == leftHalf)
+      edit.rotate()
+    }
+  }
+
+  @Test func aDisplayedCropIsStoredInTheUprightSource() {
+    var edit = MediaEdit()
+    edit.rotate()
+
+    edit.displayedCropRect = CGRect(x: 0, y: 0.5, width: 1, height: 0.5)
+
+    #expect(edit.cropRect == CGRect(x: 0, y: 0, width: 0.5, height: 1))
+  }
+
+  @Test func cropToTheWholeImageClearsTheCrop() {
+    var edit = MediaEdit()
+    edit.displayedCropRect = CGRect(x: 0, y: 0, width: 0.5, height: 1)
+
+    edit.displayedCropRect = .wholeImage
+
+    #expect(edit.cropRect == nil)
+    #expect(edit.isEmpty)
+  }
+
+  @Test func cropToAnAspectUsesTheRotatedShape() {
+    var edit = MediaEdit()
+    edit.rotate()
+
+    edit.crop(to: .square, ofSourceSize: CGSize(width: 4, height: 2))
+
+    // Shown 2 wide and 4 tall, the square is the middle of the height.
+    #expect(edit.displayedCropRect == CGRect(x: 0, y: 0.25, width: 1, height: 0.5))
+    #expect(edit.cropRect == CGRect(x: 0.25, y: 0, width: 0.5, height: 1))
+  }
+
+  @Test func cropToOriginalClearsTheCrop() {
+    var edit = MediaEdit()
+    edit.crop(to: .square, ofSourceSize: CGSize(width: 4, height: 2))
+
+    edit.crop(to: .original, ofSourceSize: CGSize(width: 4, height: 2))
+
+    #expect(edit.cropRect == nil)
+  }
+
+  @Test func withoutCropKeepsTheRestOfTheEdit() {
+    var edit = MediaEdit()
+    edit.rotate()
+    edit.crop(to: .square, ofSourceSize: CGSize(width: 4, height: 2))
+
+    var expected = MediaEdit()
+    expected.rotate()
+    #expect(edit.withoutCrop == expected)
+    #expect(edit.cropRect != nil)
+  }
+
+  @Test func aCropRoundTripsThroughJSON() throws {
+    var edit = MediaEdit()
+    edit.rotate()
+    edit.crop(to: .fourThree, ofSourceSize: CGSize(width: 4000, height: 3000))
+
+    let decoded = try JSONDecoder().decode(MediaEdit.self, from: JSONEncoder().encode(edit))
+
+    #expect(decoded == edit)
+  }
+
+  @Test func anEditSavedWithoutACropStillDecodes() throws {
+    let saved = Data(#"{"quarterTurns":1,"trimRange":[0.5,3],"deletesOriginal":false}"#.utf8)
+
+    let decoded = try JSONDecoder().decode(MediaEdit.self, from: saved)
+
+    #expect(decoded.quarterTurns == 1)
+    #expect(decoded.trimRange == 0.5...3)
+    #expect(!decoded.deletesOriginal)
+    #expect(decoded.cropRect == nil)
+  }
+
+  @Test func anEditSavedWithOnlyDefaultsStillDecodes() throws {
+    let decoded = try JSONDecoder().decode(MediaEdit.self, from: Data("{}".utf8))
+
+    #expect(decoded == MediaEdit())
+  }
+
+  @Test func theSummaryNamesTheCrop() {
+    var edit = MediaEdit()
+    edit.rotate()
+    edit.crop(to: .square, ofSourceSize: CGSize(width: 4, height: 2))
+
+    #expect(edit.summary == "Rotated 90°, Cropped")
+  }
 }

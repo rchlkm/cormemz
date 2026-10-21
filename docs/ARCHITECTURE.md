@@ -101,11 +101,15 @@ Still data for a converted Live Photo gets downloaded and each edit gets rendere
                           Apply waits for the render, or retries once
 ```
 
-`MediaEdit` holds quarter turns, an optional trim range, and whether the original is deleted. It is Codable, and is also written into the Photos adjustment data.
+`MediaEdit` holds quarter turns, an optional crop rectangle, an optional trim range, and whether the original is deleted. It is Codable, and is also written into the Photos adjustment data. Fields are decoded as optional, so edits saved before a field existed still load.
 
 - An edit sits beside the decision, not in it. Editing a photo marked for deletion or conversion makes it a Keep, and `activeEdit` is `nil` while a photo is marked, so a marked photo never writes one.
 - `MediaEditRenderer` keeps each asset's latest render and replaces it when the edit changes. Starting a render on Done means Apply only writes the result.
 - Rotating a photo, video or Live Photo renders a `PHContentEditingOutput` that is written onto the asset. It builds on the asset's current look, so a Revert in Photos restores the original.
+- `cropRect` is a fraction of the upright source image, before rotation, so rotating never moves it; a rect covering the whole image clears it. The editor works in the rotated view, through `displayedCropRect`.
+- `PhotoEditPipeline` applies the crop to a `CIImage`. The editor preview, the card and grid thumbnails (through `AdaptiveAssetImage`), and `MediaEditRenderer` on the full-size photo all run it, so they show the same result. Rotation stays outside it. A cropped photo is requested at a larger size, up to a pixel budget, so the part that remains stays sharp.
+- `EditSupport` says what the editor can do to a photo or video: its trim support, and the pixel size of a still photo. Only a still can be cropped, so `stillSize` is `nil` for videos and Live Photos.
+- While the Crop tool is open, the editor shows the photo whole under a `CropOverlay`, which writes the box into the draft through `CropHandle`'s drag math. `CropAspect` names the presets and `free`; whether the box keeps its shape is editor state, not part of the edit.
 - Trimming exports the kept range into a temporary file, passthrough with no re-encode. That file is saved as a new clip through `AssetReplacement`, which carries over the date, location, favorite flag and albums. Slo-mo videos can't be trimmed because their time mapping wouldn't survive.
 - A render that fails is retried once, then left out of the transaction and reported in `SessionLibraryResult.failedEdits` with an `EditFailureReason`. It never blocks deletions or other edits.
 - `SessionViewModel.failedEdits` holds the `FailedEdit`s for the completion screen. Retry runs a second transaction with only those edits; discard drops one and leaves its photo as it is. Failed edits are not saved across launches.

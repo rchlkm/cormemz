@@ -130,7 +130,7 @@ actor MediaEditRenderer {
       context.frameProcessor = { frame, _ in rotated(frame.image, quarterTurns: quarterTurns) }
       try await context.saveLivePhoto(to: output)
     } else if input.mediaType == .image {
-      try renderPhoto(input, quarterTurns: edit.quarterTurns, to: output)
+      try renderPhoto(input, edit: edit, to: output)
     } else if input.mediaType == .video {
       guard let source = input.audiovisualAsset else { throw MediaEditError.inputUnavailable }
       try await exportVideo(
@@ -162,7 +162,7 @@ actor MediaEditRenderer {
   }
 
   private nonisolated static func renderPhoto(
-    _ input: PHContentEditingInput, quarterTurns: Int, to output: PHContentEditingOutput
+    _ input: PHContentEditingInput, edit: MediaEdit, to output: PHContentEditingOutput
   ) throws {
     guard let url = input.fullSizeImageURL,
       let image = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
@@ -175,7 +175,8 @@ actor MediaEditRenderer {
       tiff[kCGImagePropertyTIFFOrientation as String] = CGImagePropertyOrientation.up.rawValue
       properties[kCGImagePropertyTIFFDictionary as String] = tiff
     }
-    let result = rotated(image, quarterTurns: quarterTurns).settingProperties(properties)
+    let edited = PhotoEditPipeline.apply(edit, to: image)
+    let result = rotated(edited, quarterTurns: edit.quarterTurns).settingProperties(properties)
     let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
 
     // Photos only accepts the rendered types it offers, which follow the original's format.

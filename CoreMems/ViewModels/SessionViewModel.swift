@@ -453,6 +453,19 @@ final class SessionViewModel: ObservableObject {
     return asset.isTrimmable ? .supported(duration: asset.duration) : .unsupported
   }
 
+  /// What the editor can do to the photo.
+  func editSupport(of photo: SessionPhoto) -> EditSupport {
+    EditSupport(trim: trimSupport(of: photo), stillSize: stillSize(of: photo))
+  }
+
+  /// The pixel size of a still photo; `nil` for videos, Live Photos and unknown sizes.
+  private func stillSize(of photo: SessionPhoto) -> CGSize? {
+    guard !photo.isVideo, !photo.isLivePhoto, let asset = pickedAssets[photo.id],
+      asset.pixelWidth > 0, asset.pixelHeight > 0
+    else { return nil }
+    return CGSize(width: asset.pixelWidth, height: asset.pixelHeight)
+  }
+
   /// A Live Photo can be converted when its original is on the device or may be downloaded.
   func canConvertToStill(_ photo: SessionPhoto) -> Bool {
     guard photo.isLivePhoto else { return false }

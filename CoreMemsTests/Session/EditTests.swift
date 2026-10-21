@@ -1,4 +1,5 @@
 // CoreMemsTests/Session/EditTests.swift
+import CoreGraphics
 import Testing
 
 @testable import CoreMems
@@ -157,6 +158,25 @@ struct EditTests {
     let h = await session(of: FakeAsset(identifier: SessionHarness.assetID(0)))
 
     #expect(h.vm.trimSupport(of: h.vm.photos[0]) == .unavailable)
+  }
+
+  @Test func aStillPhotoCanBeCroppedAtItsPixelSize() async {
+    let size = CGSize(width: 4032, height: 3024)
+    let h = await session(of: FakeAsset(identifier: SessionHarness.assetID(0), pixelSize: size))
+
+    #expect(h.vm.editSupport(of: h.vm.photos[0]) == EditSupport(stillSize: size))
+  }
+
+  @Test func videosAndLivePhotosCannotBeCropped() async {
+    let size = CGSize(width: 4032, height: 3024)
+    for asset in [
+      FakeAsset(identifier: SessionHarness.assetID(0), isVideo: true, duration: 12, pixelSize: size),
+      FakeAsset(identifier: SessionHarness.assetID(0), isLive: true, pixelSize: size),
+    ] {
+      let h = await session(of: asset)
+
+      #expect(h.vm.editSupport(of: h.vm.photos[0]).stillSize == nil)
+    }
   }
 
   @Test func editsAreRestoredWithTheSession() async {

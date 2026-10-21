@@ -18,22 +18,24 @@ import SwiftUI
 /// With `showsLowQualityFirst`, a lower-quality version Photos already has is shown while the
 /// full one is unavailable or loading, marked with a cloud badge in the adaptive mode.
 ///
-/// The image is shown turned by the photo's edit, or by `quarterTurns` when set. Sizes are
-/// given for the turned image.
+/// The image is shown with `edit` applied, or the photo's own edit when none is given. Sizes
+/// are given for the edited image.
 struct AdaptiveAssetImage: View {
   let photo: SessionPhoto
   var targetSize: CGSize = CGSize(width: 600, height: 800)
   var contentMode: ContentMode = .fill
   var fitWithin: CGSize? = nil
-  var quarterTurns: Int? = nil
+  var edit: MediaEdit? = nil
   var still: UIImage? = nil
   var showsLowQualityFirst = false
 
   @State private var phImage: UIImage?
+  @State private var loadedIdentifier: String?
   @State private var isLowQuality = false
   @State private var loadFailed = false
 
-  private var turns: Int { quarterTurns ?? photo.previewQuarterTurns }
+  private var shownEdit: MediaEdit? { edit ?? photo.activeEdit }
+  private var turns: Int { shownEdit?.quarterTurns ?? 0 }
 
   var body: some View {
     image.rotated(quarterTurns: turns)
@@ -69,33 +71,50 @@ struct AdaptiveAssetImage: View {
       }
     }
     .modifier(SizingModifier(fitWithin: fitWithin?.turned(by: turns), targetSize: targetSize.turned(by: turns)))
-    .task(id: photo.assetIdentifier) {
+    .task(id: LoadKey(identifier: photo.assetIdentifier, cropRect: shownEdit?.cropRect)) {
       guard photo.previewURL == nil else { return }
-      phImage = nil
+      // A new crop of the same photo keeps showing the old one until it has loaded.
+      if loadedIdentifier != photo.assetIdentifier {
+        phImage = nil
+        loadedIdentifier = photo.assetIdentifier
+      }
       isLowQuality = false
       loadFailed = false
       let scale = UIScreen.main.scale
       // Request at whichever bounding box actually applies, so we're
       // never pulling a full-res original for a small view.
       let requestSize = fitWithin?.turned(by: turns) ?? targetSize.turned(by: turns)
-      let pixelSize = CGSize(width: requestSize.width * scale, height: requestSize.height * scale)
+      let pixelSize = PhotoEditPipeline.requestSize(
+        for: CGSize(width: requestSize.width * scale, height: requestSize.height * scale),
+        edit: shownEdit)
       if showsLowQualityFirst {
         let loads = await PhotoImageLoader.shared.progressiveImages(
           for: photo.assetIdentifier, targetSize: pixelSize)
         for await loaded in loads {
-          phImage = loaded.image
+          phImage = await edited(loaded.image)
           isLowQuality = loaded.isDegraded
         }
         loadFailed = phImage == nil
       } else if let image = await PhotoImageLoader.shared.image(
         for: photo.assetIdentifier, targetSize: pixelSize)
       {
-        phImage = image
+        phImage = await edited(image)
       } else {
         loadFailed = true
       }
     }
   }
+
+  private func edited(_ image: UIImage) async -> UIImage {
+    guard let shownEdit else { return image }
+    return await PhotoEditPipeline.apply(shownEdit, to: image)
+  }
+}
+
+/// What a load depends on: the photo and the part of it that is shown.
+private struct LoadKey: Hashable {
+  let identifier: String
+  let cropRect: CGRect?
 }
 
 /// Cloud badge on an image that is a lower-quality stand-in for the full one.

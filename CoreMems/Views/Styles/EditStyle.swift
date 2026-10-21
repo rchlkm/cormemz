@@ -24,6 +24,7 @@ extension MediaEdit {
   var summary: String {
     var parts: [String] = []
     if quarterTurns != 0 { parts.append("Rotated \(quarterTurns * 90)°") }
+    if cropRect != nil { parts.append("Cropped") }
     if trimRange != nil { parts.append("Trimmed") }
     return parts.joined(separator: ", ")
   }
