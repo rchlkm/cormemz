@@ -1,15 +1,17 @@
 // CoreMems/Models/CropAspect.swift
 import CoreGraphics
 
-/// A shape a photo can be cropped to, matched to the photo's orientation.
+/// A shape a photo can be cropped to, matched to the photo's orientation. `free` is any
+/// other shape.
 nonisolated enum CropAspect: CaseIterable, Identifiable {
-  case original, square, fourThree, threeTwo, sixteenNine
+  case original, free, square, fourThree, threeTwo, sixteenNine
 
   var id: Self { self }
 
   var title: String {
     switch self {
     case .original: return "Original"
+    case .free: return "Free"
     case .square: return "Square"
     case .fourThree: return "4:3"
     case .threeTwo: return "3:2"
@@ -20,7 +22,7 @@ nonisolated enum CropAspect: CaseIterable, Identifiable {
   /// Long side over short side; `nil` keeps the photo's own shape.
   private var elongation: CGFloat? {
     switch self {
-    case .original: return nil
+    case .original, .free: return nil
     case .square: return 1
     case .fourThree: return 4.0 / 3
     case .threeTwo: return 3.0 / 2
@@ -28,9 +30,14 @@ nonisolated enum CropAspect: CaseIterable, Identifiable {
     }
   }
 
+  /// Whether a box of this shape keeps its shape while it is resized.
+  var locksShape: Bool { elongation != nil }
+
   /// The largest centred area of an image `size` pixels large with this shape, as fractions
-  /// of the image. It is wide for a landscape image and tall for a portrait one.
-  func displayedRect(in size: CGSize) -> CGRect {
+  /// of the image. It is wide for a landscape image and tall for a portrait one. `nil` for
+  /// `free`, which has no shape of its own.
+  func displayedRect(in size: CGSize) -> CGRect? {
+    guard self != .free else { return nil }
     guard let elongation, size.width > 0, size.height > 0 else { return .wholeImage }
     let aspect = size.width >= size.height ? elongation : 1 / elongation
     let width = min(1, aspect * size.height / size.width)
@@ -38,10 +45,11 @@ nonisolated enum CropAspect: CaseIterable, Identifiable {
     return CGRect(x: (1 - width) / 2, y: (1 - height) / 2, width: width, height: height)
   }
 
-  /// The shape `edit` crops a photo `sourceSize` pixels large to, if it is one of these.
-  static func matching(_ edit: MediaEdit, sourceSize: CGSize) -> CropAspect? {
+  /// The shape `edit` crops a photo `sourceSize` pixels large to: the preset it matches, or
+  /// `free`.
+  static func matching(_ edit: MediaEdit, sourceSize: CGSize) -> CropAspect {
     let displayed = edit.displayedCropRect
     let size = sourceSize.turned(by: edit.quarterTurns)
-    return allCases.first { displayed.isSame(as: $0.displayedRect(in: size)) }
+    return allCases.first { $0.displayedRect(in: size)?.isSame(as: displayed) == true } ?? .free
   }
 }

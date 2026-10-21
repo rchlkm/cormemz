@@ -23,7 +23,7 @@ struct CropAspectTests {
   }
 
   @Test func widerAspectsLoseTheTopAndBottomOfALandscapeImage() {
-    let rect = CropAspect.sixteenNine.displayedRect(in: landscape)
+    let rect = CropAspect.sixteenNine.displayedRect(in: landscape)!
 
     #expect(rect.width == 1)
     #expect(abs(rect.height * 3000 - 4000 * 9 / 16) < 1e-6)
@@ -31,21 +31,23 @@ struct CropAspectTests {
   }
 
   @Test func aPortraitImageGetsThePortraitShape() {
-    let rect = CropAspect.threeTwo.displayedRect(in: portrait)
+    let rect = CropAspect.threeTwo.displayedRect(in: portrait)!
 
     #expect(rect.height == 1)
     #expect(abs(rect.width * 3000 - 4000 * 2 / 3) < 1e-6)
   }
 
   @Test func anImageAlreadyThatShapeIsLeftWhole() {
-    #expect(CropAspect.fourThree.displayedRect(in: landscape).covers(.wholeImage))
-    #expect(CropAspect.square.displayedRect(in: CGSize(width: 5, height: 5)).covers(.wholeImage))
+    #expect(CropAspect.fourThree.displayedRect(in: landscape)?.covers(.wholeImage) == true)
+    #expect(
+      CropAspect.square.displayedRect(in: CGSize(width: 5, height: 5))?.covers(.wholeImage)
+        == true)
   }
 
   @Test func everyAspectStaysWithinTheImage() {
     for aspect in CropAspect.allCases {
       for size in [landscape, portrait, CGSize(width: 100, height: 100)] {
-        #expect(CGRect.wholeImage.covers(aspect.displayedRect(in: size)))
+        if let rect = aspect.displayedRect(in: size) { #expect(CGRect.wholeImage.covers(rect)) }
       }
     }
   }
@@ -53,7 +55,7 @@ struct CropAspectTests {
   @Test func theCurrentAspectIsFoundFromTheEdit() {
     let wide = CGSize(width: 4000, height: 2000)
     for turns in 0..<4 {
-      for aspect in CropAspect.allCases {
+      for aspect in CropAspect.allCases where aspect != .free {
         var edit = MediaEdit()
         (0..<turns).forEach { _ in edit.rotate() }
         edit.crop(to: aspect, ofSourceSize: wide)
@@ -63,10 +65,30 @@ struct CropAspectTests {
     }
   }
 
-  @Test func aCropOfNoAspectMatchesNone() {
+  @Test func aCropOfNoPresetShapeMatchesFree() {
     var edit = MediaEdit()
     edit.displayedCropRect = CGRect(x: 0.1, y: 0.1, width: 0.3, height: 0.6)
 
-    #expect(CropAspect.matching(edit, sourceSize: landscape) == nil)
+    #expect(CropAspect.matching(edit, sourceSize: landscape) == .free)
+  }
+
+  @Test func freeHasNoShapeOfItsOwn() {
+    #expect(CropAspect.free.displayedRect(in: landscape) == nil)
+  }
+
+  @Test func onlyThePresetsLockTheirShape() {
+    let locking = CropAspect.allCases.filter(\.locksShape)
+
+    #expect(locking == [.square, .fourThree, .threeTwo, .sixteenNine])
+  }
+
+  @Test func choosingFreeLeavesTheCropAsItIs() {
+    var edit = MediaEdit()
+    edit.crop(to: .square, ofSourceSize: landscape)
+    let before = edit
+
+    edit.crop(to: .free, ofSourceSize: landscape)
+
+    #expect(edit == before)
   }
 }

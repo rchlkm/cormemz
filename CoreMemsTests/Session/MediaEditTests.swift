@@ -149,6 +149,17 @@ struct MediaEditTests {
     #expect(edit.cropRect == nil)
   }
 
+  @Test func withoutCropKeepsTheRestOfTheEdit() {
+    var edit = MediaEdit()
+    edit.rotate()
+    edit.crop(to: .square, ofSourceSize: CGSize(width: 4, height: 2))
+
+    var expected = MediaEdit()
+    expected.rotate()
+    #expect(edit.withoutCrop == expected)
+    #expect(edit.cropRect != nil)
+  }
+
   @Test func aCropRoundTripsThroughJSON() throws {
     var edit = MediaEdit()
     edit.rotate()

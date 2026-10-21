@@ -21,6 +21,7 @@ struct ExpandedPhotoView: View {
   /// The edit being made in edit mode; `nil` outside it.
   @State private var draftEdit: MediaEdit?
   @State private var editTool = EditTool.crop
+  @State private var cropAspect = CropAspect.original
   @State private var showsSavedStamp = false
   /// Held without observing it, so only the views showing playback redraw as it plays.
   @State private var playback = VideoPlayback()
@@ -37,6 +38,9 @@ struct ExpandedPhotoView: View {
 
   private var isEditing: Bool { draftEdit != nil }
   private var shownEdit: MediaEdit? { draftEdit ?? photo.activeEdit }
+  /// While the crop box is open the photo is shown whole under it.
+  private var isCropping: Bool { isEditing && !showsSavedStamp && editTool == .crop }
+  private var pictureEdit: MediaEdit? { isCropping ? shownEdit?.withoutCrop : shownEdit }
   private var support: EditSupport { vm.editSupport(of: photo) }
   /// In the Trim tool, the trim bar stands in for the player's own transport bar.
   private var showsTrimBar: Bool { isEditing && editTool == .trim && support.trim.duration != nil }
@@ -70,7 +74,7 @@ struct ExpandedPhotoView: View {
           isShowingLivePhoto: $isShowingLivePhoto
         )
         .matchedGeometryEffect(id: photo.id, in: namespace)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: shownEdit)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: pictureEdit)
         .zoomPanDismiss($zoom, gestures: viewingGestures, onDismiss: close)
 
       if (photo.isLivePhoto || photo.kind != nil) && !isEditing {
@@ -99,7 +103,7 @@ struct ExpandedPhotoView: View {
     .overlay {
       if isEditing && !showsSavedStamp {
         EditorChrome(
-          draftEdit: $draftEdit, tool: $editTool, savedEdit: savedEdit,
+          draftEdit: $draftEdit, tool: $editTool, cropAspect: $cropAspect, savedEdit: savedEdit,
           support: support, playback: playback, onDone: finishEditing)
       }
     }
@@ -111,10 +115,16 @@ struct ExpandedPhotoView: View {
 
   private var content: some View {
     PhotoCardView(
-      photo: photo, maxSize: contentBox, playback: playback, draftEdit: draftEdit,
+      photo: photo, maxSize: contentBox, playback: playback, draftEdit: pictureEdit,
       showsTransport: !showsTrimBar, transportBottomInset: transportBottomInset,
       livePhoto: isShowingLivePhoto ? inlineLivePhoto : nil,
-      onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameState.image)
+      onLivePhotoEnded: { isShowingLivePhoto = false }, still: frameState.image
+    )
+    .overlay {
+      if isCropping, let stillSize = support.stillSize, let edit = Binding($draftEdit) {
+        CropOverlay(edit: edit, aspect: $cropAspect, sourceSize: stillSize)
+      }
+    }
   }
 
   @ViewBuilder private var mediaBadge: some View {
@@ -165,7 +175,9 @@ struct ExpandedPhotoView: View {
       isShowingLivePhoto = false
       frameState.close()
       editTool = EditTool.initial(for: support)
-      draftEdit = photo.edit ?? MediaEdit()
+      let edit = photo.edit ?? MediaEdit()
+      draftEdit = edit
+      cropAspect = support.stillSize.map { CropAspect.matching(edit, sourceSize: $0) } ?? .original
     } label: {
       Image(systemName: EditStyle.symbol)
     }

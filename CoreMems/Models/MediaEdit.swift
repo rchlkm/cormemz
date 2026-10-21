@@ -29,9 +29,20 @@ nonisolated struct MediaEdit: Equatable, Codable {
     }
   }
 
-  /// Crops a photo `sourceSize` pixels large to the largest centred area with `aspect`.
+  /// This edit with its crop removed.
+  var withoutCrop: MediaEdit {
+    var edit = self
+    edit.cropRect = nil
+    return edit
+  }
+
+  /// Crops a photo `sourceSize` pixels large to the largest centred area with `aspect`; the
+  /// `free` aspect leaves the crop as it is.
   mutating func crop(to aspect: CropAspect, ofSourceSize sourceSize: CGSize) {
-    displayedCropRect = aspect.displayedRect(in: sourceSize.turned(by: quarterTurns))
+    guard let rect = aspect.displayedRect(in: sourceSize.turned(by: quarterTurns)) else {
+      return
+    }
+    displayedCropRect = rect
   }
 
   mutating func rotate() {

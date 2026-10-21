@@ -43,6 +43,8 @@ enum EditTool: CaseIterable, Identifiable {
 struct EditorChrome: View {
   @Binding var draftEdit: MediaEdit?
   @Binding var tool: EditTool
+  /// The shape the crop box has, which the box keeps while it is resized.
+  @Binding var cropAspect: CropAspect
   let savedEdit: MediaEdit
   let support: EditSupport
   let playback: VideoPlayback
@@ -211,8 +213,11 @@ struct EditorChrome: View {
 
   private func aspectBinding(sourceSize: CGSize) -> Binding<CropAspect> {
     Binding(
-      get: { draftEdit.flatMap { CropAspect.matching($0, sourceSize: sourceSize) } ?? .original },
-      set: { draftEdit?.crop(to: $0, ofSourceSize: sourceSize) })
+      get: { cropAspect },
+      set: {
+        cropAspect = $0
+        draftEdit?.crop(to: $0, ofSourceSize: sourceSize)
+      })
   }
 
   private var deletesOriginalBinding: Binding<Bool> {
