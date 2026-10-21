@@ -37,6 +37,7 @@ Review one item at a time in full screen.
 Edit from a photo's full-screen view. An edit is staged like any other change and written when you confirm; it isn't a Keep or Delete decision.
 
 - **Rotate** — turn photos, videos, and Live Photos in quarter turns; Revert in Photos restores the original
+- **Crop** — crop a photo to Original, Square, 4:3, 3:2 or 16:9, or drag the box by its corners and edges for any shape (**Free**); a preset keeps its shape while you resize it. Still photos only; videos and Live Photos can only rotate
 - **Trim** — cut a video or timelapse to the part you want, saved as a new clip (not available for slo-mo videos or Live Photos)
 - **Delete original** — choose whether a trimmed video's original is deleted once its clip is saved, on by default
 - Editing a photo marked for deletion or conversion keeps it instead
@@ -87,7 +88,7 @@ Edit from a photo's full-screen view. An edit is staged like any other change an
 
 ### Editing
 
-- **Photo editing** — crop and adjust photos while preserving the original
+- **Photo editing** — adjust photos while preserving the original
 - **Paste filter presets**
 
 ### Future User Settings
